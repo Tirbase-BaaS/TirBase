@@ -1,0 +1,39 @@
+{
+  "manifest": {
+    "format_version": 1,
+    "created_est": 1770000100,
+    "signer_did": "did:key:z6MkSigner",
+    "signer_public_key_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+    "range_start": 1,
+    "range_end": 1,
+    "range_prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "entry_count": 1,
+    "root_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "checkpoints": [],
+    "attachments": []
+  },
+  "entries": [
+    {
+      "seq": 1,
+      "entry_id": "excursion-detected:exc-1",
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entry_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "recorded_est": 1770000021,
+      "actor_did": "did:key:z6MkOperator",
+      "event_type": "excursion_detected",
+      "payload_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "payload": {
+        "record_id": "exc-1",
+        "site_id": "site-1",
+        "lot_id": "LOT-A1",
+        "device_id": "dev-1",
+        "reasons": [
+          "temperature_out_of_band"
+        ],
+        "detected_est": 1770000020
+      },
+      "device_id": "dev-1",
+      "lot_id": "LOT-A1"
+    }
+  ]
+}

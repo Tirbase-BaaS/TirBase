@@ -1,0 +1,31 @@
+{
+  "@context": [
+    "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+    {
+      "tirbase": "https://tirbase.example/vocab/"
+    }
+  ],
+  "creationDate": "2026-02-02T02:41:40.000Z",
+  "epcisBody": {
+    "eventList": [
+      {
+        "action": "OBSERVE",
+        "bizLocation": {
+          "id": "urn:tirbase:site:site-1"
+        },
+        "bizStep": "holding",
+        "disposition": "in_progress",
+        "epcList": [
+          "urn:tirbase:lot:LOT-A1"
+        ],
+        "eventID": "urn:tirbase:ledger:excursion-disposition:exc-1",
+        "eventTime": "2026-02-02T02:40:30.000Z",
+        "eventTimeZoneOffset": "+00:00",
+        "recordTime": "2026-02-02T02:40:31.000Z",
+        "type": "ObjectEvent"
+      }
+    ]
+  },
+  "schemaVersion": "2.0",
+  "type": "EPCISDocument"
+}

@@ -1,0 +1,37 @@
+Third-party notice: GS1 EPCIS 2.0 JSON Schema
+============================================
+
+File:     schema/epcis-json-schema.json
+Source:   https://ref.gs1.org/standards/epcis/2.0.0/epcis-json-schema.json
+Upstream: https://github.com/gs1/EPCIS (EPCIS-JSON-Schema.json)
+Version:  EPCIS 2.0.0 (ratified June 2022)
+SHA-256:  cfabd8620cc4dd67a53e6aa397bc26379f8b05bb9147c8a37a60bbec69a62572
+Bytes:    55680
+Fetched:  2026-11-15
+
+The file is redistributed unmodified, as the normative validation artefact
+published by GS1 for EPCIS 2.0. It is data, not source: it is not linked into
+`tirbase-epcis` and it does not change the licence of that crate, whose own code
+is Apache-2.0 (see the root `LICENSE-APACHE`). The schema is not Apache-2.0
+licensed and must not be relicensed; it is included so that `Schema::epcis_20()`
+validates against the official document rather than a local copy or a
+transcription.
+
+No endorsement by GS1 is implied. GS1® is a registered trademark of GS1 AISBL.
+
+The upstream repository ships the following disclaimer with the GS1 Standards,
+reproduced here verbatim:
+
+---
+DISCLAIMER
+
+GS1®, under its IP Policy (https://www.gs1.org/standards/ip), seeks to avoid uncertainty regarding intellectual property claims by requiring the participants in the Work Group that developed the GS1 Standards to agree to grant to GS1 members a royalty-free licence or a RAND licence to Necessary Claims, as that term is defined in the GS1 IP Policy. Furthermore, attention is drawn to the possibility that an implementation of one or more features of the GS1 Standards may be the subject of a patent or other intellectual property right that does not involve a Necessary Claim. Any such patent or other intellectual property right is not subject to the licencing obligations of GS1. Moreover, the agreement to grant licences provided under the GS1 IP Policy does not include IP rights and any claims of third parties who were not participants in the Work Group.
+
+Accordingly, GS1 recommends that any organization developing an implementation designed to be in conformance with GS1 Standards should determine whether there are any patents that may encompass a specific implementation that the organisation is developing in compliance with the relevant GS1 Standards and whether a licence under a patent or other intellectual property right is needed. Such a determination of a need for licencing should be made in view of the details of the specific system designed by the organisation in consultation with their own patent counsel.
+
+THE GS1 STANDARDS ARE PROVIDED "AS IS" WITH NO WARRANTIES WHATSOEVER, INCLUDING ANY WARRANTY OF MERCHANTABILITY, NONINFRINGMENT, FITNESS FOR PARTICULAR PURPOSE, OR ANY WARRANTY OTHER WISE ARISING OUT OF THE GS1 STANDARDS. GS1 disclaims all liability for any damages arising from use or misuse of the GS1 Standards, whether special, indirect, consequential, or compensatory damages, and including liability for infringement of any intellectual property rights, relating to use of information in or reliance upon the GS1 Standards.
+
+GS1 retains the right to make changes to the GS1 Standards at any time, without notice. GS1 makes no warranty for the use of the GS1 Standards and assumes no responsibility for any errors which may appear in the GS1 Standards, nor does it make a commitment to update the information contained herein.
+
+GS1 and the GS1 logo are registered trademarks of GS1 AISBL.
+---

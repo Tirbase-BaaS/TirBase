@@ -1,0 +1,42 @@
+{
+  "manifest": {
+    "format_version": 1,
+    "created_est": 1770000100,
+    "signer_did": "did:key:z6MkSigner",
+    "signer_public_key_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+    "range_start": 1,
+    "range_end": 1,
+    "range_prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "entry_count": 1,
+    "root_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "checkpoints": [],
+    "attachments": []
+  },
+  "entries": [
+    {
+      "seq": 1,
+      "entry_id": "lot-op:op-repack-1",
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entry_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "recorded_est": 1770000012,
+      "actor_did": "did:key:z6MkOperator",
+      "event_type": "lot_repacked",
+      "payload_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "payload": {
+        "operation_id": "op-repack-1",
+        "kind": "repack",
+        "inputs": [
+          "LOT-A2"
+        ],
+        "outputs": [
+          "LOT-A2-R"
+        ],
+        "at_est": 1770000011,
+        "request_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "site_id": "site-1",
+        "location_id": "loc-1"
+      },
+      "lot_id": "LOT-A2-R"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "@context": [
+    "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+    {
+      "tirbase": "https://tirbase.example/vocab/"
+    }
+  ],
+  "creationDate": "2026-02-02T02:41:40.000Z",
+  "epcisBody": {
+    "eventList": [
+      {
+        "action": "ADD",
+        "bizLocation": {
+          "id": "urn:tirbase:location:loc-1"
+        },
+        "bizStep": "repackaging",
+        "childEPCs": [
+          "urn:tirbase:lot:LOT-A2"
+        ],
+        "eventID": "urn:tirbase:ledger:lot-op:op-repack-1",
+        "eventTime": "2026-02-02T02:40:11.000Z",
+        "eventTimeZoneOffset": "+00:00",
+        "parentID": "urn:tirbase:lot:LOT-A2-R",
+        "readPoint": {
+          "id": "urn:tirbase:location:loc-1"
+        },
+        "recordTime": "2026-02-02T02:40:12.000Z",
+        "type": "AggregationEvent"
+      }
+    ]
+  },
+  "schemaVersion": "2.0",
+  "type": "EPCISDocument"
+}

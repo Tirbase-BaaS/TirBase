@@ -1,0 +1,43 @@
+{
+  "manifest": {
+    "format_version": 1,
+    "created_est": 1770000100,
+    "signer_did": "did:key:z6MkSigner",
+    "signer_public_key_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+    "range_start": 1,
+    "range_end": 1,
+    "range_prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "entry_count": 1,
+    "root_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+    "checkpoints": [],
+    "attachments": []
+  },
+  "entries": [
+    {
+      "seq": 1,
+      "entry_id": "lot-op:op-split-1",
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entry_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "recorded_est": 1770000011,
+      "actor_did": "did:key:z6MkOperator",
+      "event_type": "lot_split",
+      "payload_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "payload": {
+        "operation_id": "op-split-1",
+        "kind": "split",
+        "inputs": [
+          "LOT-A"
+        ],
+        "outputs": [
+          "LOT-A1",
+          "LOT-A2"
+        ],
+        "at_est": 1770000010,
+        "request_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "site_id": "site-1",
+        "location_id": "loc-1"
+      },
+      "lot_id": "LOT-A"
+    }
+  ]
+}

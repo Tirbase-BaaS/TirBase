@@ -1,0 +1,37 @@
+{
+  "@context": [
+    "https://ref.gs1.org/standards/epcis/2.0.0/epcis-context.jsonld",
+    {
+      "tirbase": "https://tirbase.example/vocab/"
+    }
+  ],
+  "creationDate": "2026-02-02T02:41:40.000Z",
+  "epcisBody": {
+    "eventList": [
+      {
+        "bizLocation": {
+          "id": "urn:tirbase:location:loc-1"
+        },
+        "bizStep": "disassembling",
+        "eventID": "urn:tirbase:ledger:lot-op:op-split-1",
+        "eventTime": "2026-02-02T02:40:10.000Z",
+        "eventTimeZoneOffset": "+00:00",
+        "inputEPCList": [
+          "urn:tirbase:lot:LOT-A"
+        ],
+        "outputEPCList": [
+          "urn:tirbase:lot:LOT-A1",
+          "urn:tirbase:lot:LOT-A2"
+        ],
+        "readPoint": {
+          "id": "urn:tirbase:location:loc-1"
+        },
+        "recordTime": "2026-02-02T02:40:11.000Z",
+        "transformationID": "urn:tirbase:operation:op-split-1",
+        "type": "TransformationEvent"
+      }
+    ]
+  },
+  "schemaVersion": "2.0",
+  "type": "EPCISDocument"
+}

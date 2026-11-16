@@ -1,0 +1,20 @@
+[package]
+name = "tirbase-epcis"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "GS1 EPCIS 2.0 adapter: maps TirBase lineage ledger bundles to EPCIS 2.0 JSON and XML"
+repository = "https://github.com/tirbase/tirbase"
+keywords = ["epcis", "gs1", "supply-chain", "traceability"]
+categories = ["encoding", "parser-implementations"]
+
+[dependencies]
+ed25519-dalek = "2"
+hex = "0.4"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"
