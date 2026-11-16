@@ -1,0 +1,91 @@
+# Reference cold-room controller register map (pack format v1).
+#
+# Units are pinned per register and must match profiles/cold_room.toml:
+#   1 = degC, 7 = boolean (docs/unit-registry.md).
+# Scaling: engineering_value = (raw * scale_mantissa * 10^scale_exponent)
+#          + (offset_mantissa * 10^offset_exponent)
+device_class = "cold_room"
+
+[[register]]
+name = "temperature_c"
+register = 0
+function = 4
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = false
+quantity = 1
+
+[[register]]
+name = "temperature_setpoint_c"
+register = 1
+function = 6
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = true
+quantity = 1
+
+[[register]]
+name = "door_open"
+register = 2
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "defrost_mode"
+register = 3
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "defrost_termination_c"
+register = 4
+function = 6
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = true
+quantity = 1
+
+[[register]]
+name = "compressor_on"
+register = 5
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 7
+writable = true
+quantity = 1

@@ -1,0 +1,58 @@
+# Pharma GDP pack simulator configuration (pack format v1, CC-10).
+#
+# The thermal model is a lumped capacitance for a small GDP room: product load
+# dominates, the plant has a finite pull-down rate, and door-open raises the
+# ambient conductance. The humidity model condenses on the evaporator while the
+# compressor runs, which is why defrost has its own interlock.
+[sim]
+seed = 43010
+ticks = 7200
+tick_ms = 1000
+nodes = 1
+
+[device]
+class = "gdp_room"
+target = "pharma-2-8-1"
+profile = "profiles/gdp_2_8c.toml"
+register_map = "register-maps/gdp_reference.register-map.toml"
+
+[thermal]
+product_mass_kg = 8000.0
+packaging_mass_kg = 1500.0
+specific_heat_j_per_kgk = 3400.0
+ua_w_per_k = 38.0
+door_open_ua_w_per_k = 260.0
+max_cooling_w = 7400.0
+max_heating_w = 5200.0
+air_mixing_w_per_k = 90.0
+
+[humidity]
+baseline_rh = 45
+door_open_inflow_rh = 65
+evaporator_drying_rh_per_hour = 4
+defrost_rewet_rh = 8
+
+[mkt]
+# Reporting window used by the excursion workflow (CC-11) when it folds the
+# sampled series into a mean kinetic temperature; the pack itself only declares
+# the constants in gdp.toml.
+reporting_interval_secs = 3600
+sampling_interval_secs = 300
+
+[ambient]
+baseline_c = 22.0
+amplitude_c = 2.0
+period_secs = 86400
+phase_secs = 3600
+noise_c = 0.15
+
+[faults]
+partition = false
+delay_ms = 0
+drop_rate = 0.0
+reorder = false
+duplicate = 1
+
+[scenarios]
+# Adversary classes defended by this pack.
+include = ["S2"]

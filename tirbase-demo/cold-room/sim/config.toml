@@ -1,0 +1,23 @@
+# Cold-room pack simulator configuration (pack format v1).
+[sim]
+seed = 43008
+ticks = 1600
+tick_ms = 1000
+nodes = 1
+
+[device]
+class = "cold_room"
+target = "cold-room-1"
+profile = "profiles/cold_room.toml"
+register_map = "register-maps/cold_room_reference.register-map.toml"
+
+[faults]
+partition = false
+delay_ms = 0
+drop_rate = 0.0
+reorder = false
+duplicate = 1
+
+[scenarios]
+# Adversary classes defended by this pack.
+include = ["S1", "S2", "S3"]

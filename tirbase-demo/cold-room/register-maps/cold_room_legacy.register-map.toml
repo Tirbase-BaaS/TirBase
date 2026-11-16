@@ -1,0 +1,92 @@
+# Legacy cold-room controller register map (pack format v1).
+#
+# Same five parameters as the reference controller, at different addresses and
+# with a 32-bit temperature reading. Demonstrates that the pack's units and
+# parameter names are controller-independent: the profile binds to names and
+# unit ids, not to register numbers.
+#   1 = degC, 7 = boolean (docs/unit-registry.md).
+device_class = "cold_room"
+
+[[register]]
+name = "temperature_c"
+register = 10
+function = 4
+data_type = "i32"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "mid_big_endian"
+unit_id = 1
+writable = false
+quantity = 2
+
+[[register]]
+name = "temperature_setpoint_c"
+register = 20
+function = 16
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = true
+quantity = 1
+
+[[register]]
+name = "door_open"
+register = 12
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "defrost_mode"
+register = 30
+function = 6
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "defrost_termination_c"
+register = 31
+function = 6
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = true
+quantity = 1
+
+[[register]]
+name = "compressor_on"
+register = 32
+function = 6
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 7
+writable = true
+quantity = 1

@@ -1,0 +1,35 @@
+# S2 — sensor failure.
+#
+# A failing probe reports an impossible -40.0 °C, then the writer republishes a
+# warm catch-up value to force the plant on. The implausible value is refused by
+# the envelope, the catch-up jump by the drift window, and the release check
+# records the failed sensor so the lot cannot be released on an incomplete
+# temperature record (code GDP-BLK-005).
+id = "S2_sensor_failure"
+class = "S2"
+title = "Failing probe and warm catch-up jump"
+attack = "Publish -40.0 °C from a failing probe, then 18.0 °C as a catch-up reading, to drive the plant hard."
+target = "pharma-2-8-1"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 50, exponent = -1, unit_id = 1 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = -400, exponent = -1, unit_id = 1 }
+at_secs = 1300
+sequence = 2
+expect = "rejected"
+mechanism = "envelope"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 180, exponent = -1, unit_id = 1 }
+at_secs = 1600
+sequence = 3
+expect = "rejected"
+mechanism = "drift"

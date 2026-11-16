@@ -1,0 +1,82 @@
+# Qualification/validation checklist (pack format v1, CC-10).
+#
+# This is a checklist of the evidence a site still has to produce, in the
+# DQ/IQ/OQ/PQ shape a GDP/GMP validation package normally follows. It is a
+# template, not a validation report and not a certification: `certification`
+# must stay `none`, and the loader refuses any pack that claims otherwise.
+schema_version = 1
+
+certification = "none"
+statement = """
+The checklist enumerates the evidence a site must hold for its own DQ/IQ/OQ/PQ
+package. Passing these items demonstrates that the TirBase configuration and its
+defended scenarios were exercised; it does not validate the site's process, the
+product, the controller, or the regulatory status of the installation.
+"""
+evidence_boundary = """
+Evidence covers the pack as shipped: profile content, register maps, scenario
+data, the guard's defended output, and the release-policy derivation. It does not
+cover site utilities, HVAC capability, probe placement studies, mapping studies,
+analytical method validation, operator training records, supplier audits, or
+product-specific stability data. Those remain the licence holder's evidence.
+"""
+
+[[item]]
+id = "DQ-01"
+requirement = "Intended use, storage classes, and the product's labelled storage conditions are documented."
+evidence = "docs/README.md (intended use, assumptions) and gdp.toml storage classes."
+status = "qualified"
+
+[[item]]
+id = "DQ-02"
+requirement = "Each deployed profile records who may change it and under which policy geometry."
+evidence = "policy_loosen_m/n, policy_timelock_secs, and the committed PolicyAuthority signature in profiles/."
+status = "qualified"
+
+[[item]]
+id = "DQ-03"
+requirement = "Release dispositions and their codes are agreed with QA before go-live."
+evidence = "Release codes GDP-REL-001 … GDP-REJ-007 in expected/outcomes.toml and docs/README.md."
+status = "qualified"
+
+[[item]]
+id = "IQ-01"
+requirement = "Controller model, firmware revision, and register map match the installed equipment."
+evidence = "register-maps/ (reference and legacy) plus docs/register-maps.md tables."
+status = "qualified"
+
+[[item]]
+id = "IQ-02"
+requirement = "Monitoring sensors are identified and traceable to calibration certificates."
+evidence = "calibration.toml sensor records and their certificate references."
+status = "qualified"
+
+[[item]]
+id = "IQ-03"
+requirement = "The gateway host, clock source, and monotonic time base are documented."
+evidence = "docs/README.md assumptions on the injected clock and persisted timing summary."
+status = "qualified"
+
+[[item]]
+id = "OQ-01"
+requirement = "An out-of-band command sequence is refused at the right stage with the documented code."
+evidence = "scenarios/ and expected/outcomes.toml; tirbase-gateway/tests/pharma_gdp_pack.rs asserts each outcome."
+status = "qualified"
+
+[[item]]
+id = "OQ-02"
+requirement = "A transient excursion is classified and held, while cumulative drift is rejected."
+evidence = "Release checks transient_excursion and cumulative_drift in expected/outcomes.toml."
+status = "qualified"
+
+[[item]]
+id = "OQ-03"
+requirement = "An expired calibration blocks release even when the temperature record is clean."
+evidence = "Release check calibration_expiry (code GDP-BLK-002)."
+status = "qualified"
+
+[[item]]
+id = "PQ-01"
+requirement = "A worst-case load, door-open, and recovery cycle is run on site with the real product."
+evidence = "Not shipped with the pack: site performance qualification with the licence holder's product."
+status = "not-applicable"

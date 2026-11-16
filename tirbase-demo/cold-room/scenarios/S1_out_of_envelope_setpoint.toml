@@ -1,0 +1,18 @@
+# S1 — out-of-envelope setpoint.
+#
+# The attacker commands a setpoint far below the room's allowed range (the
+# profile permits -25.0 °C .. +8.0 °C). The envelope range check must reject it
+# before any actuation.
+id = "S1_out_of_envelope_setpoint"
+class = "S1"
+title = "Setpoint outside the cold-room envelope"
+attack = "Command a -40.0 °C setpoint to force continuous compressor operation and freeze product."
+target = "cold-room-1"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = -400, exponent = -1, unit_id = 1 }  # -40.0 °C
+at_secs = 1000
+sequence = 1
+expect = "rejected"
+mechanism = "envelope"

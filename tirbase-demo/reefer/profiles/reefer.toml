@@ -1,0 +1,118 @@
+# Reefer/container EnvelopeProfile (pack format v1).
+#
+# Parameters cover the pack's protective envelope for a transport container:
+#   - ambient_c:              range, rate-of-change, and cumulative drift on the
+#                             ambient feed (spoofed or stale probe readings)
+#   - temperature_setpoint_c: cargo band, rate-of-change, and cumulative drift
+#   - door_open:              dwell (minimum open/closed time) and min-off
+#   - power_state:            mains dwell and min-off (no flap, no instant restart)
+#   - defrost_mode:           dwell and min-off (defrost cycle interlocks)
+#   - compressor_on:          min-off (compressor short-cycle protection)
+#
+# Units follow docs/unit-registry.md: 1 = degC, 7 = boolean.
+# Committed test-fixture signature (PolicyAuthority seed [0x52; 32],
+# did:key:z6MkgcTiPMbTofzVghWywkKDM7SeNYnG4jPbFxerG2rVnV8A); production deployments
+# must replace it with an offline-ceremony PA-signed profile.
+profile_id = "c01d0000-0000-0000-0000-0000000000c9"
+version = 1
+device_class = "reefer"
+policy_loosen_m = 2
+policy_loosen_n = 3
+policy_timelock_secs = 3600
+policy_cancel_window_secs = 600
+signature_alg = "ed25519"
+signature_hex = "83f60a79e8fd8cbaaec22353740a9e74f69159eb62717c2144507f7a7f2ae11aaf331230e03d25ecdafc88083ca0bac58850dc2d62deef3bef14b8d1c718db00"
+
+[[parameters]]
+name = "ambient_c"
+unit_id = 1          # degC
+canonical_exponent = -1
+max_rate_per_sec = { mantissa = 50, exponent = -1, unit_id = 1 }      # 5.0 °C/s
+dwell_secs = 0
+min_off_secs = 0
+drift_window_secs = 300
+max_delta_in_window = { mantissa = 100, exponent = -1, unit_id = 1 }  # 10.0 °C / 300 s
+safe_default = { mantissa = -180, exponent = -1, unit_id = 1 }        # -18.0 °C
+tightening_floor = { mantissa = -450, exponent = -1, unit_id = 1 }    # -45.0 °C
+critical = false
+[parameters.kind]
+type = "range"
+min = { mantissa = -450, exponent = -1, unit_id = 1 }                 # -45.0 °C
+max = { mantissa = 500, exponent = -1, unit_id = 1 }                  # +50.0 °C
+
+[[parameters]]
+name = "temperature_setpoint_c"
+unit_id = 1          # degC
+canonical_exponent = -1
+max_rate_per_sec = { mantissa = 5, exponent = -1, unit_id = 1 }       # 0.5 °C/s
+dwell_secs = 30
+min_off_secs = 0
+drift_window_secs = 300
+max_delta_in_window = { mantissa = 20, exponent = -1, unit_id = 1 }   # 2.0 °C / 300 s
+safe_default = { mantissa = -220, exponent = -1, unit_id = 1 }        # -22.0 °C
+tightening_floor = { mantissa = -300, exponent = -1, unit_id = 1 }    # -30.0 °C
+critical = true
+[parameters.kind]
+type = "range"
+min = { mantissa = -300, exponent = -1, unit_id = 1 }                 # -30.0 °C
+max = { mantissa = -180, exponent = -1, unit_id = 1 }                 # -18.0 °C
+
+[[parameters]]
+name = "door_open"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 45      # minimum time in one state before the next transition
+min_off_secs = 600   # minimum closed time before the door may open again
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 0, exponent = 0, unit_id = 7 }            # closed
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"
+
+[[parameters]]
+name = "power_state"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 300     # mains may not flap faster than 5 minutes
+min_off_secs = 600   # a restart must wait 10 minutes after a shutdown
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 1, exponent = 0, unit_id = 7 }            # running
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"
+
+[[parameters]]
+name = "defrost_mode"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 120
+min_off_secs = 900   # a defrost cycle may not be restarted within 15 minutes
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 0, exponent = 0, unit_id = 7 }            # off
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"
+
+[[parameters]]
+name = "compressor_on"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 0
+min_off_secs = 300   # 5-minute minimum off time between starts
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 1, exponent = 0, unit_id = 7 }            # on
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"

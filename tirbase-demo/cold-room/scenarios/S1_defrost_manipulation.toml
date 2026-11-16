@@ -1,0 +1,42 @@
+# S1 — defrost manipulation.
+#
+# The attacker first tries to extend the defrost cycle by commanding a
+# termination temperature above the defrost band (envelope rejection), then
+# restarts defrost immediately after stopping it (min-off rejection).
+# Dwell/min-off state comes from the committed drift-rate summary, so the two
+# accepted steps are what arms the interlock.
+id = "S1_defrost_manipulation"
+class = "S1"
+title = "Defrost termination and restart manipulation"
+attack = "Raise the defrost termination temperature to +20.0 °C, then cycle defrost off/on inside the 10-minute min-off window to mask a warm room."
+target = "cold-room-1"
+
+[[steps]]
+param = "defrost_termination_c"
+value = { mantissa = 200, exponent = -1, unit_id = 1 }  # +20.0 °C (allowed: 0.0 .. +8.0)
+at_secs = 1000
+sequence = 1
+expect = "rejected"
+mechanism = "envelope"
+
+[[steps]]
+param = "defrost_mode"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1100
+sequence = 2
+expect = "accepted"
+
+[[steps]]
+param = "defrost_mode"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 1200
+sequence = 3
+expect = "accepted"
+
+[[steps]]
+param = "defrost_mode"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1300
+sequence = 4
+expect = "rejected"
+mechanism = "min_off"

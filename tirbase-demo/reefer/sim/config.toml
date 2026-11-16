@@ -1,0 +1,48 @@
+# Reefer pack simulator configuration (pack format v1).
+#
+# The thermal model is a lumped capacitance over the container shell plus cargo,
+# cooled by the compressor and loaded by ambient conduction (door open raises
+# the conductance). Ambient follows a diurnal sine with bounded noise so the
+# ambient-spike and sensor-dropout scenarios have a repeatable baseline.
+[sim]
+seed = 43009
+ticks = 3600
+tick_ms = 1000
+nodes = 1
+
+[device]
+class = "reefer"
+target = "reefer-1"
+profile = "profiles/reefer.toml"
+register_map = "register-maps/reefer_reference.register-map.toml"
+
+[thermal]
+# Heat capacity of shell + cargo, in joules per kelvin.
+container_mass_kg = 4200.0
+cargo_mass_kg = 24000.0
+specific_heat_j_per_kgk = 3200.0
+# Closed-door conductance and the extra conductance while the door is open.
+ua_w_per_k = 46.0
+door_open_ua_w_per_k = 310.0
+# Maximum heat the compressor can remove.
+max_cooling_w = 9200.0
+# Internal air movement keeps the cargo within this much of the air sensor.
+cargo_coupling_w_per_k = 120.0
+
+[ambient]
+baseline_c = 32.0
+amplitude_c = 6.0
+period_secs = 86400
+phase_secs = 7200
+noise_c = 0.4
+
+[faults]
+partition = false
+delay_ms = 0
+drop_rate = 0.0
+reorder = false
+duplicate = 1
+
+[scenarios]
+# Adversary classes defended by this pack.
+include = ["S1", "S2"]

@@ -1,0 +1,49 @@
+# S2 — power loss and recovery.
+#
+# Mains power is cut and the attacker tries to restore it immediately, then to
+# cycling it off again right after the container has stabilised. The 600 s
+# min-off blocks the instant restart and the 300 s dwell blocks the post-recovery
+# flap, so recovery is the only accepted transition and the excursion record
+# stays on disk across the cut.
+id = "S2_power_loss"
+class = "S2"
+title = "Mains loss, instant restart attempt, and a post-recovery flap"
+attack = "Cut mains power, restore it 350 s later (below the 600 s min-off), restore it again after 700 s, then cut it 100 s later."
+target = "reefer-1"
+
+[[steps]]
+param = "power_state"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "power_state"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 1300
+sequence = 2
+expect = "accepted"
+
+[[steps]]
+param = "power_state"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1650
+sequence = 3
+expect = "rejected"
+mechanism = "min_off"
+
+[[steps]]
+param = "power_state"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 2000
+sequence = 4
+expect = "accepted"
+
+[[steps]]
+param = "power_state"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 2100
+sequence = 5
+expect = "rejected"
+mechanism = "dwell"

@@ -1,0 +1,42 @@
+# S1 — setpoint tampering.
+#
+# A compromised issuer tries to move the cargo setpoint out of the booked band
+# in both directions. The setpoint is a critical parameter, so each command also
+# carries a single-use challenge nonce. The out-of-band attempts are refused by
+# the envelope; the in-band correction is accepted because it respects the rate
+# limit and the 2 °C / 300 s drift budget.
+id = "S1_setpoint_tampering"
+class = "S1"
+title = "Cargo setpoint tampering across the band"
+attack = "Move the setpoint to -12.0 °C, then to -32.0 °C, then settle on -24.0 °C while pretending it is a correction."
+target = "reefer-1"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = -220, exponent = -1, unit_id = 1 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = -120, exponent = -1, unit_id = 1 }
+at_secs = 1100
+sequence = 2
+expect = "rejected"
+mechanism = "envelope"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = -320, exponent = -1, unit_id = 1 }
+at_secs = 1200
+sequence = 3
+expect = "rejected"
+mechanism = "envelope"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = -240, exponent = -1, unit_id = 1 }
+at_secs = 1300
+sequence = 4
+expect = "accepted"

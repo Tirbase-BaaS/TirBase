@@ -1,0 +1,40 @@
+# S2 — door abuse.
+#
+# The attacker pins the door open and then flaps it to defeat the room's
+# temperature interlock. Dwell protects a transition that is too fast; min-off
+# protects a re-opening after a closed period.
+id = "S2_door_abuse"
+class = "S2"
+title = "Door held open and flapped"
+attack = "Open the door, close it after 10 s (below the 60 s dwell), reopen it 100 s after closing (below the 300 s min-off), keeping the room warm."
+target = "cold-room-1"
+
+[[steps]]
+param = "door_open"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "door_open"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 1010
+sequence = 2
+expect = "rejected"
+mechanism = "dwell"
+
+[[steps]]
+param = "door_open"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 1100
+sequence = 3
+expect = "accepted"
+
+[[steps]]
+param = "door_open"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1200
+sequence = 4
+expect = "rejected"
+mechanism = "min_off"

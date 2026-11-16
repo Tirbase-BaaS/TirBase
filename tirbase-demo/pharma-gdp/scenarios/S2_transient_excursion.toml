@@ -1,0 +1,35 @@
+# S2 — transient excursion.
+#
+# The setpoint is walked from 7.5 °C to 9.0 °C and back: one degree above the
+# labelled band, for five minutes. Both steps stay inside the command envelope,
+# the rate limit, and the 5.0 °C/hour drift budget (1.5 °C out, 1.5 °C back), so
+# the guard accepts them. The accepted timeline is then classified as a transient
+# excursion: 300 s out of band at 1.0 °C excess (300 degree-seconds) inside the
+# 900 s / 600 degree-second allowance. The lot is held for QA assessment, not
+# rejected.
+id = "S2_transient_excursion"
+class = "S2"
+title = "Short excursion above the labelled band"
+attack = "Walk the 2–8 °C room setpoint from 7.5 °C to 9.0 °C for five minutes, then return it to 7.5 °C, claiming it was a harmless blip."
+target = "pharma-2-8-1"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 75, exponent = -1, unit_id = 1 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 90, exponent = -1, unit_id = 1 }
+at_secs = 1300
+sequence = 2
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 75, exponent = -1, unit_id = 1 }
+at_secs = 1600
+sequence = 3
+expect = "accepted"

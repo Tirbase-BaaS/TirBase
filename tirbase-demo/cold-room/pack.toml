@@ -1,0 +1,38 @@
+# Versioned pack manifest (pack format v1, docs/packaging.md).
+# A pack is data only: no executable code other than run.sh is permitted.
+schema_version = 1
+id = "cold-room"
+version = "1.0.0"
+title = "Cold-room controller pack"
+description = """
+Cold-room walk-in controller pack: temperature setpoint with rate-of-change and
+cumulative-drift limits, door-open dwell/min-off interlocks, defrost enable and
+termination-temperature bounds, and compressor short-cycle protection. Ships
+S1/S2/S3 adversary scenarios with expected defended output for two controllers.
+"""
+licence = "Apache-2.0"
+device_class = "cold_room"
+tirbase_min_version = "0.1.0"
+
+profiles = ["profiles/cold_room.toml"]
+
+register_maps = [
+  "register-maps/cold_room_reference.register-map.toml",
+  "register-maps/cold_room_legacy.register-map.toml",
+]
+
+sim = "sim/config.toml"
+run = "run.sh"
+
+docs = ["docs/README.md", "docs/register-maps.md"]
+
+expected = "expected/outcomes.toml"
+
+scenarios = [
+  "scenarios/S1_out_of_envelope_setpoint.toml",
+  "scenarios/S1_defrost_manipulation.toml",
+  "scenarios/S2_slow_ramp.toml",
+  "scenarios/S2_door_abuse.toml",
+  "scenarios/S2_compressor_short_cycling.toml",
+  "scenarios/S3_replay.toml",
+]

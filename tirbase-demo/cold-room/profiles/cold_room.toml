@@ -1,0 +1,101 @@
+# Cold-room EnvelopeProfile (pack format v1).
+#
+# Parameters cover the pack's protective envelope:
+#   - temperature_setpoint_c: range, rate-of-change, and cumulative drift
+#   - door_open:              dwell (minimum open/closed time) and min-off
+#   - defrost_mode:           dwell and min-off (defrost cycle interlocks)
+#   - defrost_termination_c:  range and rate-of-change
+#   - compressor_on:          min-off (compressor short-cycle protection)
+#
+# Units follow docs/unit-registry.md: 1 = degC, 7 = boolean.
+# Committed test-fixture signature (PolicyAuthority seed [0x43; 32],
+# did:key:z6MkgopvLwZuxuvDkrEogYLLHQACmcQeX344dnMcPJb6VHQH); production
+# deployments must replace it with an offline-ceremony PA-signed profile.
+profile_id = "c01d0000-0000-0000-0000-0000000000c8"
+version = 1
+device_class = "cold_room"
+policy_loosen_m = 2
+policy_loosen_n = 3
+policy_timelock_secs = 3600
+policy_cancel_window_secs = 600
+signature_alg = "ed25519"
+signature_hex = "3a863f774e1038d8135214d5aaeff234adc96cc7e2d24c2d126dfb73d5566821ec38c61aa8a0720f85faf8239c89e84ca6094f2240f109a1024bf998d6de0608"
+
+[[parameters]]
+name = "temperature_setpoint_c"
+unit_id = 1          # degC
+canonical_exponent = -1
+max_rate_per_sec = { mantissa = 5, exponent = -1, unit_id = 1 }       # 0.5 °C/s
+dwell_secs = 30
+min_off_secs = 0
+drift_window_secs = 300
+max_delta_in_window = { mantissa = 20, exponent = -1, unit_id = 1 }   # 2.0 °C / 300 s
+safe_default = { mantissa = 40, exponent = -1, unit_id = 1 }          # +4.0 °C
+tightening_floor = { mantissa = -300, exponent = -1, unit_id = 1 }    # -30.0 °C
+critical = true
+[parameters.kind]
+type = "range"
+min = { mantissa = -250, exponent = -1, unit_id = 1 }                 # -25.0 °C
+max = { mantissa = 80, exponent = -1, unit_id = 1 }                   # +8.0 °C
+
+[[parameters]]
+name = "door_open"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 60      # minimum time in one state before the next transition
+min_off_secs = 300   # minimum closed time before the door may open again
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 0, exponent = 0, unit_id = 7 }            # closed
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"
+
+[[parameters]]
+name = "defrost_mode"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 60
+min_off_secs = 600   # a defrost cycle may not be restarted within 10 minutes
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 0, exponent = 0, unit_id = 7 }            # off
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"
+
+[[parameters]]
+name = "defrost_termination_c"
+unit_id = 1          # degC
+canonical_exponent = -1
+max_rate_per_sec = { mantissa = 2, exponent = -1, unit_id = 1 }       # 0.2 °C/s
+dwell_secs = 0
+min_off_secs = 0
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 10, exponent = -1, unit_id = 1 }   # 1.0 °C
+safe_default = { mantissa = 0, exponent = -1, unit_id = 1 }           # 0.0 °C
+tightening_floor = { mantissa = 0, exponent = -1, unit_id = 1 }
+critical = false
+[parameters.kind]
+type = "range"
+min = { mantissa = 0, exponent = -1, unit_id = 1 }                    # 0.0 °C
+max = { mantissa = 80, exponent = -1, unit_id = 1 }                   # +8.0 °C
+
+[[parameters]]
+name = "compressor_on"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 0
+min_off_secs = 300   # 5-minute minimum off time between starts
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 1, exponent = 0, unit_id = 7 }            # on
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"

@@ -1,0 +1,54 @@
+# S2 — slow ramp.
+#
+# Each individual command is legal: +0.5 °C per step, one step per minute, well
+# inside the 0.5 °C/s rate limit and the 30 s dwell. The attack is the sum: the
+# cumulative change crosses the profile's 2.0 °C / 300 s drift budget on the
+# sixth step, so the drift-window check must reject it.
+id = "S2_slow_ramp"
+class = "S2"
+title = "Slow setpoint ramp under the per-command limits"
+attack = "Walk the setpoint from +4.0 °C to +1.5 °C in six 0.5 °C steps a minute apart, defeating a per-command range check."
+target = "cold-room-1"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 40, exponent = -1, unit_id = 1 }  # +4.0 °C
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 35, exponent = -1, unit_id = 1 }  # +3.5 °C, cumulative 0.5 °C
+at_secs = 1060
+sequence = 2
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 30, exponent = -1, unit_id = 1 }  # +3.0 °C, cumulative 1.0 °C
+at_secs = 1120
+sequence = 3
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 25, exponent = -1, unit_id = 1 }  # +2.5 °C, cumulative 1.5 °C
+at_secs = 1180
+sequence = 4
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 20, exponent = -1, unit_id = 1 }  # +2.0 °C, cumulative 2.0 °C (at budget, not over)
+at_secs = 1240
+sequence = 5
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 15, exponent = -1, unit_id = 1 }  # +1.5 °C, cumulative 2.5 °C > 2.0 °C budget
+at_secs = 1300
+sequence = 6
+expect = "rejected"
+mechanism = "drift"

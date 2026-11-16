@@ -1,0 +1,42 @@
+# S2 — door open in transit.
+#
+# The container door is opened and the attacker then tries to hide the event by
+# slamming it shut below the 45 s dwell, and re-opening it shortly after closing.
+# The dwell and min-off interlocks refuse both, so the accepted timeline records
+# a 300 s open interval — longer than the trip's 120 s excursion rule, which
+# quarantines the trip.
+id = "S2_door_open_in_transit"
+class = "S2"
+title = "Door opened in transit and hidden by flapping"
+attack = "Open the door, close it 30 s later (below the 45 s dwell), close it properly at 300 s, then reopen it 100 s after closing (below the 600 s min-off)."
+target = "reefer-1"
+
+[[steps]]
+param = "door_open"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "door_open"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 1030
+sequence = 2
+expect = "rejected"
+mechanism = "dwell"
+
+[[steps]]
+param = "door_open"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 1300
+sequence = 3
+expect = "accepted"
+
+[[steps]]
+param = "door_open"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1400
+sequence = 4
+expect = "rejected"
+mechanism = "min_off"

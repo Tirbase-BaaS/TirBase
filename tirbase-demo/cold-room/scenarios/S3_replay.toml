@@ -1,0 +1,26 @@
+# S3 — replay.
+#
+# A captured, valid command is re-sent with the same sequence number and
+# idempotency identity. The decided-outcome cache must answer the duplicate
+# without dispatching a second actuation.
+id = "S3_replay"
+class = "S3"
+title = "Captured command replay"
+attack = "Replay an accepted +3.0 °C setpoint ten seconds later to force a second actuation and re-open the dwell window."
+target = "cold-room-1"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 30, exponent = -1, unit_id = 1 }  # +3.0 °C
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 30, exponent = -1, unit_id = 1 }  # +3.0 °C
+at_secs = 1010
+sequence = 1
+replay_of = 1
+expect = "deduplicated"
+mechanism = "idempotency"

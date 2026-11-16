@@ -1,0 +1,39 @@
+# Monitoring-sensor calibration records (pack format v1, CC-10).
+#
+# Data only. Every lot release is evaluated against these records: a sensor whose
+# `expires_at_est` has passed at the release time blocks the release with code
+# GDP-BLK-002, regardless of how clean the temperature record looks. Intervals
+# are checked against `[calibration].max_interval_days` in gdp.toml.
+schema_version = 1
+
+[[sensor]]
+sensor_id = "PHARMA-2-8-A"
+method = "comparison, ice-point, ASTM E74"
+calibrated_at_est = 1760000000
+interval_days = 180
+expires_at_est = 1775552000
+certificate = "CAL-2026-0917-A"
+
+[[sensor]]
+sensor_id = "PHARMA-2-8-B"
+method = "comparison, ice-point, ASTM E74"
+calibrated_at_est = 1760000000
+interval_days = 180
+expires_at_est = 1775552000
+certificate = "CAL-2026-0917-B"
+
+[[sensor]]
+sensor_id = "PHARMA-FROZEN-A"
+method = "comparison, dry-well, ASTM E74"
+calibrated_at_est = 1760000000
+interval_days = 180
+expires_at_est = 1775552000
+certificate = "CAL-2026-0917-C"
+
+[[sensor]]
+sensor_id = "PHARMA-ROOM-A"
+method = "comparison, dry-well, ASTM E74"
+calibrated_at_est = 1760000000
+interval_days = 180
+expires_at_est = 1775552000
+certificate = "CAL-2026-0917-D"

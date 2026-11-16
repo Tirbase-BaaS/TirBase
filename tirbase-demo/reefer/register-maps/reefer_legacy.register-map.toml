@@ -1,0 +1,105 @@
+# Legacy reefer controller register map (pack format v1).
+#
+# Older trailer controllers keep the door and power bits in one packed word and
+# scale ambient by 0.1 as well, but they expose the same parameters and units as
+# profiles/reefer.toml. The gateways select this map when a unit reports the
+# legacy controller id; the profile stays identical.
+device_class = "reefer"
+
+[[register]]
+name = "container_temp_c"
+register = 100
+function = 4
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = false
+quantity = 1
+
+[[register]]
+name = "ambient_c"
+register = 101
+function = 6
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = true
+quantity = 1
+
+[[register]]
+name = "temperature_setpoint_c"
+register = 102
+function = 6
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "big_endian"
+unit_id = 1
+writable = true
+quantity = 1
+
+[[register]]
+name = "door_open"
+register = 110
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "power_state"
+register = 111
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "defrost_mode"
+register = 112
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "compressor_on"
+register = 113
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 7
+writable = true
+quantity = 1

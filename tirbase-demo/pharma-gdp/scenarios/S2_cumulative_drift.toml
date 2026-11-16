@@ -1,0 +1,47 @@
+# S2 — cumulative drift.
+#
+# The same 1.5 °C steps that look harmless individually add up to 6.0 °C inside
+# the one-hour drift window, so the fifth command is refused by the drift window
+# and never reaches the plant. Because a step was refused, the accepted timeline
+# is classified as cumulative drift and the lot is rejected, not merely held.
+id = "S2_cumulative_drift"
+class = "S2"
+title = "Slow ramp that accumulates past the drift budget"
+attack = "Walk the setpoint 5.0 → 6.5 → 8.0 → 9.5 → 11.0 °C in 1.5 °C steps five minutes apart, so no single step looks like an excursion."
+target = "pharma-2-8-1"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 50, exponent = -1, unit_id = 1 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 65, exponent = -1, unit_id = 1 }
+at_secs = 1300
+sequence = 2
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 80, exponent = -1, unit_id = 1 }
+at_secs = 1600
+sequence = 3
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 95, exponent = -1, unit_id = 1 }
+at_secs = 1900
+sequence = 4
+expect = "accepted"
+
+[[steps]]
+param = "temperature_setpoint_c"
+value = { mantissa = 110, exponent = -1, unit_id = 1 }
+at_secs = 2200
+sequence = 5
+expect = "rejected"
+mechanism = "drift"

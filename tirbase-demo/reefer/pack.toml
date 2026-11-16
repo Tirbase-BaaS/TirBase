@@ -1,0 +1,39 @@
+# Versioned pack manifest (pack format v1, docs/packaging.md).
+# A pack is data only: no executable code other than run.sh is permitted.
+schema_version = 1
+id = "reefer"
+version = "1.0.0"
+title = "Reefer/container transport pack"
+description = """
+Transport-container (reefer) pack: ambient feed, cargo setpoint, door state,
+mains power state, defrost, and compressor cycling, plus container/trailer
+identity, location, and trip metadata. Ships S1/S2 scenarios for door-open in
+transit, power loss, ambient spike, sensor dropout, and setpoint tampering, with
+the expected defended output and the trip-level quarantine disposition.
+"""
+licence = "Apache-2.0"
+device_class = "reefer"
+tirbase_min_version = "0.1.0"
+
+profiles = ["profiles/reefer.toml"]
+
+register_maps = [
+  "register-maps/reefer_reference.register-map.toml",
+  "register-maps/reefer_legacy.register-map.toml",
+]
+
+sim = "sim/config.toml"
+run = "run.sh"
+trip = "trip.toml"
+
+docs = ["docs/README.md", "docs/register-maps.md"]
+
+expected = "expected/outcomes.toml"
+
+scenarios = [
+  "scenarios/S1_ambient_spike.toml",
+  "scenarios/S1_setpoint_tampering.toml",
+  "scenarios/S2_door_open_in_transit.toml",
+  "scenarios/S2_power_loss.toml",
+  "scenarios/S2_sensor_dropout.toml",
+]

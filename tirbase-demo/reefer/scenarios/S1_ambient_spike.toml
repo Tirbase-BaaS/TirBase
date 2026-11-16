@@ -1,0 +1,34 @@
+# S1 — ambient spike.
+#
+# A spoofed ambient feed jumps far outside the transport band, then retries with
+# a "plausible" value that is still a large jump from the last accepted reading.
+# The first attempt is refused by the envelope, the second by the 10 °C / 300 s
+# cumulative-drift window, so a slow attacker cannot walk the feed either.
+id = "S1_ambient_spike"
+class = "S1"
+title = "Spoofed ambient spike outside the transport band"
+attack = "Write +55.0 °C to the ambient feed, then +6.0 °C, to make the controller believe the cargo is warm."
+target = "reefer-1"
+
+[[steps]]
+param = "ambient_c"
+value = { mantissa = -180, exponent = -1, unit_id = 1 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "ambient_c"
+value = { mantissa = 550, exponent = -1, unit_id = 1 }
+at_secs = 1060
+sequence = 2
+expect = "rejected"
+mechanism = "envelope"
+
+[[steps]]
+param = "ambient_c"
+value = { mantissa = 60, exponent = -1, unit_id = 1 }
+at_secs = 1120
+sequence = 3
+expect = "rejected"
+mechanism = "drift"

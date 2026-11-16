@@ -1,0 +1,54 @@
+# Expected defended output for the cold-room pack (pack format v1).
+#
+# `actuations` is the number of commands actually dispatched to the controller:
+# rejected steps dispatch nothing, deduplicated steps return the cached decision
+# without a second dispatch.
+schema_version = 1
+
+[[scenario]]
+id = "S1_out_of_envelope_setpoint"
+class = "S1"
+disposition = "rejected"
+mechanism = "envelope"
+actuations = 0
+steps = ["rejected"]
+
+[[scenario]]
+id = "S1_defrost_manipulation"
+class = "S1"
+disposition = "rejected"
+mechanism = "envelope+min_off"
+actuations = 2
+steps = ["rejected", "accepted", "accepted", "rejected"]
+
+[[scenario]]
+id = "S2_slow_ramp"
+class = "S2"
+disposition = "rejected"
+mechanism = "drift"
+actuations = 5
+steps = ["accepted", "accepted", "accepted", "accepted", "accepted", "rejected"]
+
+[[scenario]]
+id = "S2_door_abuse"
+class = "S2"
+disposition = "rejected"
+mechanism = "dwell+min_off"
+actuations = 2
+steps = ["accepted", "rejected", "accepted", "rejected"]
+
+[[scenario]]
+id = "S2_compressor_short_cycling"
+class = "S2"
+disposition = "rejected"
+mechanism = "min_off"
+actuations = 3
+steps = ["accepted", "accepted", "rejected", "accepted"]
+
+[[scenario]]
+id = "S3_replay"
+class = "S3"
+disposition = "deduplicated"
+mechanism = "idempotency"
+actuations = 1
+steps = ["accepted", "deduplicated"]

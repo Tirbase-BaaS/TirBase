@@ -1,0 +1,104 @@
+# Legacy GDP room controller register map (pack format v1, CC-10).
+#
+# Older wholesaler plant keeps the monitoring inputs in the 100-address block and
+# the humidity setpoint as a 0.1 % integer. Parameter names and units match
+# profiles/, so the same profile applies to either controller.
+device_class = "gdp_room"
+
+[[register]]
+name = "storage_temp_c"
+register = 100
+function = 4
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 1
+writable = false
+quantity = 1
+
+[[register]]
+name = "relative_humidity_rh"
+register = 101
+function = 4
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 6
+writable = false
+quantity = 1
+
+[[register]]
+name = "temperature_setpoint_c"
+register = 110
+function = 6
+data_type = "i16"
+scale_mantissa = 1
+scale_exponent = -1
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 1
+writable = true
+quantity = 1
+
+[[register]]
+name = "humidity_setpoint_rh"
+register = 111
+function = 6
+data_type = "u16"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 6
+writable = true
+quantity = 1
+
+[[register]]
+name = "door_open"
+register = 120
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "defrost_mode"
+register = 121
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 7
+writable = true
+quantity = 1
+
+[[register]]
+name = "compressor_on"
+register = 122
+function = 6
+data_type = "bool"
+scale_mantissa = 1
+scale_exponent = 0
+offset_mantissa = 0
+offset_exponent = 0
+word_order = "little_endian"
+unit_id = 7
+writable = true
+quantity = 1

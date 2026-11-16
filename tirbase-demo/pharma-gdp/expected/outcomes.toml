@@ -1,0 +1,136 @@
+# Expected defended output and lot release decisions (pack format v1, CC-10).
+#
+# `[[scenario]]` rows are command-path expectations. `[[release]]` rows are the
+# lot-release evaluations the pack claims: the loader re-derives each one with
+# `evaluate_release` and refuses the pack if a row disagrees.
+#
+# Evaluation order is fixed: calibration expiry, sensor failure, lane risk, MKT,
+# then the excursion classification. A blocked row means the decision prevents
+# release until the underlying issue is resolved.
+schema_version = 1
+
+[[scenario]]
+id = "S2_transient_excursion"
+class = "S2"
+disposition = "accepted"
+mechanism = "recorded"
+actuations = 3
+steps = ["accepted", "accepted", "accepted"]
+
+[[scenario]]
+id = "S2_cumulative_drift"
+class = "S2"
+disposition = "rejected"
+mechanism = "drift"
+actuations = 4
+steps = ["accepted", "accepted", "accepted", "accepted", "rejected"]
+
+[[scenario]]
+id = "S2_sensor_failure"
+class = "S2"
+disposition = "rejected"
+mechanism = "envelope+drift"
+actuations = 1
+steps = ["accepted", "rejected", "rejected"]
+
+[[release]]
+id = "release_clear"
+profile = "profiles/gdp_2_8c.toml"
+at_est = 1770000000
+mkt_c = { mantissa = 50, exponent = -1, unit_id = 1 }
+lane_risk_level = 1
+sensor_failures = 0
+disposition = "release"
+code = "GDP-REL-001"
+blocked = false
+
+[[release]]
+id = "transient_excursion"
+profile = "profiles/gdp_2_8c.toml"
+at_est = 1770000000
+excursion = "S2_transient_excursion"
+mkt_c = { mantissa = 55, exponent = -1, unit_id = 1 }
+lane_risk_level = 1
+sensor_failures = 0
+disposition = "hold"
+code = "GDP-HLD-004"
+blocked = false
+
+[[release]]
+id = "cumulative_drift"
+profile = "profiles/gdp_2_8c.toml"
+at_est = 1770000000
+excursion = "S2_cumulative_drift"
+mkt_c = { mantissa = 60, exponent = -1, unit_id = 1 }
+lane_risk_level = 1
+sensor_failures = 0
+disposition = "reject"
+code = "GDP-REJ-006"
+blocked = true
+
+[[release]]
+id = "calibration_expiry"
+profile = "profiles/gdp_2_8c.toml"
+at_est = 1780000000
+mkt_c = { mantissa = 50, exponent = -1, unit_id = 1 }
+lane_risk_level = 1
+sensor_failures = 0
+disposition = "hold"
+code = "GDP-BLK-002"
+blocked = true
+
+[[release]]
+id = "lane_risk_event"
+profile = "profiles/gdp_2_8c.toml"
+at_est = 1770000000
+mkt_c = { mantissa = 50, exponent = -1, unit_id = 1 }
+lane_risk_level = 4
+sensor_failures = 0
+disposition = "hold"
+code = "GDP-BLK-003"
+blocked = true
+
+[[release]]
+id = "sensor_failure"
+profile = "profiles/gdp_2_8c.toml"
+at_est = 1770000000
+excursion = "S2_sensor_failure"
+mkt_c = { mantissa = 52, exponent = -1, unit_id = 1 }
+lane_risk_level = 1
+sensor_failures = 1
+disposition = "hold"
+code = "GDP-BLK-005"
+blocked = true
+
+[[release]]
+id = "mkt_exceeded"
+profile = "profiles/gdp_2_8c.toml"
+at_est = 1770000000
+mkt_c = { mantissa = 95, exponent = -1, unit_id = 1 }
+lane_risk_level = 1
+sensor_failures = 0
+disposition = "reject"
+code = "GDP-REJ-007"
+blocked = true
+
+[[release]]
+id = "frozen_clear"
+profile = "profiles/gdp_frozen.toml"
+at_est = 1770000000
+mkt_c = { mantissa = -200, exponent = -1, unit_id = 1 }
+lane_risk_level = 2
+sensor_failures = 0
+disposition = "release"
+code = "GDP-REL-001"
+blocked = false
+
+[[release]]
+id = "controlled_room_mkt_limit"
+profile = "profiles/gdp_controlled_room.toml"
+at_est = 1770000000
+mkt_c = { mantissa = 255, exponent = -1, unit_id = 1 }
+lane_risk_level = 1
+sensor_failures = 0
+disposition = "reject"
+code = "GDP-REJ-007"
+blocked = true

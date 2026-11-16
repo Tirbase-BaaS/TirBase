@@ -1,0 +1,39 @@
+# S2 — compressor short cycling.
+#
+# Repeated start/stop commands are individually legal booleans. The min-off
+# interlock (300 s) must refuse a restart that would short-cycle the compressor,
+# while a restart after the window is admitted.
+id = "S2_compressor_short_cycling"
+class = "S2"
+title = "Compressor short cycling"
+attack = "Stop the compressor, then restart it 100 s later, repeatedly, to drive contactor wear and trip overload protection."
+target = "cold-room-1"
+
+[[steps]]
+param = "compressor_on"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "compressor_on"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 1100
+sequence = 2
+expect = "accepted"
+
+[[steps]]
+param = "compressor_on"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1200
+sequence = 3
+expect = "rejected"
+mechanism = "min_off"
+
+[[steps]]
+param = "compressor_on"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1500
+sequence = 4
+expect = "accepted"

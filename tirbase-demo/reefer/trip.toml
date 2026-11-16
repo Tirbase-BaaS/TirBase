@@ -1,0 +1,29 @@
+# Container/trailer identity, location, and trip metadata (pack format v1).
+#
+# Data only: this document is read by the pack framework and the gateway
+# integration test, never executed. `max_door_open_secs` is the excursion rule
+# the expected trip disposition is derived from: an accepted door-open interval
+# longer than that quarantines the trip.
+schema_version = 1
+
+container_id = "MSCU1234567"       # ISO 6346 owner code + serial
+container_class = "reefer_40ft"
+trailer_id = "TRL-0081"
+trip_id = "TRIP-2026-1115-0042"
+
+origin = "Rotterdam Cold Store 4"
+destination = "Lyon Distribution Centre"
+cargo = "Frozen berries, palletised"
+
+# Cargo band the trip is booked against; used by the excursion workflow, not by
+# the guard's command envelope.
+cargo_min_c = { mantissa = -250, exponent = -1, unit_id = 1 }   # -25.0 °C
+cargo_max_c = { mantissa = -180, exponent = -1, unit_id = 1 }   # -18.0 °C
+
+max_door_open_secs = 120
+door_param = "door_open"
+
+[location]
+site = "A15 motorway, km 42, Netherlands"
+lat_e6 = 51820000
+lon_e6 = 4530000

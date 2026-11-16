@@ -1,0 +1,57 @@
+# GDP storage and lot-release policy (pack format v1, CC-10).
+#
+# This document is data only. It binds each storage class to a profile, states
+# the labelled band, the transient allowance and cumulative budget used to
+# classify an excursion, and the mean-kinetic-temperature limit the lot is
+# released against. Computing MKT from a temperature series belongs to the
+# excursion workflow (CC-11); this pack declares the constants, sampling rate,
+# and reporting interval that calculation is bound to.
+schema_version = 1
+
+[lot]
+id = "LOT-2026-1115-0042"
+product = "Amoxicillin 500 mg capsules"
+dosage_form = "hard capsule"
+batch_size_units = 48000
+
+[mkt]
+# Haynes equation constants and the reporting cadence.
+activation_energy_j_per_mol = 83144
+gas_constant_milli_j_per_mol_k = 8314
+reference_c = { mantissa = 50, exponent = -1, unit_id = 1 }          # +5.0 °C
+reporting_interval_secs = 3600
+sampling_interval_secs = 300
+
+[calibration]
+max_interval_days = 180
+
+[lane_risk]
+# Open lane-risk level (1–5) at or above which release is blocked.
+hold_at_or_above = 4
+
+[[storage]]
+profile = "profiles/gdp_2_8c.toml"
+label = "2–8 °C cold chain"
+band_min_c = { mantissa = 20, exponent = -1, unit_id = 1 }           # 2.0 °C
+band_max_c = { mantissa = 80, exponent = -1, unit_id = 1 }           # 8.0 °C
+transient_max_secs = 900
+cumulative_budget_degree_secs = 600
+mkt_limit_c = { mantissa = 80, exponent = -1, unit_id = 1 }          # 8.0 °C
+
+[[storage]]
+profile = "profiles/gdp_frozen.toml"
+label = "frozen / deep-frozen"
+band_min_c = { mantissa = -250, exponent = -1, unit_id = 1 }         # -25.0 °C
+band_max_c = { mantissa = -150, exponent = -1, unit_id = 1 }         # -15.0 °C
+transient_max_secs = 600
+cumulative_budget_degree_secs = 300
+mkt_limit_c = { mantissa = -120, exponent = -1, unit_id = 1 }        # -12.0 °C
+
+[[storage]]
+profile = "profiles/gdp_controlled_room.toml"
+label = "controlled room 15–25 °C"
+band_min_c = { mantissa = 150, exponent = -1, unit_id = 1 }          # 15.0 °C
+band_max_c = { mantissa = 250, exponent = -1, unit_id = 1 }          # 25.0 °C
+transient_max_secs = 1800
+cumulative_budget_degree_secs = 1200
+mkt_limit_c = { mantissa = 250, exponent = -1, unit_id = 1 }         # 25.0 °C

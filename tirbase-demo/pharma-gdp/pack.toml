@@ -1,0 +1,46 @@
+# Versioned pack manifest (pack format v1, docs/packaging.md).
+# A pack is data only: no executable code other than run.sh is permitted.
+schema_version = 1
+id = "pharma-gdp"
+version = "1.0.0"
+title = "Pharma GDP storage pack"
+description = """
+GDP storage pack for pharmaceutical wholesalers: 2–8 °C cold chain, frozen, and
+controlled-room storage classes, each with its own labelled band, transient
+allowance, cumulative excursion budget, and mean-kinetic-temperature limit.
+Ships command scenarios for excursion, cumulative drift, and sensor failure,
+release checks for calibration expiry, lane risk, MKT, and sensor failure, a
+qualification checklist that does not claim certification, and lot release
+disposition codes shared with the excursion workflow.
+"""
+licence = "Apache-2.0"
+device_class = "gdp_room"
+tirbase_min_version = "0.1.0"
+
+profiles = [
+  "profiles/gdp_2_8c.toml",
+  "profiles/gdp_frozen.toml",
+  "profiles/gdp_controlled_room.toml",
+]
+
+register_maps = [
+  "register-maps/gdp_reference.register-map.toml",
+  "register-maps/gdp_legacy.register-map.toml",
+]
+
+sim = "sim/config.toml"
+run = "run.sh"
+
+gdp = "gdp.toml"
+calibration = "calibration.toml"
+qualification = "qualification.toml"
+
+docs = ["docs/README.md", "docs/register-maps.md"]
+
+expected = "expected/outcomes.toml"
+
+scenarios = [
+  "scenarios/S2_transient_excursion.toml",
+  "scenarios/S2_cumulative_drift.toml",
+  "scenarios/S2_sensor_failure.toml",
+]

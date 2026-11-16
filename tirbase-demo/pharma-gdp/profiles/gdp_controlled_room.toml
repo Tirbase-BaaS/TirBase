@@ -1,0 +1,98 @@
+# GDP controlled-room (15–25 °C) EnvelopeProfile (pack format v1, CC-10).
+#
+# Labelled band is 15.0 … 25.0 °C with a humidity band of 35–65 %RH for
+# moisture-sensitive product; the command envelope is the plant limit
+# (15.0 … 30.0 °C, 20 … 80 %RH). Controlled-room excursions are slower, so the
+# GDP policy gives this class a longer transient allowance and a larger
+# cumulative budget than the cold chain.
+#
+# Committed test-fixture signature (PolicyAuthority seed [0x47; 32]); production
+# deployments must replace it with an offline-ceremony PA-signed profile.
+profile_id = "c01d0000-0000-0000-0000-0000000000cc"
+version = 1
+device_class = "gdp_room"
+policy_loosen_m = 2
+policy_loosen_n = 3
+policy_timelock_secs = 3600
+policy_cancel_window_secs = 600
+signature_alg = "ed25519"
+signature_hex = "52f77ddd213989b19e12bce7c672a0be7b098dd312645070e6a3dc604cda0279ea29d4870527f5dea34dd638422da8fd282e408b432b1e65781f87ad82c61c09"
+
+[[parameters]]
+name = "temperature_setpoint_c"
+unit_id = 1          # degC
+canonical_exponent = -1
+max_rate_per_sec = { mantissa = 5, exponent = -1, unit_id = 1 }       # 0.5 °C/s
+dwell_secs = 30
+min_off_secs = 0
+drift_window_secs = 3600
+max_delta_in_window = { mantissa = 30, exponent = -1, unit_id = 1 }   # 3.0 °C / hour
+safe_default = { mantissa = 200, exponent = -1, unit_id = 1 }         # +20.0 °C
+tightening_floor = { mantissa = 150, exponent = -1, unit_id = 1 }     # +15.0 °C
+critical = true
+[parameters.kind]
+type = "range"
+min = { mantissa = 150, exponent = -1, unit_id = 1 }                  # +15.0 °C (plant limit)
+max = { mantissa = 300, exponent = -1, unit_id = 1 }                  # +30.0 °C (plant limit)
+
+[[parameters]]
+name = "humidity_setpoint_rh"
+unit_id = 6          # percent
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 6 }
+dwell_secs = 30
+min_off_secs = 0
+drift_window_secs = 3600
+max_delta_in_window = { mantissa = 10, exponent = 0, unit_id = 6 }    # 10 % / hour
+safe_default = { mantissa = 50, exponent = 0, unit_id = 6 }
+tightening_floor = { mantissa = 35, exponent = 0, unit_id = 6 }
+critical = false
+[parameters.kind]
+type = "range"
+min = { mantissa = 20, exponent = 0, unit_id = 6 }
+max = { mantissa = 80, exponent = 0, unit_id = 6 }
+
+[[parameters]]
+name = "door_open"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 60
+min_off_secs = 300
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 0, exponent = 0, unit_id = 7 }
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"
+
+[[parameters]]
+name = "defrost_mode"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 120
+min_off_secs = 900
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 0, exponent = 0, unit_id = 7 }
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"
+
+[[parameters]]
+name = "compressor_on"
+unit_id = 7          # boolean
+canonical_exponent = 0
+max_rate_per_sec = { mantissa = 1, exponent = 0, unit_id = 7 }
+dwell_secs = 0
+min_off_secs = 300
+drift_window_secs = 0
+max_delta_in_window = { mantissa = 1, exponent = 0, unit_id = 7 }
+safe_default = { mantissa = 1, exponent = 0, unit_id = 7 }
+tightening_floor = { mantissa = 0, exponent = 0, unit_id = 7 }
+critical = false
+[parameters.kind]
+type = "bool"

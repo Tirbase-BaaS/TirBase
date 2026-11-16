@@ -1,0 +1,56 @@
+# Expected defended output for the reefer pack (pack format v1).
+#
+# `actuations` is the number of commands actually dispatched to the controller:
+# rejected steps dispatch nothing, deduplicated steps return the cached decision
+# without a second dispatch.
+#
+# `[trip]` is the trip-level disposition derived from the accepted door state of
+# `S2_door_open_in_transit`: the door stays open 300 s, which is longer than the
+# trip's 120 s excursion rule in trip.toml, so the trip is quarantined.
+schema_version = 1
+
+[[scenario]]
+id = "S1_ambient_spike"
+class = "S1"
+disposition = "rejected"
+mechanism = "envelope+drift"
+actuations = 1
+steps = ["accepted", "rejected", "rejected"]
+
+[[scenario]]
+id = "S1_setpoint_tampering"
+class = "S1"
+disposition = "rejected"
+mechanism = "envelope"
+actuations = 2
+steps = ["accepted", "rejected", "rejected", "accepted"]
+
+[[scenario]]
+id = "S2_door_open_in_transit"
+class = "S2"
+disposition = "rejected"
+mechanism = "dwell+min_off"
+actuations = 2
+steps = ["accepted", "rejected", "accepted", "rejected"]
+
+[[scenario]]
+id = "S2_power_loss"
+class = "S2"
+disposition = "rejected"
+mechanism = "min_off+dwell"
+actuations = 3
+steps = ["accepted", "accepted", "rejected", "accepted", "rejected"]
+
+[[scenario]]
+id = "S2_sensor_dropout"
+class = "S2"
+disposition = "rejected"
+mechanism = "drift+min_off"
+actuations = 4
+steps = ["accepted", "accepted", "accepted", "rejected", "rejected", "accepted"]
+
+[trip]
+disposition = "quarantined"
+mechanism = "door_open_in_transit"
+scenario = "S2_door_open_in_transit"
+door_open_secs = 300

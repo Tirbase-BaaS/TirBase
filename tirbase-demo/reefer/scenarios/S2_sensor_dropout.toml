@@ -1,0 +1,55 @@
+# S2 — sensor dropout.
+#
+# The ambient probe stops reporting for 150 s and then comes back with a large
+# catch-up value, while the compressor is commanded to restart 100 s after it was
+# stopped. The drift window refuses the catch-up jump and min-off refuses the
+# restart; the restart is only admitted once the off time is real.
+id = "S2_sensor_dropout"
+class = "S2"
+title = "Ambient probe dropout followed by a catch-up jump"
+attack = "Silence the ambient feed, then republish a warm catch-up reading to force the compressor on, restarting it 100 s after it stopped."
+target = "reefer-1"
+
+[[steps]]
+param = "ambient_c"
+value = { mantissa = -180, exponent = -1, unit_id = 1 }
+at_secs = 1000
+sequence = 1
+expect = "accepted"
+
+[[steps]]
+param = "compressor_on"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1005
+sequence = 2
+expect = "accepted"
+
+[[steps]]
+param = "compressor_on"
+value = { mantissa = 0, exponent = 0, unit_id = 7 }
+at_secs = 1100
+sequence = 3
+expect = "accepted"
+
+[[steps]]
+param = "ambient_c"
+value = { mantissa = 40, exponent = -1, unit_id = 1 }
+at_secs = 1150
+sequence = 4
+expect = "rejected"
+mechanism = "drift"
+
+[[steps]]
+param = "compressor_on"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1200
+sequence = 5
+expect = "rejected"
+mechanism = "min_off"
+
+[[steps]]
+param = "compressor_on"
+value = { mantissa = 1, exponent = 0, unit_id = 7 }
+at_secs = 1450
+sequence = 6
+expect = "accepted"
