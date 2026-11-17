@@ -25,6 +25,8 @@ rand_chacha     = "0.3"
 # CLAIM-38.4/38.5): `libm` is a pure-Rust implementation, so results do not
 # depend on the platform libm/libc.
 libm            = "0.2"
+# CC-22: SHA-256 seal over the HIL campaign evidence document.
+sha2            = "0.11"
 toml            = "0.8"
 hex             = "0.4"
 wat             = "1"
@@ -35,3 +37,7 @@ ciborium        = "0.2"
 # a dev-dependency while scenarios were unit-test-only (task 39 promotes the
 # runner and scenario registry to production code).
 tirbase-gateway = { workspace = true }
+
+[dev-dependencies]
+# CC-22 HIL campaign databases and evidence directories.
+tempfile = "3"

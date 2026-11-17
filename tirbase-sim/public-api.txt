@@ -2013,6 +2013,544 @@ pub type tirbase_sim::drivers::simulators::SimulatorDescriptor::Output = T
 impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::drivers::simulators::SimulatorDescriptor where T: ?core::marker::Sized
 impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::drivers::simulators::SimulatorDescriptor where V: ppv_lite86::types::MultiLane<T>
 pub fn tirbase_sim::drivers::simulators::SimulatorDescriptor::vzip(self) -> V
+pub mod tirbase_sim::hil
+pub enum tirbase_sim::hil::CaseKind
+pub tirbase_sim::hil::CaseKind::Accuracy
+pub tirbase_sim::hil::CaseKind::Bench
+pub tirbase_sim::hil::CaseKind::Environmental
+pub tirbase_sim::hil::CaseKind::NetworkLoss
+pub tirbase_sim::hil::CaseKind::Stability
+impl core::clone::Clone for tirbase_sim::hil::CaseKind
+pub fn tirbase_sim::hil::CaseKind::clone(&self) -> tirbase_sim::hil::CaseKind
+impl core::cmp::Eq for tirbase_sim::hil::CaseKind
+impl core::cmp::PartialEq for tirbase_sim::hil::CaseKind
+pub fn tirbase_sim::hil::CaseKind::eq(&self, &tirbase_sim::hil::CaseKind) -> bool
+impl core::fmt::Debug for tirbase_sim::hil::CaseKind
+pub fn tirbase_sim::hil::CaseKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_sim::hil::CaseKind
+impl core::marker::StructuralPartialEq for tirbase_sim::hil::CaseKind
+impl serde_core::ser::Serialize for tirbase_sim::hil::CaseKind
+pub fn tirbase_sim::hil::CaseKind::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_sim::hil::CaseKind
+pub fn tirbase_sim::hil::CaseKind::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_sim::hil::CaseKind
+impl core::marker::Send for tirbase_sim::hil::CaseKind
+impl core::marker::Sync for tirbase_sim::hil::CaseKind
+impl core::marker::Unpin for tirbase_sim::hil::CaseKind
+impl core::marker::UnsafeUnpin for tirbase_sim::hil::CaseKind
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::hil::CaseKind
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::hil::CaseKind
+impl<A, B, T> hyper_util::server::conn::auto::HttpServerConnExec<A, B> for tirbase_sim::hil::CaseKind where B: http_body::Body
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::hil::CaseKind where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseKind::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::hil::CaseKind where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::hil::CaseKind where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseKind::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::hil::CaseKind::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::hil::CaseKind where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::hil::CaseKind where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::hil::CaseKind where U: core::convert::From<T>
+pub fn tirbase_sim::hil::CaseKind::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::hil::CaseKind where U: core::convert::Into<T>
+pub type tirbase_sim::hil::CaseKind::Error = core::convert::Infallible
+pub fn tirbase_sim::hil::CaseKind::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::hil::CaseKind where U: core::convert::TryFrom<T>
+pub type tirbase_sim::hil::CaseKind::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::hil::CaseKind::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::hil::CaseKind where T: core::clone::Clone
+pub type tirbase_sim::hil::CaseKind::Owned = T
+pub fn tirbase_sim::hil::CaseKind::clone_into(&self, &mut T)
+pub fn tirbase_sim::hil::CaseKind::to_owned(&self) -> T
+impl<T> axum_core::extract::from_ref::FromRef<T> for tirbase_sim::hil::CaseKind where T: core::clone::Clone
+pub fn tirbase_sim::hil::CaseKind::from_ref(&T) -> T
+impl<T> core::any::Any for tirbase_sim::hil::CaseKind where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseKind::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::hil::CaseKind where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseKind::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::hil::CaseKind where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseKind::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::hil::CaseKind where T: core::clone::Clone
+pub unsafe fn tirbase_sim::hil::CaseKind::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::hil::CaseKind
+pub fn tirbase_sim::hil::CaseKind::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::hil::CaseKind where T: core::any::Any
+pub fn tirbase_sim::hil::CaseKind::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::CaseKind::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::CaseKind::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::hil::CaseKind::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::hil::CaseKind where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::hil::CaseKind::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::hil::CaseKind
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::hil::CaseKind where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_sim::hil::CaseKind where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tower_http::follow_redirect::policy::PolicyExt for tirbase_sim::hil::CaseKind where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseKind::and<P, B, E>(self, P) -> tower_http::follow_redirect::policy::and::And<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+pub fn tirbase_sim::hil::CaseKind::or<P, B, E>(self, P) -> tower_http::follow_redirect::policy::or::Or<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+impl<T> tracing::instrument::Instrument for tirbase_sim::hil::CaseKind
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::hil::CaseKind
+impl<T> typenum::type_operators::Same for tirbase_sim::hil::CaseKind
+pub type tirbase_sim::hil::CaseKind::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::hil::CaseKind where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::hil::CaseKind where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::hil::CaseKind::vzip(self) -> V
+pub enum tirbase_sim::hil::Transport
+pub tirbase_sim::hil::Transport::Bacnet
+pub tirbase_sim::hil::Transport::Ble
+pub tirbase_sim::hil::Transport::CurrentLoop
+pub tirbase_sim::hil::Transport::Ds18b20
+pub tirbase_sim::hil::Transport::ModbusRtu
+pub tirbase_sim::hil::Transport::ModbusTcp
+impl tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::as_str(self) -> &'static str
+impl core::clone::Clone for tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::clone(&self) -> tirbase_sim::hil::Transport
+impl core::cmp::Eq for tirbase_sim::hil::Transport
+impl core::cmp::Ord for tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::cmp(&self, &tirbase_sim::hil::Transport) -> core::cmp::Ordering
+impl core::cmp::PartialEq for tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::eq(&self, &tirbase_sim::hil::Transport) -> bool
+impl core::cmp::PartialOrd for tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::partial_cmp(&self, &tirbase_sim::hil::Transport) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_sim::hil::Transport
+impl core::marker::StructuralPartialEq for tirbase_sim::hil::Transport
+impl serde_core::ser::Serialize for tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_sim::hil::Transport
+impl core::marker::Send for tirbase_sim::hil::Transport
+impl core::marker::Sync for tirbase_sim::hil::Transport
+impl core::marker::Unpin for tirbase_sim::hil::Transport
+impl core::marker::UnsafeUnpin for tirbase_sim::hil::Transport
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::hil::Transport
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::hil::Transport
+impl<A, B, T> hyper_util::server::conn::auto::HttpServerConnExec<A, B> for tirbase_sim::hil::Transport where B: http_body::Body
+impl<Q, K> equivalent::Comparable<K> for tirbase_sim::hil::Transport where Q: core::cmp::Ord + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::hil::Transport::compare(&self, &K) -> core::cmp::Ordering
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::hil::Transport where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::hil::Transport::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::hil::Transport where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::hil::Transport where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::hil::Transport::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::hil::Transport::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::hil::Transport where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::hil::Transport where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::hil::Transport where U: core::convert::From<T>
+pub fn tirbase_sim::hil::Transport::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::hil::Transport where U: core::convert::Into<T>
+pub type tirbase_sim::hil::Transport::Error = core::convert::Infallible
+pub fn tirbase_sim::hil::Transport::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::hil::Transport where U: core::convert::TryFrom<T>
+pub type tirbase_sim::hil::Transport::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::hil::Transport::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::hil::Transport where T: core::clone::Clone
+pub type tirbase_sim::hil::Transport::Owned = T
+pub fn tirbase_sim::hil::Transport::clone_into(&self, &mut T)
+pub fn tirbase_sim::hil::Transport::to_owned(&self) -> T
+impl<T> axum_core::extract::from_ref::FromRef<T> for tirbase_sim::hil::Transport where T: core::clone::Clone
+pub fn tirbase_sim::hil::Transport::from_ref(&T) -> T
+impl<T> core::any::Any for tirbase_sim::hil::Transport where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::hil::Transport::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::hil::Transport where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::Transport::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::hil::Transport where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::Transport::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::hil::Transport where T: core::clone::Clone
+pub unsafe fn tirbase_sim::hil::Transport::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::hil::Transport
+pub fn tirbase_sim::hil::Transport::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::hil::Transport where T: core::any::Any
+pub fn tirbase_sim::hil::Transport::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::Transport::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::Transport::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::hil::Transport::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::hil::Transport where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::hil::Transport::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::hil::Transport
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::hil::Transport where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_sim::hil::Transport where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tower_http::follow_redirect::policy::PolicyExt for tirbase_sim::hil::Transport where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::Transport::and<P, B, E>(self, P) -> tower_http::follow_redirect::policy::and::And<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+pub fn tirbase_sim::hil::Transport::or<P, B, E>(self, P) -> tower_http::follow_redirect::policy::or::Or<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+impl<T> tracing::instrument::Instrument for tirbase_sim::hil::Transport
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::hil::Transport
+impl<T> typenum::type_operators::Same for tirbase_sim::hil::Transport
+pub type tirbase_sim::hil::Transport::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::hil::Transport where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::hil::Transport where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::hil::Transport::vzip(self) -> V
+pub struct tirbase_sim::hil::CampaignReport
+pub tirbase_sim::hil::CampaignReport::cases: alloc::vec::Vec<tirbase_sim::hil::CaseOutcome>
+pub tirbase_sim::hil::CampaignReport::digest: alloc::string::String
+pub tirbase_sim::hil::CampaignReport::passed: bool
+pub tirbase_sim::hil::CampaignReport::schema: alloc::string::String
+pub tirbase_sim::hil::CampaignReport::seed: u64
+pub tirbase_sim::hil::CampaignReport::stability_cycles: u32
+impl tirbase_sim::hil::CampaignReport
+pub fn tirbase_sim::hil::CampaignReport::to_json(&self) -> alloc::string::String
+pub fn tirbase_sim::hil::CampaignReport::to_markdown(&self) -> alloc::string::String
+impl core::clone::Clone for tirbase_sim::hil::CampaignReport
+pub fn tirbase_sim::hil::CampaignReport::clone(&self) -> tirbase_sim::hil::CampaignReport
+impl core::cmp::PartialEq for tirbase_sim::hil::CampaignReport
+pub fn tirbase_sim::hil::CampaignReport::eq(&self, &tirbase_sim::hil::CampaignReport) -> bool
+impl core::fmt::Debug for tirbase_sim::hil::CampaignReport
+pub fn tirbase_sim::hil::CampaignReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::hil::CampaignReport
+impl serde_core::ser::Serialize for tirbase_sim::hil::CampaignReport
+pub fn tirbase_sim::hil::CampaignReport::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_sim::hil::CampaignReport
+pub fn tirbase_sim::hil::CampaignReport::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_sim::hil::CampaignReport
+impl core::marker::Send for tirbase_sim::hil::CampaignReport
+impl core::marker::Sync for tirbase_sim::hil::CampaignReport
+impl core::marker::Unpin for tirbase_sim::hil::CampaignReport
+impl core::marker::UnsafeUnpin for tirbase_sim::hil::CampaignReport
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::hil::CampaignReport
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::hil::CampaignReport
+impl<A, B, T> hyper_util::server::conn::auto::HttpServerConnExec<A, B> for tirbase_sim::hil::CampaignReport where B: http_body::Body
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::hil::CampaignReport where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::hil::CampaignReport where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::hil::CampaignReport where U: core::convert::From<T>
+pub fn tirbase_sim::hil::CampaignReport::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::hil::CampaignReport where U: core::convert::Into<T>
+pub type tirbase_sim::hil::CampaignReport::Error = core::convert::Infallible
+pub fn tirbase_sim::hil::CampaignReport::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::hil::CampaignReport where U: core::convert::TryFrom<T>
+pub type tirbase_sim::hil::CampaignReport::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::hil::CampaignReport::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::hil::CampaignReport where T: core::clone::Clone
+pub type tirbase_sim::hil::CampaignReport::Owned = T
+pub fn tirbase_sim::hil::CampaignReport::clone_into(&self, &mut T)
+pub fn tirbase_sim::hil::CampaignReport::to_owned(&self) -> T
+impl<T> axum_core::extract::from_ref::FromRef<T> for tirbase_sim::hil::CampaignReport where T: core::clone::Clone
+pub fn tirbase_sim::hil::CampaignReport::from_ref(&T) -> T
+impl<T> core::any::Any for tirbase_sim::hil::CampaignReport where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::hil::CampaignReport::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::hil::CampaignReport where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CampaignReport::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::hil::CampaignReport where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CampaignReport::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::hil::CampaignReport where T: core::clone::Clone
+pub unsafe fn tirbase_sim::hil::CampaignReport::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::hil::CampaignReport
+pub fn tirbase_sim::hil::CampaignReport::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::hil::CampaignReport where T: core::any::Any
+pub fn tirbase_sim::hil::CampaignReport::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::CampaignReport::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::CampaignReport::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::hil::CampaignReport::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::hil::CampaignReport where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::hil::CampaignReport::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::hil::CampaignReport
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::hil::CampaignReport where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_sim::hil::CampaignReport where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tower_http::follow_redirect::policy::PolicyExt for tirbase_sim::hil::CampaignReport where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CampaignReport::and<P, B, E>(self, P) -> tower_http::follow_redirect::policy::and::And<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+pub fn tirbase_sim::hil::CampaignReport::or<P, B, E>(self, P) -> tower_http::follow_redirect::policy::or::Or<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+impl<T> tracing::instrument::Instrument for tirbase_sim::hil::CampaignReport
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::hil::CampaignReport
+impl<T> typenum::type_operators::Same for tirbase_sim::hil::CampaignReport
+pub type tirbase_sim::hil::CampaignReport::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::hil::CampaignReport where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::hil::CampaignReport where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::hil::CampaignReport::vzip(self) -> V
+pub struct tirbase_sim::hil::CaseOutcome
+pub tirbase_sim::hil::CaseOutcome::detail: alloc::string::String
+pub tirbase_sim::hil::CaseOutcome::id: alloc::string::String
+pub tirbase_sim::hil::CaseOutcome::kind: tirbase_sim::hil::CaseKind
+pub tirbase_sim::hil::CaseOutcome::metric: core::option::Option<tirbase_sim::hil::Metric>
+pub tirbase_sim::hil::CaseOutcome::passed: bool
+pub tirbase_sim::hil::CaseOutcome::transport: tirbase_sim::hil::Transport
+impl core::clone::Clone for tirbase_sim::hil::CaseOutcome
+pub fn tirbase_sim::hil::CaseOutcome::clone(&self) -> tirbase_sim::hil::CaseOutcome
+impl core::cmp::PartialEq for tirbase_sim::hil::CaseOutcome
+pub fn tirbase_sim::hil::CaseOutcome::eq(&self, &tirbase_sim::hil::CaseOutcome) -> bool
+impl core::fmt::Debug for tirbase_sim::hil::CaseOutcome
+pub fn tirbase_sim::hil::CaseOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::hil::CaseOutcome
+impl serde_core::ser::Serialize for tirbase_sim::hil::CaseOutcome
+pub fn tirbase_sim::hil::CaseOutcome::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_sim::hil::CaseOutcome
+pub fn tirbase_sim::hil::CaseOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_sim::hil::CaseOutcome
+impl core::marker::Send for tirbase_sim::hil::CaseOutcome
+impl core::marker::Sync for tirbase_sim::hil::CaseOutcome
+impl core::marker::Unpin for tirbase_sim::hil::CaseOutcome
+impl core::marker::UnsafeUnpin for tirbase_sim::hil::CaseOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::hil::CaseOutcome
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::hil::CaseOutcome
+impl<A, B, T> hyper_util::server::conn::auto::HttpServerConnExec<A, B> for tirbase_sim::hil::CaseOutcome where B: http_body::Body
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::hil::CaseOutcome where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::hil::CaseOutcome where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::hil::CaseOutcome where U: core::convert::From<T>
+pub fn tirbase_sim::hil::CaseOutcome::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::hil::CaseOutcome where U: core::convert::Into<T>
+pub type tirbase_sim::hil::CaseOutcome::Error = core::convert::Infallible
+pub fn tirbase_sim::hil::CaseOutcome::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::hil::CaseOutcome where U: core::convert::TryFrom<T>
+pub type tirbase_sim::hil::CaseOutcome::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::hil::CaseOutcome::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::hil::CaseOutcome where T: core::clone::Clone
+pub type tirbase_sim::hil::CaseOutcome::Owned = T
+pub fn tirbase_sim::hil::CaseOutcome::clone_into(&self, &mut T)
+pub fn tirbase_sim::hil::CaseOutcome::to_owned(&self) -> T
+impl<T> axum_core::extract::from_ref::FromRef<T> for tirbase_sim::hil::CaseOutcome where T: core::clone::Clone
+pub fn tirbase_sim::hil::CaseOutcome::from_ref(&T) -> T
+impl<T> core::any::Any for tirbase_sim::hil::CaseOutcome where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseOutcome::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::hil::CaseOutcome where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseOutcome::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::hil::CaseOutcome where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseOutcome::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::hil::CaseOutcome where T: core::clone::Clone
+pub unsafe fn tirbase_sim::hil::CaseOutcome::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::hil::CaseOutcome
+pub fn tirbase_sim::hil::CaseOutcome::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::hil::CaseOutcome where T: core::any::Any
+pub fn tirbase_sim::hil::CaseOutcome::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::CaseOutcome::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::CaseOutcome::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::hil::CaseOutcome::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::hil::CaseOutcome where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::hil::CaseOutcome::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::hil::CaseOutcome
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::hil::CaseOutcome where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_sim::hil::CaseOutcome where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tower_http::follow_redirect::policy::PolicyExt for tirbase_sim::hil::CaseOutcome where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::CaseOutcome::and<P, B, E>(self, P) -> tower_http::follow_redirect::policy::and::And<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+pub fn tirbase_sim::hil::CaseOutcome::or<P, B, E>(self, P) -> tower_http::follow_redirect::policy::or::Or<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+impl<T> tracing::instrument::Instrument for tirbase_sim::hil::CaseOutcome
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::hil::CaseOutcome
+impl<T> typenum::type_operators::Same for tirbase_sim::hil::CaseOutcome
+pub type tirbase_sim::hil::CaseOutcome::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::hil::CaseOutcome where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::hil::CaseOutcome where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::hil::CaseOutcome::vzip(self) -> V
+pub struct tirbase_sim::hil::Metric
+pub tirbase_sim::hil::Metric::name: alloc::string::String
+pub tirbase_sim::hil::Metric::tolerance: f64
+pub tirbase_sim::hil::Metric::unit: alloc::string::String
+pub tirbase_sim::hil::Metric::value: f64
+impl core::clone::Clone for tirbase_sim::hil::Metric
+pub fn tirbase_sim::hil::Metric::clone(&self) -> tirbase_sim::hil::Metric
+impl core::cmp::PartialEq for tirbase_sim::hil::Metric
+pub fn tirbase_sim::hil::Metric::eq(&self, &tirbase_sim::hil::Metric) -> bool
+impl core::fmt::Debug for tirbase_sim::hil::Metric
+pub fn tirbase_sim::hil::Metric::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::hil::Metric
+impl serde_core::ser::Serialize for tirbase_sim::hil::Metric
+pub fn tirbase_sim::hil::Metric::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_sim::hil::Metric
+pub fn tirbase_sim::hil::Metric::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_sim::hil::Metric
+impl core::marker::Send for tirbase_sim::hil::Metric
+impl core::marker::Sync for tirbase_sim::hil::Metric
+impl core::marker::Unpin for tirbase_sim::hil::Metric
+impl core::marker::UnsafeUnpin for tirbase_sim::hil::Metric
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::hil::Metric
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::hil::Metric
+impl<A, B, T> hyper_util::server::conn::auto::HttpServerConnExec<A, B> for tirbase_sim::hil::Metric where B: http_body::Body
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::hil::Metric where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::hil::Metric where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::hil::Metric where U: core::convert::From<T>
+pub fn tirbase_sim::hil::Metric::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::hil::Metric where U: core::convert::Into<T>
+pub type tirbase_sim::hil::Metric::Error = core::convert::Infallible
+pub fn tirbase_sim::hil::Metric::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::hil::Metric where U: core::convert::TryFrom<T>
+pub type tirbase_sim::hil::Metric::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::hil::Metric::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::hil::Metric where T: core::clone::Clone
+pub type tirbase_sim::hil::Metric::Owned = T
+pub fn tirbase_sim::hil::Metric::clone_into(&self, &mut T)
+pub fn tirbase_sim::hil::Metric::to_owned(&self) -> T
+impl<T> axum_core::extract::from_ref::FromRef<T> for tirbase_sim::hil::Metric where T: core::clone::Clone
+pub fn tirbase_sim::hil::Metric::from_ref(&T) -> T
+impl<T> core::any::Any for tirbase_sim::hil::Metric where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::hil::Metric::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::hil::Metric where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::Metric::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::hil::Metric where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::Metric::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::hil::Metric where T: core::clone::Clone
+pub unsafe fn tirbase_sim::hil::Metric::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::hil::Metric
+pub fn tirbase_sim::hil::Metric::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::hil::Metric where T: core::any::Any
+pub fn tirbase_sim::hil::Metric::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::Metric::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::Metric::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::hil::Metric::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::hil::Metric where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::hil::Metric::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::hil::Metric
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::hil::Metric where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_sim::hil::Metric where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tower_http::follow_redirect::policy::PolicyExt for tirbase_sim::hil::Metric where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::Metric::and<P, B, E>(self, P) -> tower_http::follow_redirect::policy::and::And<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+pub fn tirbase_sim::hil::Metric::or<P, B, E>(self, P) -> tower_http::follow_redirect::policy::or::Or<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+impl<T> tracing::instrument::Instrument for tirbase_sim::hil::Metric
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::hil::Metric
+impl<T> typenum::type_operators::Same for tirbase_sim::hil::Metric
+pub type tirbase_sim::hil::Metric::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::hil::Metric where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::hil::Metric where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::hil::Metric::vzip(self) -> V
+pub struct tirbase_sim::hil::RecoveryCheck
+pub tirbase_sim::hil::RecoveryCheck::calibration_count: u64
+pub tirbase_sim::hil::RecoveryCheck::chain_message: alloc::string::String
+pub tirbase_sim::hil::RecoveryCheck::chain_ok: bool
+pub tirbase_sim::hil::RecoveryCheck::detail: alloc::string::String
+pub tirbase_sim::hil::RecoveryCheck::integrity_ok: bool
+pub tirbase_sim::hil::RecoveryCheck::ledger_entries: u64
+impl core::clone::Clone for tirbase_sim::hil::RecoveryCheck
+pub fn tirbase_sim::hil::RecoveryCheck::clone(&self) -> tirbase_sim::hil::RecoveryCheck
+impl core::cmp::Eq for tirbase_sim::hil::RecoveryCheck
+impl core::cmp::PartialEq for tirbase_sim::hil::RecoveryCheck
+pub fn tirbase_sim::hil::RecoveryCheck::eq(&self, &tirbase_sim::hil::RecoveryCheck) -> bool
+impl core::fmt::Debug for tirbase_sim::hil::RecoveryCheck
+pub fn tirbase_sim::hil::RecoveryCheck::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for tirbase_sim::hil::RecoveryCheck
+impl serde_core::ser::Serialize for tirbase_sim::hil::RecoveryCheck
+pub fn tirbase_sim::hil::RecoveryCheck::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_sim::hil::RecoveryCheck
+pub fn tirbase_sim::hil::RecoveryCheck::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_sim::hil::RecoveryCheck
+impl core::marker::Send for tirbase_sim::hil::RecoveryCheck
+impl core::marker::Sync for tirbase_sim::hil::RecoveryCheck
+impl core::marker::Unpin for tirbase_sim::hil::RecoveryCheck
+impl core::marker::UnsafeUnpin for tirbase_sim::hil::RecoveryCheck
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::hil::RecoveryCheck
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::hil::RecoveryCheck
+impl<A, B, T> hyper_util::server::conn::auto::HttpServerConnExec<A, B> for tirbase_sim::hil::RecoveryCheck where B: http_body::Body
+impl<Q, K> equivalent::Equivalent<K> for tirbase_sim::hil::RecoveryCheck where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::hil::RecoveryCheck::equivalent(&self, &K) -> bool
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::hil::RecoveryCheck where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+impl<Q, K> hashbrown::Equivalent<K> for tirbase_sim::hil::RecoveryCheck where Q: core::cmp::Eq + ?core::marker::Sized, K: core::borrow::Borrow<Q> + ?core::marker::Sized
+pub fn tirbase_sim::hil::RecoveryCheck::equivalent(&self, &K) -> bool
+pub fn tirbase_sim::hil::RecoveryCheck::equivalent(&self, &K) -> bool
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::hil::RecoveryCheck where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::hil::RecoveryCheck where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::hil::RecoveryCheck where U: core::convert::From<T>
+pub fn tirbase_sim::hil::RecoveryCheck::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::hil::RecoveryCheck where U: core::convert::Into<T>
+pub type tirbase_sim::hil::RecoveryCheck::Error = core::convert::Infallible
+pub fn tirbase_sim::hil::RecoveryCheck::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::hil::RecoveryCheck where U: core::convert::TryFrom<T>
+pub type tirbase_sim::hil::RecoveryCheck::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::hil::RecoveryCheck::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::hil::RecoveryCheck where T: core::clone::Clone
+pub type tirbase_sim::hil::RecoveryCheck::Owned = T
+pub fn tirbase_sim::hil::RecoveryCheck::clone_into(&self, &mut T)
+pub fn tirbase_sim::hil::RecoveryCheck::to_owned(&self) -> T
+impl<T> axum_core::extract::from_ref::FromRef<T> for tirbase_sim::hil::RecoveryCheck where T: core::clone::Clone
+pub fn tirbase_sim::hil::RecoveryCheck::from_ref(&T) -> T
+impl<T> core::any::Any for tirbase_sim::hil::RecoveryCheck where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::hil::RecoveryCheck::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::hil::RecoveryCheck where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::RecoveryCheck::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::hil::RecoveryCheck where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::RecoveryCheck::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::hil::RecoveryCheck where T: core::clone::Clone
+pub unsafe fn tirbase_sim::hil::RecoveryCheck::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::hil::RecoveryCheck
+pub fn tirbase_sim::hil::RecoveryCheck::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::hil::RecoveryCheck where T: core::any::Any
+pub fn tirbase_sim::hil::RecoveryCheck::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::RecoveryCheck::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::RecoveryCheck::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::hil::RecoveryCheck::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::hil::RecoveryCheck where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::hil::RecoveryCheck::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::hil::RecoveryCheck
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::hil::RecoveryCheck where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_sim::hil::RecoveryCheck where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tower_http::follow_redirect::policy::PolicyExt for tirbase_sim::hil::RecoveryCheck where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::RecoveryCheck::and<P, B, E>(self, P) -> tower_http::follow_redirect::policy::and::And<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+pub fn tirbase_sim::hil::RecoveryCheck::or<P, B, E>(self, P) -> tower_http::follow_redirect::policy::or::Or<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+impl<T> tracing::instrument::Instrument for tirbase_sim::hil::RecoveryCheck
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::hil::RecoveryCheck
+impl<T> typenum::type_operators::Same for tirbase_sim::hil::RecoveryCheck
+pub type tirbase_sim::hil::RecoveryCheck::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::hil::RecoveryCheck where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::hil::RecoveryCheck where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::hil::RecoveryCheck::vzip(self) -> V
+pub struct tirbase_sim::hil::ReferencePoint
+pub tirbase_sim::hil::ReferencePoint::indicated: f64
+pub tirbase_sim::hil::ReferencePoint::reference: f64
+pub tirbase_sim::hil::ReferencePoint::unit: tirbase_types::UnitId
+impl tirbase_sim::hil::ReferencePoint
+pub fn tirbase_sim::hil::ReferencePoint::error(&self) -> f64
+impl core::clone::Clone for tirbase_sim::hil::ReferencePoint
+pub fn tirbase_sim::hil::ReferencePoint::clone(&self) -> tirbase_sim::hil::ReferencePoint
+impl core::cmp::PartialEq for tirbase_sim::hil::ReferencePoint
+pub fn tirbase_sim::hil::ReferencePoint::eq(&self, &tirbase_sim::hil::ReferencePoint) -> bool
+impl core::fmt::Debug for tirbase_sim::hil::ReferencePoint
+pub fn tirbase_sim::hil::ReferencePoint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for tirbase_sim::hil::ReferencePoint
+impl core::marker::StructuralPartialEq for tirbase_sim::hil::ReferencePoint
+impl serde_core::ser::Serialize for tirbase_sim::hil::ReferencePoint
+pub fn tirbase_sim::hil::ReferencePoint::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_sim::hil::ReferencePoint
+pub fn tirbase_sim::hil::ReferencePoint::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_sim::hil::ReferencePoint
+impl core::marker::Send for tirbase_sim::hil::ReferencePoint
+impl core::marker::Sync for tirbase_sim::hil::ReferencePoint
+impl core::marker::Unpin for tirbase_sim::hil::ReferencePoint
+impl core::marker::UnsafeUnpin for tirbase_sim::hil::ReferencePoint
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_sim::hil::ReferencePoint
+impl core::panic::unwind_safe::UnwindSafe for tirbase_sim::hil::ReferencePoint
+impl<A, B, T> hyper_util::server::conn::auto::HttpServerConnExec<A, B> for tirbase_sim::hil::ReferencePoint where B: http_body::Body
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Initialized, zerocopy::pointer::invariant::Initialized> for tirbase_sim::hil::ReferencePoint where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<ST, DT> zerocopy::pointer::invariant::CastableFrom<ST, zerocopy::pointer::invariant::Uninit, zerocopy::pointer::invariant::Uninit> for tirbase_sim::hil::ReferencePoint where ST: ?core::marker::Sized, DT: ?core::marker::Sized
+impl<T, U> core::convert::Into<U> for tirbase_sim::hil::ReferencePoint where U: core::convert::From<T>
+pub fn tirbase_sim::hil::ReferencePoint::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_sim::hil::ReferencePoint where U: core::convert::Into<T>
+pub type tirbase_sim::hil::ReferencePoint::Error = core::convert::Infallible
+pub fn tirbase_sim::hil::ReferencePoint::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_sim::hil::ReferencePoint where U: core::convert::TryFrom<T>
+pub type tirbase_sim::hil::ReferencePoint::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_sim::hil::ReferencePoint::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_sim::hil::ReferencePoint where T: core::clone::Clone
+pub type tirbase_sim::hil::ReferencePoint::Owned = T
+pub fn tirbase_sim::hil::ReferencePoint::clone_into(&self, &mut T)
+pub fn tirbase_sim::hil::ReferencePoint::to_owned(&self) -> T
+impl<T> axum_core::extract::from_ref::FromRef<T> for tirbase_sim::hil::ReferencePoint where T: core::clone::Clone
+pub fn tirbase_sim::hil::ReferencePoint::from_ref(&T) -> T
+impl<T> core::any::Any for tirbase_sim::hil::ReferencePoint where T: 'static + ?core::marker::Sized
+pub fn tirbase_sim::hil::ReferencePoint::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_sim::hil::ReferencePoint where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::ReferencePoint::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_sim::hil::ReferencePoint where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::ReferencePoint::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_sim::hil::ReferencePoint where T: core::clone::Clone
+pub unsafe fn tirbase_sim::hil::ReferencePoint::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_sim::hil::ReferencePoint
+pub fn tirbase_sim::hil::ReferencePoint::from(T) -> T
+impl<T> downcast_rs::Downcast for tirbase_sim::hil::ReferencePoint where T: core::any::Any
+pub fn tirbase_sim::hil::ReferencePoint::as_any(&self) -> &(dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::ReferencePoint::as_any_mut(&mut self) -> &mut (dyn core::any::Any + 'static)
+pub fn tirbase_sim::hil::ReferencePoint::into_any(alloc::boxed::Box<T>) -> alloc::boxed::Box<dyn core::any::Any>
+pub fn tirbase_sim::hil::ReferencePoint::into_any_rc(alloc::rc::Rc<T>) -> alloc::rc::Rc<dyn core::any::Any>
+impl<T> downcast_rs::DowncastSync for tirbase_sim::hil::ReferencePoint where T: core::any::Any + core::marker::Send + core::marker::Sync
+pub fn tirbase_sim::hil::ReferencePoint::into_any_arc(alloc::sync::Arc<T>) -> alloc::sync::Arc<(dyn core::any::Any + core::marker::Send + core::marker::Sync)>
+impl<T> either::into_either::IntoEither for tirbase_sim::hil::ReferencePoint
+impl<T> objc2::rc::autorelease::AutoreleaseSafe for tirbase_sim::hil::ReferencePoint where T: ?core::marker::Sized
+impl<T> serde_core::de::DeserializeOwned for tirbase_sim::hil::ReferencePoint where T: for<'de> serde_core::de::Deserialize<'de>
+impl<T> tower_http::follow_redirect::policy::PolicyExt for tirbase_sim::hil::ReferencePoint where T: ?core::marker::Sized
+pub fn tirbase_sim::hil::ReferencePoint::and<P, B, E>(self, P) -> tower_http::follow_redirect::policy::and::And<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+pub fn tirbase_sim::hil::ReferencePoint::or<P, B, E>(self, P) -> tower_http::follow_redirect::policy::or::Or<T, P> where T: core::marker::Sized + tower_http::follow_redirect::policy::Policy<B, E>, P: tower_http::follow_redirect::policy::Policy<B, E>
+impl<T> tracing::instrument::Instrument for tirbase_sim::hil::ReferencePoint
+impl<T> tracing::instrument::WithSubscriber for tirbase_sim::hil::ReferencePoint
+impl<T> typenum::type_operators::Same for tirbase_sim::hil::ReferencePoint
+pub type tirbase_sim::hil::ReferencePoint::Output = T
+impl<T> zerocopy::pointer::invariant::Read<zerocopy::pointer::invariant::Exclusive, zerocopy::pointer::invariant::BecauseExclusive> for tirbase_sim::hil::ReferencePoint where T: ?core::marker::Sized
+impl<V, T> ppv_lite86::types::VZip<V> for tirbase_sim::hil::ReferencePoint where V: ppv_lite86::types::MultiLane<T>
+pub fn tirbase_sim::hil::ReferencePoint::vzip(self) -> V
+pub fn tirbase_sim::hil::run_campaign(u64) -> tirbase_sim::hil::CampaignReport
+pub fn tirbase_sim::hil::verify_recovery(&std::path::Path) -> core::result::Result<tirbase_sim::hil::RecoveryCheck, alloc::string::String>
 pub mod tirbase_sim::invariants
 pub enum tirbase_sim::invariants::InvariantId
 pub tirbase_sim::invariants::InvariantId::Inv1

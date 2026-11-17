@@ -50,6 +50,8 @@ use rand_chacha::ChaCha8Rng;
 
 /// Deterministic device/reference driver backends (Modbus server, cold-room model).
 pub mod drivers;
+/// CC-22 sensor/controller validation campaign (F-13).
+pub mod hil;
 /// Per-tick invariant checks (INV-1..INV-16, CLAIM-17.1..17.8, CLAIM-38.6).
 pub mod invariants;
 /// Deterministic thermal and battery/inverter plant models (CLAIM-38.4/38.5).
