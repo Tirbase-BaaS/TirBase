@@ -1,0 +1,15 @@
+[package]
+name = "tirbase-pos"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "Jurisdiction-neutral POS order, check, line-item and money domain model (prototype, not production)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1.11.0"
+serde_json = "1"
