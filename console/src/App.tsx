@@ -9,13 +9,15 @@ import { ColdChainScreen } from './screens/ColdChainScreen';
 import { PosScreen } from './screens/PosScreen';
 import { VenueScreen } from './screens/VenueScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { AuditScreen } from './screens/AuditScreen';
 
-type Route = 'cold-chain' | 'pos' | 'venues' | 'settings';
+type Route = 'cold-chain' | 'pos' | 'venues' | 'audit' | 'settings';
 
 const routes: { id: Route; key: MessageKey }[] = [
   { id: 'cold-chain', key: 'nav.coldChain' },
   { id: 'pos', key: 'nav.pos' },
   { id: 'venues', key: 'nav.venues' },
+  { id: 'audit', key: 'nav.audit' },
   { id: 'settings', key: 'nav.settings' },
 ];
 
@@ -166,6 +168,7 @@ export function App() {
             {route === 'cold-chain' ? <ColdChainScreen /> : null}
             {route === 'pos' ? <PosScreen /> : null}
             {route === 'venues' ? <VenueScreen /> : null}
+            {route === 'audit' ? <AuditScreen /> : null}
             {route === 'settings' ? <SettingsScreen /> : null}
           </main>
         </div>
