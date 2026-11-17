@@ -71,9 +71,30 @@ For each run verify:
 
 Run only via the maintainer-triggered GitHub Actions workflow `.github/workflows/hil.yml` (`workflow_dispatch`) on provisioned, labeled lab hardware. Do **not** enable for public pull requests.
 
+## CC-22 sensor/controller validation campaign (software bench + lab matrix)
+
+CC-22 extends this procedure to the full transport matrix — DS18B20, 4–20 mA, BLE
+GATT, BACnet/IP, Modbus RTU and Modbus TCP — with calibration/accuracy runs against
+reference instruments, temperature/humidity/vibration/brownout envelopes, network
+loss at every transport and a long-run fault-injection cycle.
+
+- **Reproduce the software bench:** `cargo test -p tirbase-sim --test hil_campaign -- --nocapture`
+  writes `target/hil-evidence/cc22/`; the committed reference run and the full
+  case list are in `docs/evidence/hil/cc22-sensor-controller-validation/`.
+- **Physical lab:** run the same case list on the bench in
+  `docs/reference-hardware.md`, using the calibration fixture log in
+  `docs/hil-lab-checklist.md` §5 and the evidence layout in §7. Record the
+  certificate id of every reference instrument and attach the raw traces.
+
+The power-cut matrix in §3 above is complemented by the software bench's
+storage-level cuts (`power-cut.json`): a child process is killed inside an open
+write transaction and the reopened database must keep its integrity, calibration
+rows and ledger chain consistent.
+
 ## Related documents (F-13)
 
 - Repeatable checklist and evidence capture: [`docs/hil-lab-checklist.md`](hil-lab-checklist.md)
+- CC-22 evidence pack and case list: [`docs/evidence/hil/cc22-sensor-controller-validation/`](evidence/hil/cc22-sensor-controller-validation/)
 - Long-run soak and fault injection: [`docs/soak-test-procedure.md`](soak-test-procedure.md)
 - Reference hardware profiles: [`docs/reference-hardware.md`](reference-hardware.md)
 

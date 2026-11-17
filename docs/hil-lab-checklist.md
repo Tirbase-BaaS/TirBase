@@ -77,6 +77,13 @@ Record conditions and results:
 
 ## 5. Calibration fixtures and acceptance criteria (F-13.4)
 
+CC-22 fixes the per-transport accuracy budget and reference values in
+[`docs/evidence/hil/cc22-sensor-controller-validation/README.md`](evidence/hil/cc22-sensor-controller-validation/README.md):
+DS18B20 ±0.5 °C over −40…125 °C, 4–20 mA ±16 µA, BLE ±0.2 °C / ±0.5 %RH,
+BACnet ±0.1 °C, and Modbus at the configured register resolution. Record the
+reference instrument serial, certificate id and due date for every point; the
+software bench reproduces the same case list before the lab run.
+
 - Maintain a calibration log: fixture ID, type, calibration date, due date, certificate/reference, measured error.
 - Acceptance criteria examples (tune per vertical):
   - Modbus round-trip: readback matches written value within register resolution.

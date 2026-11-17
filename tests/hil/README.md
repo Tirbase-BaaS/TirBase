@@ -3,6 +3,7 @@
 Hardware-in-the-loop tests that run **only** against provisioned lab hardware (real RS-485/Modbus device or real-bus simulator and, for failpoints, a smart PDU). These are not executed on public CI.
 
 - Procedure and lab setup: `docs/hil-test-procedure.md`
+- CC-22 sensor/controller matrix (bench, accuracy, environmental, recovery, stability) and its evidence pack: `docs/evidence/hil/cc22-sensor-controller-validation/`; the software bench runs on every CI run via `cargo test -p tirbase-sim --test hil_campaign`
 - Workflow: `.github/workflows/hil.yml` (`workflow_dispatch`, maintainer-triggered, trusted lab runners only)
 
 ## Layout
