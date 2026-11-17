@@ -27,6 +27,7 @@ Apache-2.0 text.
 | Reference packs | `tirbase-demo` | `Apache-2.0` | Vertical demo packs are templates customers can copy. |
 | Alert connectors | `tirbase-notify` | `Apache-2.0` | Connector interface, alert message model, secrets-by-reference, retry/on-call arithmetic and the generic email, webhook and console connectors, so closed vendor plugins can deliver without linking the AGPL runtime. |
 | EPCIS adapter | `tirbase-epcis` | `Apache-2.0` | Maps signed ledger bundles to GS1 EPCIS 2.0 JSON/XML for integrators; reads the bundle as JSON and never links the AGPL runtime. |
+| Integration framework | `tirbase-integrations` | `Apache-2.0` | Connector trait, mapping DSL, retry/backoff, idempotency keys, dead-letter queue and replay, OAuth2/mTLS/API-key/HMAC auth, generic HTTP, webhook, MQTT, CSV and SFTP connectors, mock vendor server and certification suite, so closed vendor connectors are written and tested without linking the AGPL runtime. |
 | Admin SDK | `@tirbase/gateway-admin-sdk` | `Apache-2.0` | Pure HTTP client generated from the admin OpenAPI spec. |
 
 ## SDK packaging
@@ -54,6 +55,31 @@ A separate commercial licence is available for:
 - managed cloud ledger and fleet-console services (where offered).
 
 Contact the maintainers for terms.
+
+The commercial cold-chain kit in `commercial/cold-chain-kit/` is **proprietary** and is
+not part of the AGPL runtime or the Apache-2.0 integration surface. It contains documents,
+control maps and templates only — no source, keys or customer data. Delivery is governed
+by the proprietary notice in that directory and a signed agreement; the packaging gate
+`scripts/check-cold-chain-kit.py` refuses a release archive without counsel and
+accredited-assessor approvals.
+
+The SAP, Odoo and TMS/WMS connectors are a **separate proprietary product** and
+are not present in this repository at all. They are developed in a git-ignored
+`closed/` staging tree, link only the Apache-2.0 `tirbase-integrations` surface,
+and are delivered to licensees under the proprietary notice in that tree.
+`scripts/check-closed-connectors.py` proves the closed tree has no tracked source,
+vendor SDK or credential in the open repository and that its documentation and
+crates are present; `scripts/package-closed-connectors.py` refuses to package
+unless that gate passes.
+
+The Slack, Microsoft Teams, PagerDuty and SMS alert connectors are the same kind
+of **separate proprietary product** and are not in this repository. They are
+developed in a git-ignored `closed/alerts/` tree, link only the Apache-2.0
+`tirbase-notify` surface, and keep provider tokens in an encrypted tenant-scoped
+vault rather than configuration. `scripts/check-alert-connectors.py` proves the
+closed alert tree is untracked, free of provider SDKs and plaintext tokens, and
+documented before `scripts/package-alert-connectors.py` will build a licensee
+archive.
 
 ## Contributions
 
