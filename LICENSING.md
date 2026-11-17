@@ -27,6 +27,7 @@ Apache-2.0 text.
 | Reference packs | `tirbase-demo` | `Apache-2.0` | Vertical demo packs are templates customers can copy. |
 | Alert connectors | `tirbase-notify` | `Apache-2.0` | Connector interface, alert message model, secrets-by-reference, retry/on-call arithmetic and the generic email, webhook and console connectors, so closed vendor plugins can deliver without linking the AGPL runtime. |
 | EPCIS adapter | `tirbase-epcis` | `Apache-2.0` | Maps signed ledger bundles to GS1 EPCIS 2.0 JSON/XML for integrators; reads the bundle as JSON and never links the AGPL runtime. |
+| POS domain model | `tirbase-pos` | `AGPL-3.0-only` | Prototype order/check/line-item/money model (POS-01) under the POS-00 deferral; not production, not certified, no payment connectivity. |
 | Integration framework | `tirbase-integrations` | `Apache-2.0` | Connector trait, mapping DSL, retry/backoff, idempotency keys, dead-letter queue and replay, OAuth2/mTLS/API-key/HMAC auth, generic HTTP, webhook, MQTT, CSV and SFTP connectors, mock vendor server and certification suite, so closed vendor connectors are written and tested without linking the AGPL runtime. |
 | Admin SDK | `@tirbase/gateway-admin-sdk` | `Apache-2.0` | Pure HTTP client generated from the admin OpenAPI spec. |
 

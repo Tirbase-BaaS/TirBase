@@ -5116,6 +5116,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tirbase-pos"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "tirbase-sim"
 version = "0.1.0"
 dependencies = [
@@ -5129,6 +5138,8 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
+ "tempfile",
  "tirbase-core",
  "tirbase-driver-api",
  "tirbase-drivers",

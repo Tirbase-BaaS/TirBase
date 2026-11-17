@@ -10,6 +10,7 @@ members = [
     "tirbase-sim",
     "tirbase-demo",
     "tirbase-epcis",
+    "tirbase-pos",
     "tirbase-notify",
     "examples/vendor-driver",
 ]
@@ -24,6 +25,7 @@ tirbase-driver-api = { path = "tirbase-driver-api" }
 tirbase-drivers    = { path = "tirbase-drivers" }
 tirbase-gateway = { path = "tirbase-gateway" }
 tirbase-sim     = { path = "tirbase-sim" }
+tirbase-pos     = { path = "tirbase-pos" }
 # Apache-2.0 data-only pack framework; consumed by gateway pack tests.
 tirbase-demo    = { path = "tirbase-demo" }
 # Apache-2.0 alert connectors; the AGPL gateway delivers through them (CC-17).
