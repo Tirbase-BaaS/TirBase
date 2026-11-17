@@ -36,6 +36,7 @@
 #![forbid(unsafe_code)]
 
 pub mod backoff;
+pub mod conformance;
 pub mod console;
 pub mod message;
 pub mod oncall;
@@ -44,6 +45,7 @@ pub mod smtp;
 pub mod transport;
 pub mod webhook;
 
+pub use conformance::{certify, NotifierCheck, NotifierReport};
 pub use message::{AlertMessage, Severity};
 pub use secrets::{
     FileSecretStore, MemorySecretStore, SecretError, SecretRef, SecretStore, SecretValue,
