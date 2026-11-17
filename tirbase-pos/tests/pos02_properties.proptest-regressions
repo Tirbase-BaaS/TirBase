@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 02e33e5c58c9af362f73012a82c35df451e2c2a69e5f15737398f8aedfc5d614 # shrinks to lines_a = [LineSpec { minor: 1, quantity: 1, discount_percent: None, tax_percent: None }], lines_b = [LineSpec { minor: 1, quantity: 1, discount_percent: None, tax_percent: None }], tip_a = 0, tip_b = 0, payment_a = 0, payment_b = 0
