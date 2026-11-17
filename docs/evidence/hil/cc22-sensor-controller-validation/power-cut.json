@@ -1,0 +1,85 @@
+{
+  "cases": [
+    {
+      "after": {
+        "calibration_count": 1,
+        "chain_message": "chain intact (2 entries, 0 checkpoints)",
+        "chain_ok": true,
+        "detail": "integrity=ok, calibrations=1, ledger=2 entries, chain chain intact (2 entries, 0 checkpoints)",
+        "integrity_ok": true,
+        "ledger_entries": 2
+      },
+      "before": {
+        "calibration_count": 1,
+        "chain_message": "chain intact (2 entries, 0 checkpoints)",
+        "chain_ok": true,
+        "detail": "integrity=ok, calibrations=1, ledger=2 entries, chain chain intact (2 entries, 0 checkpoints)",
+        "integrity_ok": true,
+        "ledger_entries": 2
+      },
+      "expected_commit": false,
+      "stage": "calibration-uncommitted"
+    },
+    {
+      "after": {
+        "calibration_count": 2,
+        "chain_message": "chain intact (2 entries, 0 checkpoints)",
+        "chain_ok": true,
+        "detail": "integrity=ok, calibrations=2, ledger=2 entries, chain chain intact (2 entries, 0 checkpoints)",
+        "integrity_ok": true,
+        "ledger_entries": 2
+      },
+      "before": {
+        "calibration_count": 1,
+        "chain_message": "chain intact (2 entries, 0 checkpoints)",
+        "chain_ok": true,
+        "detail": "integrity=ok, calibrations=1, ledger=2 entries, chain chain intact (2 entries, 0 checkpoints)",
+        "integrity_ok": true,
+        "ledger_entries": 2
+      },
+      "expected_commit": true,
+      "stage": "calibration-committed"
+    },
+    {
+      "after": {
+        "calibration_count": 1,
+        "chain_message": "chain intact (2 entries, 0 checkpoints)",
+        "chain_ok": true,
+        "detail": "integrity=ok, calibrations=1, ledger=2 entries, chain chain intact (2 entries, 0 checkpoints)",
+        "integrity_ok": true,
+        "ledger_entries": 2
+      },
+      "before": {
+        "calibration_count": 1,
+        "chain_message": "chain intact (2 entries, 0 checkpoints)",
+        "chain_ok": true,
+        "detail": "integrity=ok, calibrations=1, ledger=2 entries, chain chain intact (2 entries, 0 checkpoints)",
+        "integrity_ok": true,
+        "ledger_entries": 2
+      },
+      "expected_commit": false,
+      "stage": "ledger-uncommitted"
+    },
+    {
+      "after": {
+        "calibration_count": 1,
+        "chain_message": "chain intact (3 entries, 0 checkpoints)",
+        "chain_ok": true,
+        "detail": "integrity=ok, calibrations=1, ledger=3 entries, chain chain intact (3 entries, 0 checkpoints)",
+        "integrity_ok": true,
+        "ledger_entries": 3
+      },
+      "before": {
+        "calibration_count": 1,
+        "chain_message": "chain intact (2 entries, 0 checkpoints)",
+        "chain_ok": true,
+        "detail": "integrity=ok, calibrations=1, ledger=2 entries, chain chain intact (2 entries, 0 checkpoints)",
+        "integrity_ok": true,
+        "ledger_entries": 2
+      },
+      "expected_commit": true,
+      "stage": "ledger-committed"
+    }
+  ],
+  "schema": "tirbase.hil.cc22.power-cut.v1"
+}

@@ -1,0 +1,30 @@
+PROPRIETARY LICENCE — TIRBASE COLD-CHAIN COMMERCIAL KIT
+
+Copyright (c) the TirBase maintainers. All rights reserved.
+
+This kit and the documents, templates and data files it contains (the "Kit") are
+proprietary and confidential. They are licensed, not sold, only under a signed
+written agreement with the maintainers or an authorised distributor ("Agreement").
+No licence is granted by possession, download, or internal circulation.
+
+Without a signed Agreement you may not: copy the Kit except as necessary to review
+it for the purpose of entering an Agreement; distribute, sublicense, publish or
+make it available to third parties; use it to represent certification, conformity,
+accreditation, or regulatory approval; remove proprietary notices; or incorporate
+it into a product or service offering.
+
+The Kit describes and references, but does not include or license, the TirBase
+runtime. The runtime is licensed separately under AGPL-3.0-only and/or a commercial
+runtime licence. Nothing in the Kit grants any licence to the runtime, its source
+code, its trademarks, or any third-party material it references.
+
+The Kit is provided "AS IS" without warranty of any kind, express or implied,
+including fitness for a particular purpose and non-infringement. Compliance and
+certification outcomes depend on the operator's own processes, records and
+accredited assessments; the maintainers make no compliance claim.
+
+Nothing in this notice limits rights that applicable law does not permit to be
+limited, and nothing here is legal advice.
+
+TirBase is a trademark of the maintainers. See TRADEMARK.md in the repository for
+the trademark policy.

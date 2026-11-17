@@ -1,0 +1,15 @@
+risk_id,threat,affected_asset,likelihood,impact,mitigation,residual_risk,maps_to
+R-01,Falsified temperature reading,"Readings and release decisions",medium,high,"Transport CRC and framing validation; source ids; calibration gate; reference checks",medium,SEC-01;HACCP-03
+R-02,Replay of a valid command,"Actuators and setpoints",medium,high,"Signed operations with nonce and anti-replay window; single-use permits",low,SEC-02
+R-03,Stolen operator credential,"Admin and release actions",medium,high,"Scoped short-lived tokens; role separation; revocation epoch",medium,SEC-02;GDP-07
+R-04,Exposed remote admin interface,"Gateway configuration and keys",low,high,"mTLS-only remote admin; loopback health and metrics; hardening checklist",low,SEC-05
+R-05,Audit record tampering,"Audit trail and reports",low,high,"Hash-chained logs; verification tooling; signed exports",low,SEC-03;GDP-06
+R-06,Supply-chain compromise of a dependency,"Build and runtime integrity",medium,high,"Lockfile; deny and audit gates; SBOM and VEX; reproducible signed builds",medium,CRA-GAP-002
+R-07,Unpatched vulnerability after end of support,"All components",medium,high,"24-month support policy; EoSS communication; upgrade path",medium,CRA-03
+R-08,Denial of service on monitoring,"Gateway availability",medium,medium,"Rate limits; bounded queues; degraded modes; alert dedup",medium,GDP-04
+R-09,Key material disclosure,"Signing and enrolment identity",low,high,"Keys outside repository; zeroization; no private-key export",low,SEC-02
+R-10,Backup or export disclosure,"Personal and operational data",medium,high,"Encrypted database option; signed exports; access control; DPIA",medium,OPS-03
+R-11,Misconfigured critical limit,"Product safety",medium,high,"Change control; second-person approval; configured-value audit",medium,GDP-08
+R-12,Loss of monitoring during network partition,"Record completeness",medium,high,"Local-first operation; reconciliation; outage recording",low,SEC-04;HACCP-06
+R-13,Physically tampered field device,"Reading integrity",medium,high,"Calibration and reference checks; tamper-evident installation",high,SEC-01
+R-14,Customer product not covered by stability data,"Release decision",medium,high,"Product assessment required before release",high,GDP-02

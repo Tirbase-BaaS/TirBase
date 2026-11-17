@@ -1,0 +1,50 @@
+{
+  "schema": "tirbase.cold-chain-kit.manifest.v1",
+  "kit": "cold-chain-commercial-kit",
+  "version": "0.1.0-draft",
+  "licence": "proprietary",
+  "generated": "2026-11-16",
+  "baseline": {
+    "release": "under-validation",
+    "evidence_pack": "docs/evidence/hil/cc22-sensor-controller-validation",
+    "claims_registry": "CLAIMS.md"
+  },
+  "parts": [
+    "audit-kit",
+    "iec62443",
+    "cra",
+    "sensors",
+    "calibration",
+    "licensing",
+    "EXCLUSIONS.md"
+  ],
+  "transports": [
+    "ds18b20",
+    "current_loop_4_20ma",
+    "ble_gatt",
+    "bacnet_ip",
+    "modbus_rtu",
+    "modbus_tcp"
+  ],
+  "reviews": {
+    "counsel": {
+      "status": "pending",
+      "record": "review/counsel-review-record.md",
+      "reviewer": "",
+      "date": ""
+    },
+    "assessor": {
+      "status": "pending",
+      "record": "review/assessor-review-record.md",
+      "reviewer": "",
+      "date": ""
+    }
+  },
+  "delivery": {
+    "release_allowed": false,
+    "draft_watermark": "DRAFT - NOT FOR EXTERNAL COMPLIANCE CLAIMS",
+    "contains_source": false,
+    "contains_secrets": false
+  },
+  "not_covered": "EXCLUSIONS.md"
+}

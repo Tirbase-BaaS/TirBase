@@ -1,0 +1,7 @@
+conduit_id,from_zone,to_zone,protocol,authentication,integrity,confidentiality,requirement_ids
+C1,Z2,Z1,"Modbus RTU/TCP, BACnet/IP, 1-Wire, 4-20 mA, BLE","Device identity and wired bus physical security","CRC and framing checks plus protocol validation","None at field bus (physical)",SEC-05;FR3
+C2,Z3,Z2,Admin socket (Unix) or mTLS remote admin,"Peer UID or client certificate plus scoped token","Request signing and audit",Local or TLS,SEC-02;SEC-03
+C3,Z2,Z4,HTTPS outbound cloud channel,"Mutual TLS with pinned trust","Message signing and sequence checks",TLS,GAP-ENV-001;FR4
+C4,Z2,Z2,Driver isolation socketpair,"Socket peer credentials and inherited fd","Sandbox and frame admission",Local,SEC-02;FR2
+C5,Z4,Z3,Support and reporting access,SSO and MFA per enterprise policy,TLS,Yes,SEC-06
+C6,Z2,Z4,Backups and exports,Service identity,"Signature and digest verification","Encryption at rest recommended",GAP-DATA-001;OPS-02

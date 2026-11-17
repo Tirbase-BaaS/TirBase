@@ -1,0 +1,8 @@
+component,type,value_c,distribution,divisor,standard_uncertainty_c,notes
+Reference thermometer,type_b,0.05,normal,2,0.025,Calibrated certificate expanded uncertainty k=2
+Bath uniformity,type_b,0.02,rectangular,1.732,0.0115,Half-width of the specified uniformity
+Bath stability,type_b,0.01,rectangular,1.732,0.0058,Drift over the dwell window
+Device resolution,type_b,0.0625,rectangular,1.732,0.018,Divided by 2 then by sqrt(3) for a 12-bit DS18B20 step
+Repeatability,type_a,0.02,normal,1,0.02,Standard deviation of ten readings at 25 C
+Hysteresis,type_b,0.01,rectangular,1.732,0.0029,Half-width between upscale and downscale runs
+Self-heating,type_b,0.005,rectangular,1.732,0.0014,Worst-case probe excitation in still air

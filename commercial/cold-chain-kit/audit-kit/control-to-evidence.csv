@@ -1,0 +1,43 @@
+control_id,framework,requirement,control,evidence,owner,status
+GDP-01,GDP,"Written temperature-control policy for storage and transport","Temperature monitoring with per-site setpoints and auditable configuration","SOP-01-temperature-monitoring.md; docs/operator-guide.md",Quality,met-by-kit-and-runtime
+GDP-02,GDP,Temperature-controlled storage and distribution risk assessment,"Documented risk assessment template with per-product stability data and excursion impact",GAP-CUST-001,Quality,gap-operator
+GDP-03,GDP,Qualified and calibrated monitoring instruments,"Calibration registry with certificate hash, due dates and reference-check drift","calibration/procedure.md; docs/reporting.md",Engineering,met-by-runtime
+GDP-04,GDP,Alarm system with defined limits and response,"Typed alerts, escalation and acknowledgement with delivery audit","SOP-04-alarm-response.md; docs/alerting.md",Operations,met-by-runtime
+GDP-05,GDP,Deviation and CAPA management,"Excursion workflow with disposition, reason and resolution records","SOP-02-excursion-and-disposition.md; docs/reporting.md",Quality,met-by-runtime
+GDP-06,GDP,Records retained for the required period and retrievable,"Immutable audit chain, exports and retention guidance","SOP-05-data-integrity-and-records.md; retention-guidance.md",Quality,met-by-runtime
+GDP-07,GDP,Personnel trained and training records kept,"Role-based access and SOP acknowledgement checklist",checklists.md#training,Quality,gap-operator
+GDP-08,GDP,Change control for validated systems,"Versioned profiles, signed configuration and change checklist","checklists.md#change-control; docs/traceability-matrix.md",Engineering,met-by-kit
+HACCP-01,HACCP,Hazard analysis covering cold-chain steps,Hazard inventory template with CCP identification,GAP-CUST-002,Quality,gap-operator
+HACCP-02,HACCP,Critical limits at each CCP,Setpoint and excursion thresholds enforced by policy profile,"SOP-01-temperature-monitoring.md; docs/system-invariants.md",Engineering,met-by-runtime
+HACCP-03,HACCP,Monitoring procedures and frequency,Driver polling intervals and sensor health reporting,"docs/drivers/ds18b20.md; docs/drivers/thermostat_modbus.md",Engineering,met-by-runtime
+HACCP-04,HACCP,Corrective actions for deviations,"Excursion states, quarantine and disposition-recorded release","SOP-02-excursion-and-disposition.md; docs/reporting.md",Quality,met-by-runtime
+HACCP-05,HACCP,Verification activities and their records,"Reference checks, calibration verification and report exports","calibration/procedure.md; docs/reporting.md",Quality,met-by-runtime
+HACCP-06,HACCP,Record-keeping for CCP monitoring,"Hash-chained records, signed exports and retention policy","SOP-05-data-integrity-and-records.md; retention-guidance.md",Quality,met-by-runtime
+HACCP-07,HACCP,HACCP plan review after change or incident,Change-control and incident review checklist,"checklists.md#change-control; checklists.md#incident-review",Quality,gap-operator
+FSMA-01,FSMA,Preventive controls analysis for temperature abuse,Preventive-control mapping to monitor and corrective-action controls,"control-to-evidence.csv#HACCP-03; control-to-evidence.csv#HACCP-04",Quality,met-by-kit
+FSMA-02,FSMA,Monitoring records for preventive controls,Per-reading provenance with source ids and chain entries,"docs/reporting.md; docs/evidence/hil/cc22-sensor-controller-validation/README.md",Engineering,met-by-runtime
+FSMA-03,FSMA,Corrective-action records,"Disposition reason, actor and timestamp in the excursion record",SOP-02-excursion-and-disposition.md,Quality,met-by-runtime
+FSMA-04,FSMA,Verification and validation of preventive controls,Validation evidence from the HIL campaign and calibration acceptance,"docs/hil-test-procedure.md; docs/evidence/hil/cc22-sensor-controller-validation/README.md",Engineering,met-by-runtime
+FSMA-05,FSMA,Supply-chain programme for incoming product (where applicable),Supplier record register maintained by the operator,GAP-CUST-003,Quality,gap-operator
+FSMA-06,FSMA,Recall and traceability of affected lots,Lot and serial traceability with lineage ledger export,"docs/integrator-guide.md; docs/reporting.md",Engineering,met-by-runtime
+FSMA-07,FSMA,"FSMA record retention (2 years, or shelf life if longer)","Configured retention with export and restore procedure","retention-guidance.md; docs/reporting.md",Quality,met-by-runtime
+SEC-01,IEC62443,Zones and conduits defined for the deployment,Reference zone and conduit model with SL targets,"iec62443/zones.csv; iec62443/conduits.csv; iec62443/SL2-SL3-dossier.md",Security,met-by-kit
+SEC-02,IEC62443,Account and role management with least privilege,"Signed enrolment, role registry and scoped tokens","docs/token-schema.md; SECURITY.md",Security,met-by-runtime
+SEC-03,IEC62443,Security event logging and monitoring,"Typed events, hash-chained log and tamper verification","docs/security-event-catalog.md; docs/auditor-guide.md",Security,met-by-runtime
+SEC-04,IEC62443,Patch and vulnerability handling within the support period,"Published policy plus release SBOM/VEX and signed updates","cra/technical-file.md; docs/compliance/vulnerability-handling.md",Security,met-by-kit
+SEC-05,IEC62443,Physical and environmental hardening of the gateway,"Hardening checklist and environmental limits","checklists.md#hardening; docs/reference-hardware.md",Engineering,met-by-kit
+SEC-06,IEC62443,Independent assessment of SL2/SL3 claims,"Accredited assessor review and certificate",GAP-REV-002,Security,gap-review
+CRA-01,CRA,Risk assessment of the product with security risks,"Technical-file risk register","cra/risks.csv; cra/technical-file.md",Security,met-by-kit
+CRA-02,CRA,Secure development and vulnerability handling process,"SDLC evidence, disclosure policy and advisories","docs/compliance/vulnerability-handling.md; SECURITY.md",Security,met-by-kit
+CRA-03,CRA,Support period and end-of-support communication,"24-month minimum support policy and SLA template","docs/compliance/support-period-policy.md; licensing/24x7-SLA-TEMPLATE.md",Product,met-by-kit
+CRA-04,CRA,Software bill of materials per release,CycloneDX SBOM generated per release,".github/workflows/sbom.yml; cra/technical-file.md#sbom",Security,met-by-kit
+CRA-05,CRA,Conformity assessment and declaration,Assessor-reviewed technical file and declaration template,GAP-REV-002,Compliance,gap-review
+CRA-06,CRA,Coordinated vulnerability disclosure contact and timelines,Disclosure policy and PSIRT contact,"SECURITY.md; docs/compliance/vulnerability-handling.md",Security,met-by-kit
+CAL-01,Calibration,Calibration procedure with traceable reference,"Documented procedure and reference-probe requirements",calibration/procedure.md,Engineering,met-by-kit
+CAL-02,Calibration,Uncertainty budget and acceptance criteria,"GUM-style budget with expanded uncertainty below the acceptance limit","calibration/uncertainty-budget.csv; calibration/acceptance-criteria.csv",Engineering,met-by-kit
+CAL-03,Calibration,Certificates for reference instruments retained,"Operator certificates registered by hash in the calibration registry",GAP-CUST-004,Quality,gap-operator
+CAL-04,Calibration,Periodic verification between calibrations,"Reference-check evidence and drift reporting","calibration/procedure.md; docs/reporting.md",Engineering,met-by-runtime
+OPS-01,Operations,Escalation and on-call coverage for cold-chain alarms,"Escalation matrix and 24/7 SLA template","licensing/24x7-SLA-TEMPLATE.md; docs/alerting.md",Operations,met-by-kit
+OPS-02,Operations,Disaster recovery and restore of records,"Snapshot and restore procedure with verification","docs/reporting.md; docs/operator-guide.md",Operations,met-by-runtime
+OPS-03,Operations,Customer data protection and processor obligations,"Data-protection procedures and DPIA templates","docs/compliance/data-protection-procedures.md; docs/compliance/dpia-templates.md",Legal,met-by-kit
+OPS-04,Operations,Customer-specific regulatory registration and licences,Operator-held registrations,GAP-CUST-005,Legal,gap-operator

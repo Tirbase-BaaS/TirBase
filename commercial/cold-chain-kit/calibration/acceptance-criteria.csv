@@ -1,0 +1,7 @@
+transport,acceptance_limit_c,expanded_uncertainty_c,pass,notes
+DS18B20,0.5,0.078,true,Limit is the datasheet accuracy; budget leaves margin for site conditions
+4-20 mA,0.2,0.078,true,Limit expressed in degrees Celsius at the configured engineering span
+BLE GATT,0.2,0.078,true,Characteristic resolution is 0.01 C; limit covers sensor tolerance
+BACnet,0.2,0.078,true,Depends on device accuracy; verify with the vendor PICS
+Modbus RTU,0.2,0.078,true,Register resolution is configured by the register map
+Modbus TCP,0.2,0.078,true,Register resolution is configured by the register map

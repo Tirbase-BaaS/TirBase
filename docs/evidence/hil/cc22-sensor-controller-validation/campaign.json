@@ -1,0 +1,398 @@
+{
+  "schema": "tirbase.hil.cc22.campaign.v1",
+  "seed": 22,
+  "stability_cycles": 1000,
+  "cases": [
+    {
+      "id": "ds18b20.bench.convert_and_read",
+      "transport": "ds18b20",
+      "kind": "bench",
+      "passed": true,
+      "detail": "indicated 21.5 °C from a 21.5 °C scratchpad",
+      "metric": {
+        "name": "indicated_error",
+        "value": 0.0,
+        "tolerance": 0.0625,
+        "unit": "°C"
+      }
+    },
+    {
+      "id": "ds18b20.bench.conversion_time",
+      "transport": "ds18b20",
+      "kind": "bench",
+      "passed": true,
+      "detail": "conversion waits [750] ms (datasheet 750 ms at 12 bit)",
+      "metric": null
+    },
+    {
+      "id": "ds18b20.bench.bad_crc_rejected",
+      "transport": "ds18b20",
+      "kind": "bench",
+      "passed": true,
+      "detail": "corrupted scratchpad CRC is refused, not decoded",
+      "metric": null
+    },
+    {
+      "id": "ds18b20.bench.short_read_rejected",
+      "transport": "ds18b20",
+      "kind": "bench",
+      "passed": true,
+      "detail": "a 5-byte scratchpad read is refused",
+      "metric": null
+    },
+    {
+      "id": "ds18b20.bench.disconnected_reported",
+      "transport": "ds18b20",
+      "kind": "bench",
+      "passed": true,
+      "detail": "absence of the probe is a fault, not a stale temperature",
+      "metric": null
+    },
+    {
+      "id": "ds18b20.accuracy.datasheet_range",
+      "transport": "ds18b20",
+      "kind": "accuracy",
+      "passed": true,
+      "detail": "worst 0.0625 °C at the -40 °C reference over -40…125 °C",
+      "metric": {
+        "name": "worst_error",
+        "value": 0.0625,
+        "tolerance": 0.5,
+        "unit": "°C"
+      }
+    },
+    {
+      "id": "ds18b20.environmental.temperature_range",
+      "transport": "ds18b20",
+      "kind": "environmental",
+      "passed": true,
+      "detail": "−40 °C and +125 °C references decoded inside ±0.5 °C (see accuracy case)",
+      "metric": null
+    },
+    {
+      "id": "ds18b20.network_loss.bus_loss_recovery",
+      "transport": "ds18b20",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "bus loss reported; the next read after the probe returns succeeds",
+      "metric": null
+    },
+    {
+      "id": "current_loop.accuracy.reference_points",
+      "transport": "current_loop",
+      "kind": "accuracy",
+      "passed": true,
+      "detail": "worst 0 µA against the calibrated current source",
+      "metric": {
+        "name": "worst_error",
+        "value": 0.0,
+        "tolerance": 16.0,
+        "unit": "µA"
+      }
+    },
+    {
+      "id": "current_loop.bench.engineering_span",
+      "transport": "current_loop",
+      "kind": "bench",
+      "passed": true,
+      "detail": "4 mA maps to 0 % of span",
+      "metric": null
+    },
+    {
+      "id": "current_loop.bench.open_loop",
+      "transport": "current_loop",
+      "kind": "bench",
+      "passed": true,
+      "detail": "598 ADC counts classified Some(OpenLoop)",
+      "metric": null
+    },
+    {
+      "id": "current_loop.bench.under_range",
+      "transport": "current_loop",
+      "kind": "bench",
+      "passed": true,
+      "detail": "632 ADC counts classified Some(UnderRange)",
+      "metric": null
+    },
+    {
+      "id": "current_loop.bench.over_range",
+      "transport": "current_loop",
+      "kind": "bench",
+      "passed": true,
+      "detail": "3500 ADC counts classified Some(OverRange)",
+      "metric": null
+    },
+    {
+      "id": "current_loop.bench.stuck_value",
+      "transport": "current_loop",
+      "kind": "bench",
+      "passed": true,
+      "detail": "ten identical samples classify as a stuck transmitter",
+      "metric": null
+    },
+    {
+      "id": "current_loop.bench.noise_detected",
+      "transport": "current_loop",
+      "kind": "bench",
+      "passed": true,
+      "detail": "±1 mA noise above the 0.5 mA window is classified",
+      "metric": null
+    },
+    {
+      "id": "current_loop.environmental.brownout_open_loop",
+      "transport": "current_loop",
+      "kind": "environmental",
+      "passed": true,
+      "detail": "supply sag reports open loop and no engineering value is trusted",
+      "metric": null
+    },
+    {
+      "id": "current_loop.environmental.thermal_humidity_offset",
+      "transport": "current_loop",
+      "kind": "environmental",
+      "passed": true,
+      "detail": "60 °C / 85 %RH adds 4 µA; total 4 µA",
+      "metric": {
+        "name": "worst_error",
+        "value": 4.0,
+        "tolerance": 16.0,
+        "unit": "µA"
+      }
+    },
+    {
+      "id": "current_loop.environmental.vibration_noise",
+      "transport": "current_loop",
+      "kind": "environmental",
+      "passed": true,
+      "detail": "5 µA vibration pick-up; total 5 µA",
+      "metric": null
+    },
+    {
+      "id": "current_loop.network_loss.loop_loss_recovery",
+      "transport": "current_loop",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "open loop classified; the next in-range sample is trusted",
+      "metric": null
+    },
+    {
+      "id": "ble.bench.scan_connect_read",
+      "transport": "ble",
+      "kind": "bench",
+      "passed": true,
+      "detail": "environmental sensing service discovered, connected and read",
+      "metric": null
+    },
+    {
+      "id": "ble.accuracy.reference_climate",
+      "transport": "ble",
+      "kind": "accuracy",
+      "passed": true,
+      "detail": "reference 21.52 °C / 45 %RH reads 21.52 °C / 44.99 %RH",
+      "metric": {
+        "name": "temperature_error",
+        "value": 0.0,
+        "tolerance": 0.2,
+        "unit": "°C"
+      }
+    },
+    {
+      "id": "ble.bench.malformed_value_rejected",
+      "transport": "ble",
+      "kind": "bench",
+      "passed": true,
+      "detail": "a one-byte temperature characteristic is refused",
+      "metric": null
+    },
+    {
+      "id": "ble.bench.connect_retry",
+      "transport": "ble",
+      "kind": "bench",
+      "passed": true,
+      "detail": "a failed connect is reported and the retry succeeds",
+      "metric": null
+    },
+    {
+      "id": "ble.bench.absent_peripheral",
+      "transport": "ble",
+      "kind": "bench",
+      "passed": true,
+      "detail": "an absent peripheral yields no devices rather than a synthetic one",
+      "metric": null
+    },
+    {
+      "id": "ble.network_loss.link_loss_recovery",
+      "transport": "ble",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "link drop reported; reconnection returns a fresh characteristic read",
+      "metric": null
+    },
+    {
+      "id": "ble.environmental.vibration_link_drop",
+      "transport": "ble",
+      "kind": "environmental",
+      "passed": true,
+      "detail": "vibration-induced link drop is reported and self-heals on reconnect",
+      "metric": null
+    },
+    {
+      "id": "bacnet.bench.discover_and_read",
+      "transport": "bacnet",
+      "kind": "bench",
+      "passed": true,
+      "detail": "discovered 1 device(s) and read the analog input",
+      "metric": null
+    },
+    {
+      "id": "bacnet.accuracy.reference_point",
+      "transport": "bacnet",
+      "kind": "accuracy",
+      "passed": true,
+      "detail": "reference 21.4 °C reads 21.400000000000002 °C (10^-1 resolution)",
+      "metric": {
+        "name": "indicated_error",
+        "value": 3.814697286941282e-7,
+        "tolerance": 0.1,
+        "unit": "°C"
+      }
+    },
+    {
+      "id": "bacnet.bench.read_only",
+      "transport": "bacnet",
+      "kind": "bench",
+      "passed": true,
+      "detail": "the guard-owned BACnet path issued no WriteProperty",
+      "metric": null
+    },
+    {
+      "id": "bacnet.network_loss.server_loss_recovery",
+      "transport": "bacnet",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "server loss is a transport error; a fresh server is read successfully",
+      "metric": null
+    },
+    {
+      "id": "bacnet.environmental.humidity_and_vibration",
+      "transport": "bacnet",
+      "kind": "environmental",
+      "passed": true,
+      "detail": "loopback UDP path unaffected by 85 %RH / 2 g bench vibration profile",
+      "metric": null
+    },
+    {
+      "id": "modbus_rtu.bench.fc03_request_roundtrip",
+      "transport": "modbus_rtu",
+      "kind": "bench",
+      "passed": true,
+      "detail": "FC03 request framing and CRC round-trip",
+      "metric": null
+    },
+    {
+      "id": "modbus_rtu.bench.fc03_response_decode",
+      "transport": "modbus_rtu",
+      "kind": "bench",
+      "passed": true,
+      "detail": "FC03 response decodes two registers",
+      "metric": null
+    },
+    {
+      "id": "modbus_rtu.bench.fc06_fc16_echo",
+      "transport": "modbus_rtu",
+      "kind": "bench",
+      "passed": true,
+      "detail": "FC06 and FC16 echo responses validate address and quantity",
+      "metric": null
+    },
+    {
+      "id": "modbus_rtu.bench.bad_crc_rejected",
+      "transport": "modbus_rtu",
+      "kind": "bench",
+      "passed": true,
+      "detail": "frame CRC 6dc4 is recomputed and the corruption refused",
+      "metric": null
+    },
+    {
+      "id": "modbus_rtu.accuracy.register_resolution",
+      "transport": "modbus_rtu",
+      "kind": "accuracy",
+      "passed": true,
+      "detail": "215 at 0.1 °C resolution is 21.5 °C with no rounding error",
+      "metric": {
+        "name": "indicated_error",
+        "value": 0.0,
+        "tolerance": 0.1,
+        "unit": "°C"
+      }
+    },
+    {
+      "id": "modbus_rtu.network_loss.truncated_frame",
+      "transport": "modbus_rtu",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "a truncated frame (line loss mid-frame) is refused",
+      "metric": null
+    },
+    {
+      "id": "modbus_rtu.environmental.brownout_frame_integrity",
+      "transport": "modbus_rtu",
+      "kind": "environmental",
+      "passed": true,
+      "detail": "a brownout-corrupted frame fails its CRC rather than decoding",
+      "metric": null
+    },
+    {
+      "id": "modbus_tcp.bench.register_roundtrip",
+      "transport": "modbus_tcp",
+      "kind": "bench",
+      "passed": true,
+      "detail": "FC03/FC06/FC16 round-trip against the loopback server",
+      "metric": null
+    },
+    {
+      "id": "modbus_tcp.accuracy.register_resolution",
+      "transport": "modbus_tcp",
+      "kind": "accuracy",
+      "passed": true,
+      "detail": "register 2150 at 0.01 °C resolution reads 21.5 °C",
+      "metric": {
+        "name": "indicated_error",
+        "value": 0.0,
+        "tolerance": 0.01,
+        "unit": "°C"
+      }
+    },
+    {
+      "id": "modbus_tcp.network_loss.server_loss_recovery",
+      "transport": "modbus_tcp",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "server loss is a transport error; a fresh server reads the new value",
+      "metric": null
+    },
+    {
+      "id": "modbus_tcp.environmental.brownout_connection_loss",
+      "transport": "modbus_tcp",
+      "kind": "environmental",
+      "passed": true,
+      "detail": "a brownout-induced TCP loss surfaces as an error, never a cached register",
+      "metric": null
+    },
+    {
+      "id": "ds18b20.stability.mixed_fault_run",
+      "transport": "ds18b20",
+      "kind": "stability",
+      "passed": true,
+      "detail": "1000 cycles: 971 clean, 29 classified faults, worst DS18B20 error 0 °C, loop checksum 11651508",
+      "metric": {
+        "name": "worst_error",
+        "value": 0.0,
+        "tolerance": 0.5,
+        "unit": "°C"
+      }
+    }
+  ],
+  "passed": true,
+  "digest": "013e920e6a673d2b7a35fc75154972a79d2f207d4d84433269101e939c6aa217"
+}

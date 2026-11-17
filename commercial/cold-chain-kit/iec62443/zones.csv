@@ -1,0 +1,5 @@
+zone_id,zone_name,assets,sl_target,trust_boundary,notes
+Z1,Field devices,"DS18B20 probes, 4-20 mA transmitters, BLE peripherals, BACnet devices, Modbus RTU/TCP controllers",SL2,Physical site control,"Compromise can falsify readings or actuate; bus access is site responsibility"
+Z2,Edge gateway,"TirBase gateway, guard, driver processes, local database and keys",SL2 (SL3 with remote admin),Yes,"Holds keys and policy; deny-by-default command posture"
+Z3,Operations,"Operator console, local admin workstation, audit review station",SL2,No,"Human decisions and audit; access controlled by site identity"
+Z4,Enterprise and cloud,"Reporting, fleet console, backup storage, vendor support access",SL2,No,"Outbound-only from Z2; aggregated data"
