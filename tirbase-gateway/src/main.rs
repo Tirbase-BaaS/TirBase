@@ -1020,8 +1020,43 @@ async fn main() -> Result<()> {
         .clone()
         .or_else(|| config.ota_state_dir.as_ref().map(|d| d.join("rollout.json")));
 
+    // CC-21: mount the reporting surface when a report signing seed is
+    // configured. Without one the endpoints answer 503 rather than signing with
+    // an ephemeral key.
+    let reporting = match config.report_signing_seed_path.as_ref() {
+        Some(path) => match std::fs::read_to_string(path) {
+            Ok(text) => match hex::decode(text.trim()) {
+                Ok(bytes) if bytes.len() == 32 => {
+                    let mut seed = [0u8; 32];
+                    seed.copy_from_slice(&bytes);
+                    let signer = tirbase_gateway::reporting::ReportSigner::from_seed(&seed);
+                    zeroize::Zeroize::zeroize(&mut seed);
+                    match tirbase_gateway::reporting::ReportService::open(&primary_db_path, signer) {
+                        Ok(service) => {
+                            Some(std::sync::Arc::new(std::sync::Mutex::new(service)))
+                        }
+                        Err(error) => {
+                            tracing::warn!(%error, "reporting service unavailable; /admin/reporting will answer 503");
+                            None
+                        }
+                    }
+                }
+                _ => {
+                    tracing::warn!(path = %path.display(), "report signing seed must be 64 hex characters; /admin/reporting will answer 503");
+                    None
+                }
+            },
+            Err(error) => {
+                tracing::warn!(%error, path = %path.display(), "cannot read report signing seed; /admin/reporting will answer 503");
+                None
+            }
+        },
+        None => None,
+    };
+
     let admin_state = admin::AdminState {
         vertical_api,
+        reporting,
         ota_slots: ota_slots.clone(),
         ota_signer_public_key,
         ota_channel_policy: ota_channel_policy.clone(),

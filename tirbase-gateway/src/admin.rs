@@ -89,6 +89,11 @@ pub struct AdminState {
  /// F-04: authority public key accepted for signed provisioning payloads.
     pub provisioning_authority_public_key: Option<[u8; 32]>,    /// F-08: tenant-scoped cold-chain, POS and venue resource API.
     pub vertical_api: Option<Arc<crate::vertical_api::VerticalApi>>,
+    /// CC-21: report generation, exports, e-signatures and the audit chain.
+    ///
+    /// `None` when no report signing seed is configured; `/admin/reporting`
+    /// then answers 503 instead of pretending the surface exists.
+    pub reporting: Option<Arc<std::sync::Mutex<crate::reporting::ReportService>>>,
     /// F-11: OTA A/B slot manager (signed bundles, rollback, offline path).
     pub ota_slots: Option<Arc<crate::ota::AbSlotManager>>,
     /// F-11: OTA signer public key (hex-decoded) for bundle verification.
@@ -116,6 +121,7 @@ impl fmt::Debug for AdminState {
             .field("has_self_update", &self.self_update.is_some())
             .field("has_provisioning", &self.provisioning.is_some())
             .field("has_vertical_api", &self.vertical_api.is_some())
+            .field("has_reporting", &self.reporting.is_some())
             .field("has_ota", &self.ota_slots.is_some())
             .finish()
     }
@@ -150,6 +156,7 @@ impl Default for AdminState {
             provisioning: None,
             provisioning_authority_public_key: None,
             vertical_api: None,
+            reporting: None,
             ota_slots: None,
             ota_signer_public_key: None,
             ota_channel_policy: None,
@@ -191,6 +198,7 @@ impl AdminState {
             provisioning: None,
             provisioning_authority_public_key: None,
             vertical_api: None,
+            reporting: None,
             ota_slots: None,
             ota_signer_public_key: None,
             ota_channel_policy: None,
@@ -330,6 +338,9 @@ pub fn dispatch_http_request(
         // Keep the query string: tenant, pagination and replay scoping are
         // query parameters on GETs.
         return api.dispatch(method, path, body, now_est);
+    }
+    if path_only == "/admin/reporting" || path_only.starts_with("/admin/reporting/") {
+        return dispatch_reporting_http(method, path_only, query, state, now_est, caller);
     }
     let query_payload = parse_query_payload(query);
     let (cmd, payload, path_status) = match (method.to_ascii_uppercase().as_str(), path_only) {
@@ -806,6 +817,211 @@ fn require_privileged(
             endpoint,
         )),
     }
+}
+
+/// CC-21: `/admin/reporting/*` — reports, signatures, audit trail and chain
+/// verification.
+///
+/// Same credential model as every other admin route: a kernel-attested local
+/// caller is trusted, a remote caller must present a valid scoped Biscuit token
+/// whose role is Auditor or PolicyAuthority (reads of audit material are
+/// privileged). Tenant scoping is enforced on every query: the `tenant`
+/// parameter is required, listings are filtered by it, and a report, signature
+/// or audit row belonging to another tenant answers 404 rather than leaking
+/// existence.
+fn dispatch_reporting_http(
+    method: &str,
+    path_only: &str,
+    query: &str,
+    state: Option<&AdminState>,
+    now_est: i64,
+    caller: &AdminCaller,
+) -> (u16, String) {
+    let Some(service) = state.and_then(|state| state.reporting.as_ref()) else {
+        return (
+            503,
+            serde_json::json!({
+                "status": 503,
+                "code": "ADMIN_STATE_UNCONFIGURED",
+                "error": "reporting service is not configured in this process"
+            })
+            .to_string(),
+        );
+    };
+    // Missing or unverifiable credentials are a 401, exactly as on the vertical
+    // resource routes; a verified but under-privileged caller is a 403.
+    if let Err(error) = caller_claims(state, "{}", caller, now_est) {
+        return (
+            401,
+            deny(401, "ADMIN_CREDENTIAL_REQUIRED", &error, "reporting"),
+        );
+    }
+    if let Err(response) = require_privileged(state, "{}", caller, now_est, "reporting") {
+        return (response_status(&response), response);
+    }
+    if !method.eq_ignore_ascii_case("GET") {
+        return (
+            405,
+            serde_json::json!({"status": 405, "error": "reporting endpoints are read-only"})
+                .to_string(),
+        );
+    }
+
+    let params = parse_query_payload(query).unwrap_or_else(|| serde_json::json!({}));
+    let tenant = match params
+        .get("tenant")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|tenant| !tenant.is_empty())
+    {
+        Some(tenant) => tenant.to_string(),
+        None => {
+            return (
+                400,
+                serde_json::json!({
+                    "status": 400,
+                    "error": "tenant query parameter is required"
+                })
+                .to_string(),
+            )
+        }
+    };
+    let limit = params
+        .get("limit")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(50);
+
+    let service = service
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let rest = path_only.trim_start_matches("/admin/reporting");
+    match rest {
+        "/reports" => {
+            let kind = match params.get("kind").and_then(serde_json::Value::as_str) {
+                None => None,
+                Some(value) => match crate::reporting::ReportKind::parse(value) {
+                    Some(kind) => Some(kind),
+                    None => {
+                        return (
+                            400,
+                            serde_json::json!({
+                                "status": 400,
+                                "error": format!("unknown report kind {value:?}")
+                            })
+                            .to_string(),
+                        )
+                    }
+                },
+            };
+            match service.list_reports(&tenant, kind, limit) {
+                Ok(items) => (
+                    200,
+                    serde_json::json!({"status": 200, "tenant": tenant, "items": items})
+                        .to_string(),
+                ),
+                Err(error) => reporting_error(&error),
+            }
+        }
+        "/audit" => match service.audit_for_tenant(&tenant, limit) {
+            Ok(entries) => (
+                200,
+                serde_json::json!({"status": 200, "tenant": tenant, "entries": entries})
+                    .to_string(),
+            ),
+            Err(error) => reporting_error(&error),
+        },
+        "/audit/verify" => match service.verify_audit_chain() {
+            Ok(verification) => (
+                200,
+                serde_json::json!({
+                    "status": 200,
+                    "tenant": tenant,
+                    "verification": verification
+                })
+                .to_string(),
+            ),
+            Err(error) => reporting_error(&error),
+        },
+        other => {
+            let Some(tail) = other.strip_prefix("/reports/") else {
+                return (
+                    404,
+                    serde_json::json!({"status": 404, "error": "unknown admin endpoint"})
+                        .to_string(),
+                );
+            };
+            let (report_id, want_signatures) = match tail.strip_suffix("/signatures") {
+                Some(report_id) => (report_id, true),
+                None => (tail, false),
+            };
+            if report_id.is_empty() || report_id.contains('/') {
+                return (
+                    404,
+                    serde_json::json!({"status": 404, "error": "unknown admin endpoint"})
+                        .to_string(),
+                );
+            }
+            match service.load_report(report_id) {
+                Ok(report) if report.tenant == tenant => {
+                    if want_signatures {
+                        match service.signatures_for(report_id) {
+                            Ok(signatures) => (
+                                200,
+                                serde_json::json!({
+                                    "status": 200,
+                                    "tenant": tenant,
+                                    "signatures": signatures
+                                })
+                                .to_string(),
+                            ),
+                            Err(error) => reporting_error(&error),
+                        }
+                    } else {
+                        (
+                            200,
+                            serde_json::json!({
+                                "status": 200,
+                                "tenant": tenant,
+                                "report": report
+                            })
+                            .to_string(),
+                        )
+                    }
+                }
+                // A report owned by another tenant is indistinguishable from an
+                // unknown one.
+                Ok(_) | Err(crate::reporting::ReportError::NotFound(_)) => (
+                    404,
+                    serde_json::json!({"status": 404, "error": "unknown report"}).to_string(),
+                ),
+                Err(error) => reporting_error(&error),
+            }
+        }
+    }
+}
+
+fn reporting_error(error: &crate::reporting::ReportError) -> (u16, String) {
+    use crate::reporting::ReportError as E;
+    let status = match error {
+        E::NotFound(_) => 404,
+        E::InvalidRequest(_) => 400,
+        E::Conflict(_) => 409,
+        E::ReauthFailed(_) | E::ReauthNotFresh { .. } => 403,
+        E::CeremonyAlreadyUsed(_) | E::CeremonyConflict(_) | E::RecordChanged(_) => 409,
+        E::Store(_) | E::Export(_) | E::Signing(_) => 500,
+    };
+    (
+        status,
+        serde_json::json!({"status": status, "error": error.to_string()}).to_string(),
+    )
+}
+
+fn response_status(response: &str) -> u16 {
+    serde_json::from_str::<serde_json::Value>(response)
+        .ok()
+        .and_then(|value| value.get("status").and_then(|status| status.as_u64()))
+        .unwrap_or(403) as u16
 }
 
 // ── Enrollment delegation () ─────────────────────────────────────

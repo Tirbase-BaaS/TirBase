@@ -255,9 +255,15 @@ pub struct GatewayConfig {
     #[serde(default = "default_admin_events_view_days")]
     pub admin_events_view_days: i64,
 
- /// Maximum number of events returned by one `/admin/events` page.
+     /// Maximum number of events returned by one `/admin/events` page.
     #[serde(default = "default_admin_events_page_size")]
     pub admin_events_page_size: usize,
+
+    /// CC-21: file holding the hex Ed25519 seed (32 bytes) used to sign report
+    /// exports, export manifests and e-signatures. When absent, `/admin/reporting`
+    /// answers 503 and reports can still be generated through the library API.
+    #[serde(default)]
+    pub report_signing_seed_path: Option<PathBuf>,
 
  /// –36.8f (PV-11.1): outbound cloud command channel endpoint.
  /// The gateway only ever initiates this connection; there is deliberately
