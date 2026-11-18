@@ -1,0 +1,7 @@
+KDS1
+I ticket-1
+O order-1
+C check-1
+S 7
+L line-1 2000 grill queued Burger%20one
+END
