@@ -5011,6 +5011,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tirbase-en16931"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "tempfile",
+]
+
+[[package]]
 name = "tirbase-epcis"
 version = "0.1.0"
 dependencies = [
@@ -5063,6 +5074,7 @@ dependencies = [
  "tirbase-drivers",
  "tirbase-guard",
  "tirbase-notify",
+ "tirbase-pos",
  "tirbase-sim",
  "tirbase-types",
  "tokio",
@@ -5100,6 +5112,20 @@ dependencies = [
  "tokio",
  "tracing",
  "trybuild",
+ "zeroize",
+]
+
+[[package]]
+name = "tirbase-integrations"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "tempfile",
+ "toml 0.8.23",
  "zeroize",
 ]
 

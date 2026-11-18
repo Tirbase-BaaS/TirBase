@@ -12,6 +12,8 @@ members = [
     "tirbase-epcis",
     "tirbase-pos",
     "tirbase-notify",
+    "tirbase-integrations",
+    "tirbase-en16931",
     "examples/vendor-driver",
 ]
 resolver = "2"
