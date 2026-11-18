@@ -136,6 +136,20 @@ id_newtype!(
     "idempotency key"
 );
 id_newtype!(
+    /// Caller-supplied anti-replay nonce for one payment envelope (POS-06).
+    ///
+    /// A nonce is globally unique inside one [`crate::envelope::PaymentDesk`]:
+    /// reusing it on another terminal, epoch or operation is a conflict, never
+    /// a replay.
+    PaymentNonce,
+    "payment nonce"
+);
+id_newtype!(
+    /// Caller-supplied idempotent identifier for one kitchen-display ticket.
+    KdsTicketId,
+    "KDS ticket id"
+);
+id_newtype!(
     /// Identifies one immutable catalog version.
     CatalogVersionId,
     "catalog version id"
@@ -179,6 +193,41 @@ id_newtype!(
     /// Caller-supplied identifier for one approval request.
     ApprovalId,
     "approval id"
+);
+id_newtype!(
+    /// Identifies one operator shift on one terminal (POS-11).
+    ShiftId,
+    "shift id"
+);
+id_newtype!(
+    /// Caller-supplied idempotent identifier for one drawer cash movement.
+    CashMovementId,
+    "cash movement id"
+);
+id_newtype!(
+    /// Caller-supplied idempotent identifier for one drawer count.
+    DrawerCountId,
+    "drawer count id"
+);
+id_newtype!(
+    /// Identifies one processor settlement batch (POS-12).
+    SettlementBatchId,
+    "settlement batch id"
+);
+id_newtype!(
+    /// Identifies one record inside a processor settlement file (POS-12).
+    ProcessorRecordId,
+    "processor record id"
+);
+id_newtype!(
+    /// Identifies one chargeback case (POS-12).
+    ChargebackId,
+    "chargeback id"
+);
+id_newtype!(
+    /// Identifies one tip pool payout (POS-12).
+    TipPoolId,
+    "tip pool id"
 );
 
 #[cfg(test)]
