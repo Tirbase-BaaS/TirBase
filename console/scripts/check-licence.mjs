@@ -40,8 +40,10 @@ for (const dir of sourceDirs) {
     if (/SPDX-License-Identifier:\s*AGPL/i.test(text)) {
       violations.push(`${relative}: AGPL SPDX header`);
     }
-    if (/tirbase-(gateway|core|guard|admin)(\/|[\s'"`])/i.test(text)) {
-      violations.push(`${relative}: references AGPL gateway/core code`);
+    // The POS domain crate is AGPL-3.0-only; the Apache-2.0 console model must
+    // stay independent of it, so even a textual reference is a violation.
+    if (/tirbase-(gateway|core|guard|admin|pos)(\/|[\s'"`])/i.test(text)) {
+      violations.push(`${relative}: references AGPL gateway/core/pos code`);
     }
     for (const match of text.matchAll(/(?:from\s+|import\s*\()['"]([^'"]+)['"]/g)) {
       const specifier = match[1];
@@ -70,8 +72,12 @@ const dist = path.join(root, 'dist', 'assets');
 if (fs.existsSync(dist)) {
   for (const file of fs.readdirSync(dist).filter((name) => name.endsWith('.js'))) {
     const text = fs.readFileSync(path.join(dist, file), 'utf8');
-    if (text.includes('AGPL-3.0') || text.includes('tirbase-gateway')) {
-      violations.push(`dist/${file}: bundled AGPL gateway marker`);
+    if (
+      text.includes('AGPL-3.0') ||
+      text.includes('tirbase-gateway') ||
+      text.includes('tirbase-pos')
+    ) {
+      violations.push(`dist/${file}: bundled AGPL marker`);
     }
   }
 }

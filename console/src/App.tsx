@@ -7,33 +7,56 @@ import { useSession } from './session';
 import { Login } from './Login';
 import { ColdChainScreen } from './screens/ColdChainScreen';
 import { PosScreen } from './screens/PosScreen';
+import { TerminalScreen } from './screens/TerminalScreen';
+import { FloorScreen } from './screens/FloorScreen';
+import { KdsScreen } from './screens/KdsScreen';
+import { ShiftScreen } from './screens/ShiftScreen';
 import { VenueScreen } from './screens/VenueScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { AuditScreen } from './screens/AuditScreen';
 
-type Route = 'cold-chain' | 'pos' | 'venues' | 'audit' | 'settings';
+type Route =
+  | 'cold-chain'
+  | 'pos'
+  | 'terminal'
+  | 'floor'
+  | 'kds'
+  | 'shift'
+  | 'venues'
+  | 'audit'
+  | 'settings';
 
 const routes: { id: Route; key: MessageKey }[] = [
   { id: 'cold-chain', key: 'nav.coldChain' },
   { id: 'pos', key: 'nav.pos' },
+  { id: 'terminal', key: 'nav.terminal' },
+  { id: 'floor', key: 'nav.floor' },
+  { id: 'kds', key: 'nav.kds' },
+  { id: 'shift', key: 'nav.shift' },
   { id: 'venues', key: 'nav.venues' },
   { id: 'audit', key: 'nav.audit' },
   { id: 'settings', key: 'nav.settings' },
 ];
 
-function readRoute(): Route {
-  const value = window.location.hash.replace(/^#\/?/, '');
-  return routes.some((route) => route.id === value) ? (value as Route) : 'cold-chain';
+type Location = { route: Route; params: URLSearchParams };
+
+function readLocation(): Location {
+  const raw = window.location.hash.replace(/^#\/?/, '');
+  const [path = '', query = ''] = raw.split('?');
+  const route = routes.some((candidate) => candidate.id === path)
+    ? (path as Route)
+    : 'cold-chain';
+  return { route, params: new URLSearchParams(query) };
 }
 
-function useHashRoute(): Route {
-  const [route, setRoute] = useState<Route>(readRoute);
+function useHashLocation(): Location {
+  const [location, setLocation] = useState<Location>(readLocation);
   useEffect(() => {
-    const onChange = () => setRoute(readRoute());
+    const onChange = () => setLocation(readLocation());
     window.addEventListener('hashchange', onChange);
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
-  return route;
+  return location;
 }
 
 function TenantSwitcher() {
@@ -76,7 +99,8 @@ function TenantSwitcher() {
 
 export function App() {
   const { config, update, signOut } = useSession();
-  const route = useHashRoute();
+  const location = useHashLocation();
+  const route = location.route;
   const t = useMemo(
     () => (key: MessageKey, vars?: Record<string, string | number>) =>
       translate(config.locale, key, vars),
@@ -167,6 +191,12 @@ export function App() {
           <main id="main-content" tabIndex={-1} className="tb-content">
             {route === 'cold-chain' ? <ColdChainScreen /> : null}
             {route === 'pos' ? <PosScreen /> : null}
+            {route === 'terminal' ? (
+              <TerminalScreen tableParam={location.params.get('table') ?? undefined} />
+            ) : null}
+            {route === 'floor' ? <FloorScreen /> : null}
+            {route === 'kds' ? <KdsScreen /> : null}
+            {route === 'shift' ? <ShiftScreen /> : null}
             {route === 'venues' ? <VenueScreen /> : null}
             {route === 'audit' ? <AuditScreen /> : null}
             {route === 'settings' ? <SettingsScreen /> : null}

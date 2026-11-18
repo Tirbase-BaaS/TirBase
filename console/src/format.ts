@@ -33,6 +33,18 @@ export function formatMoney(
   }
 }
 
+/**
+ * Parse a decimal money entry such as `12.50` into integer minor units.
+ * Returns `null` for anything that is not a plain non-negative amount with at
+ * most two decimals, so a stray keystroke cannot become a charge.
+ */
+export function parseMoneyMinor(text: string): number | null {
+  const normalised = text.trim().replace(',', '.');
+  if (!/^\d+(\.\d{0,2})?$/.test(normalised)) return null;
+  const [whole = '0', fraction = ''] = normalised.split('.');
+  return Number(whole) * 100 + Number(`${fraction}00`.slice(0, 2));
+}
+
 export function formatTemperature(milli: number, locale: Locale): string {
   return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 1,
