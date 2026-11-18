@@ -1,0 +1,55 @@
+{
+  "invoices": [
+    {
+      "tenant": "golden",
+      "number": "GOLDEN-DISCOUNT-1",
+      "issued_est": 1767225600,
+      "currency": "EUR",
+      "seller": {
+        "name": "Acme Coffee SL",
+        "vat_id": "ESA12345674",
+        "line1": "Calle Mayor 1",
+        "city": "Madrid",
+        "postcode": "28013",
+        "country": "ES"
+      },
+      "buyer": {
+        "name": "Beta Bakery SL",
+        "line1": "Calle Menor 2",
+        "city": "Madrid",
+        "postcode": "28014",
+        "country": "ES"
+      },
+      "lines": [
+        {
+          "id": "1",
+          "description": "Espresso beans 1 kg",
+          "quantity": 2,
+          "unit_price_minor": 1290,
+          "vat_category": "standard",
+          "vat_rate_bp": 2100,
+          "discount_minor": 100
+        },
+        {
+          "id": "2",
+          "description": "Sourdough bread",
+          "quantity": 4,
+          "unit_price_minor": 250,
+          "vat_category": "standard",
+          "vat_rate_bp": 1000
+        },
+        {
+          "id": "3",
+          "description": "Notebook",
+          "quantity": 1,
+          "unit_price_minor": 1500,
+          "vat_category": "exempt",
+          "vat_rate_bp": 0
+        }
+      ],
+      "document_discount_minor": 300,
+      "payment_code": "10",
+      "note": "Golden case: a line discount and a document discount apportioned over three VAT groups."
+    }
+  ]
+}

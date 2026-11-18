@@ -1,0 +1,23 @@
+[package]
+name = "tirbase-en16931"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+description = "EN 16931 e-invoicing adapter for POS data: semantic model, UBL 2.1 and CII D16B serialization, validation and batch export"
+repository = "https://github.com/tirbase/tirbase"
+keywords = ["einvoicing", "en16931", "ubl", "cii", "pos"]
+categories = ["encoding"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11.0"
+hex = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[bin]]
+name = "en16931"
+path = "src/main.rs"

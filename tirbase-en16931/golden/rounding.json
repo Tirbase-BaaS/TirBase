@@ -1,0 +1,38 @@
+{
+  "invoices": [
+    {
+      "tenant": "golden",
+      "number": "GOLDEN-ROUNDING-1",
+      "issued_est": 1767225600,
+      "currency": "EUR",
+      "seller": {
+        "name": "Acme Coffee SL",
+        "vat_id": "ESA12345674",
+        "line1": "Calle Mayor 1",
+        "city": "Madrid",
+        "postcode": "28013",
+        "country": "ES"
+      },
+      "buyer": {
+        "name": "Beta Bakery SL",
+        "line1": "Calle Menor 2",
+        "city": "Madrid",
+        "postcode": "28014",
+        "country": "ES"
+      },
+      "lines": [
+        {
+          "description": "Espresso beans 1 kg",
+          "quantity": 1,
+          "unit_price_minor": 1290,
+          "vat_category": "standard",
+          "vat_rate_bp": 2100
+        }
+      ],
+      "prepaid_minor": 500,
+      "rounding_minor": -1,
+      "payment_code": "10",
+      "note": "Golden case: half-up VAT rounding, a prepayment and cash rounding of the payable amount."
+    }
+  ]
+}

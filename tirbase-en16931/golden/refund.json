@@ -1,0 +1,39 @@
+{
+  "invoices": [
+    {
+      "tenant": "golden",
+      "number": "GOLDEN-REFUND-1",
+      "issued_est": 1767225600,
+      "currency": "EUR",
+      "seller": {
+        "name": "Acme Coffee SL",
+        "vat_id": "ESA12345674",
+        "line1": "Calle Mayor 1",
+        "city": "Madrid",
+        "postcode": "28013",
+        "country": "ES"
+      },
+      "buyer": {
+        "name": "Beta Bakery SL",
+        "vat_id": "ESB87654321",
+        "line1": "Calle Menor 2",
+        "city": "Madrid",
+        "postcode": "28014",
+        "country": "ES"
+      },
+      "lines": [
+        {
+          "description": "Espresso beans 1 kg",
+          "quantity": 1,
+          "unit_price_minor": 1290,
+          "vat_category": "standard",
+          "vat_rate_bp": 2100
+        }
+      ],
+      "payment_code": "30",
+      "payment_reference": "GOLDEN-REFUND-1",
+      "refund_of": "GOLDEN-TAX-1",
+      "note": "Golden case: a refund of one line of GOLDEN-TAX-1."
+    }
+  ]
+}

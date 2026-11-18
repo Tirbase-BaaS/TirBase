@@ -1,0 +1,63 @@
+{
+  "invoices": [
+    {
+      "tenant": "golden",
+      "number": "GOLDEN-TAX-1",
+      "issued_est": 1767225600,
+      "due_est": 1769904000,
+      "currency": "EUR",
+      "seller": {
+        "name": "Acme Coffee SL",
+        "trading_name": "Acme Coffee",
+        "vat_id": "ESA12345674",
+        "legal_id": "B87654321",
+        "legal_scheme": "ES:NIF",
+        "line1": "Calle Mayor 1",
+        "city": "Madrid",
+        "postcode": "28013",
+        "country": "ES",
+        "endpoint": "billing@acme.example",
+        "endpoint_scheme": "EM"
+      },
+      "buyer": {
+        "name": "Beta Bakery SL",
+        "vat_id": "ESB87654321",
+        "line1": "Calle Menor 2",
+        "line2": "Planta 3",
+        "city": "Madrid",
+        "postcode": "28014",
+        "country": "ES",
+        "endpoint": "accounts@beta.example",
+        "endpoint_scheme": "EM"
+      },
+      "lines": [
+        {
+          "description": "Espresso beans 1 kg",
+          "quantity": 2,
+          "unit_price_minor": 1290,
+          "vat_category": "standard",
+          "vat_rate_bp": 2100
+        },
+        {
+          "description": "Sourdough bread",
+          "quantity": 3,
+          "unit_price_minor": 250,
+          "vat_category": "standard",
+          "vat_rate_bp": 1000
+        },
+        {
+          "description": "Tap water",
+          "quantity": 1,
+          "unit_price_minor": 0,
+          "vat_category": "zero",
+          "vat_rate_bp": 0
+        }
+      ],
+      "payment_code": "30",
+      "payment_instruction": "SEPA credit transfer",
+      "payment_reference": "GOLDEN-TAX-1",
+      "buyer_reference": "PO-42",
+      "note": "Golden case: three VAT categories and two standard rates."
+    }
+  ]
+}
