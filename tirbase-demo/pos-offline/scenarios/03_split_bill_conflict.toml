@@ -1,0 +1,65 @@
+# Two terminals split the same line while partitioned. Canonical rebuild order
+# gives one split the line; the other is rejected. Money is conserved across the
+# source and the winning target.
+schema_version = 1
+id = "split_bill_conflict"
+title = "Concurrent split of one bill"
+attack = "Two terminals move the same line to different target checks while offline, hoping both splits survive and duplicate the line."
+invariant = "split_conflict_has_one_winner_and_conserves_money"
+
+approvals = []
+
+[initial]
+currency = "USD"
+terminal = "till-1"
+operator = "emp-1"
+approver = "supervisor"
+epoch = 1
+check = "check-1"
+check_total_minor = 1000
+tip_minor = 0
+check_status = "open"
+intent = "intent-split"
+intent_status = "authorized"
+payment = "pay-split"
+
+[initial.split]
+source_check = "check-1"
+line_item = "line-1"
+target_a = "check-1a"
+target_b = "check-1b"
+lamport = 100
+
+[[partitions]]
+actor = "till-1"
+offline = true
+from_ms = 1000
+to_ms = 2000
+reason = "diners split the bill at two terminals"
+
+[[partitions]]
+actor = "till-2"
+offline = true
+from_ms = 1000
+to_ms = 2000
+reason = "diners split the bill at two terminals"
+
+[[commands]]
+id = "split-by-till-1"
+kind = "split_check"
+actor = "till-1"
+at_ms = 1500
+target_check = "check-1a"
+line_item = "line-1"
+lamport = 100
+expect = "winner"
+
+[[commands]]
+id = "split-by-till-2"
+kind = "split_check"
+actor = "till-2"
+at_ms = 1500
+target_check = "check-1b"
+line_item = "line-1"
+lamport = 100
+expect = "loser"

@@ -1,5 +1,555 @@
 pub mod tirbase_demo
 pub use tirbase_demo::tirbase_types
+pub mod tirbase_demo::pos_pack
+pub struct tirbase_demo::pos_pack::PosApproval
+pub tirbase_demo::pos_pack::PosApproval::action: alloc::string::String
+pub tirbase_demo::pos_pack::PosApproval::amount_minor: i64
+pub tirbase_demo::pos_pack::PosApproval::approver: alloc::string::String
+pub tirbase_demo::pos_pack::PosApproval::expires_at_ms: i64
+pub tirbase_demo::pos_pack::PosApproval::id: alloc::string::String
+pub tirbase_demo::pos_pack::PosApproval::reason: alloc::string::String
+pub tirbase_demo::pos_pack::PosApproval::requested_at_ms: i64
+pub tirbase_demo::pos_pack::PosApproval::requester: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosApproval
+pub fn tirbase_demo::pos_pack::PosApproval::clone(&self) -> tirbase_demo::pos_pack::PosApproval
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosApproval
+pub fn tirbase_demo::pos_pack::PosApproval::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosApproval
+pub fn tirbase_demo::pos_pack::PosApproval::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosApproval
+impl core::marker::Send for tirbase_demo::pos_pack::PosApproval
+impl core::marker::Sync for tirbase_demo::pos_pack::PosApproval
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosApproval
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosApproval
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosApproval
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosApproval
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosApproval where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosApproval::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosApproval where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosApproval::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosApproval::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosApproval where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosApproval::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosApproval::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosApproval where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosApproval::Owned = T
+pub fn tirbase_demo::pos_pack::PosApproval::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosApproval::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosApproval where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosApproval::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosApproval where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosApproval::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosApproval where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosApproval::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosApproval where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosApproval::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosApproval
+pub fn tirbase_demo::pos_pack::PosApproval::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosApproval where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosCommand
+pub tirbase_demo::pos_pack::PosCommand::actor: alloc::string::String
+pub tirbase_demo::pos_pack::PosCommand::amount_minor: core::option::Option<i64>
+pub tirbase_demo::pos_pack::PosCommand::approval: core::option::Option<alloc::string::String>
+pub tirbase_demo::pos_pack::PosCommand::at_ms: i64
+pub tirbase_demo::pos_pack::PosCommand::counter: core::option::Option<u64>
+pub tirbase_demo::pos_pack::PosCommand::denial: core::option::Option<alloc::string::String>
+pub tirbase_demo::pos_pack::PosCommand::effective_ms: core::option::Option<i64>
+pub tirbase_demo::pos_pack::PosCommand::expect: alloc::string::String
+pub tirbase_demo::pos_pack::PosCommand::id: alloc::string::String
+pub tirbase_demo::pos_pack::PosCommand::kind: alloc::string::String
+pub tirbase_demo::pos_pack::PosCommand::lamport: core::option::Option<u64>
+pub tirbase_demo::pos_pack::PosCommand::line_item: core::option::Option<alloc::string::String>
+pub tirbase_demo::pos_pack::PosCommand::nonce: core::option::Option<alloc::string::String>
+pub tirbase_demo::pos_pack::PosCommand::target_check: core::option::Option<alloc::string::String>
+impl core::clone::Clone for tirbase_demo::pos_pack::PosCommand
+pub fn tirbase_demo::pos_pack::PosCommand::clone(&self) -> tirbase_demo::pos_pack::PosCommand
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosCommand
+pub fn tirbase_demo::pos_pack::PosCommand::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosCommand
+pub fn tirbase_demo::pos_pack::PosCommand::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosCommand
+impl core::marker::Send for tirbase_demo::pos_pack::PosCommand
+impl core::marker::Sync for tirbase_demo::pos_pack::PosCommand
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosCommand
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosCommand
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosCommand
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosCommand
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosCommand where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosCommand::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosCommand where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosCommand::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosCommand::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosCommand where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosCommand::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosCommand::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosCommand where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosCommand::Owned = T
+pub fn tirbase_demo::pos_pack::PosCommand::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosCommand::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosCommand where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosCommand::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosCommand where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosCommand::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosCommand where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosCommand::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosCommand where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosCommand::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosCommand
+pub fn tirbase_demo::pos_pack::PosCommand::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosCommand where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosExpectedOutputs
+pub tirbase_demo::pos_pack::PosExpectedOutputs::scenario: alloc::vec::Vec<tirbase_demo::pos_pack::PosExpectedScenario>
+pub tirbase_demo::pos_pack::PosExpectedOutputs::schema_version: u32
+impl core::clone::Clone for tirbase_demo::pos_pack::PosExpectedOutputs
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::clone(&self) -> tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosExpectedOutputs
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosExpectedOutputs
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::marker::Send for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::marker::Sync for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosExpectedOutputs
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosExpectedOutputs where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosExpectedOutputs where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosExpectedOutputs::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosExpectedOutputs where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosExpectedOutputs::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosExpectedOutputs where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosExpectedOutputs::Owned = T
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosExpectedOutputs where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosExpectedOutputs where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosExpectedOutputs where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosExpectedOutputs where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosExpectedOutputs::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosExpectedOutputs
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosExpectedOutputs where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosExpectedScenario
+pub tirbase_demo::pos_pack::PosExpectedScenario::id: alloc::string::String
+pub tirbase_demo::pos_pack::PosExpectedScenario::ledger: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::pos_pack::PosExpectedScenario::permit: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for tirbase_demo::pos_pack::PosExpectedScenario
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::clone(&self) -> tirbase_demo::pos_pack::PosExpectedScenario
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosExpectedScenario
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosExpectedScenario
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::marker::Send for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::marker::Sync for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosExpectedScenario
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosExpectedScenario where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosExpectedScenario where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosExpectedScenario::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosExpectedScenario where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosExpectedScenario::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosExpectedScenario where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosExpectedScenario::Owned = T
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosExpectedScenario where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosExpectedScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosExpectedScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosExpectedScenario where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosExpectedScenario::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosExpectedScenario
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosExpectedScenario where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosInitial
+pub tirbase_demo::pos_pack::PosInitial::approver: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::check: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::check_status: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::check_total_minor: i64
+pub tirbase_demo::pos_pack::PosInitial::currency: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::epoch: u64
+pub tirbase_demo::pos_pack::PosInitial::intent: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::intent_status: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::kds: core::option::Option<tirbase_demo::pos_pack::PosKds>
+pub tirbase_demo::pos_pack::PosInitial::operator: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::payment: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::pricing: core::option::Option<tirbase_demo::pos_pack::PosPricing>
+pub tirbase_demo::pos_pack::PosInitial::split: core::option::Option<tirbase_demo::pos_pack::PosSplit>
+pub tirbase_demo::pos_pack::PosInitial::terminal: alloc::string::String
+pub tirbase_demo::pos_pack::PosInitial::tip_minor: i64
+impl core::clone::Clone for tirbase_demo::pos_pack::PosInitial
+pub fn tirbase_demo::pos_pack::PosInitial::clone(&self) -> tirbase_demo::pos_pack::PosInitial
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosInitial
+pub fn tirbase_demo::pos_pack::PosInitial::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosInitial
+pub fn tirbase_demo::pos_pack::PosInitial::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosInitial
+impl core::marker::Send for tirbase_demo::pos_pack::PosInitial
+impl core::marker::Sync for tirbase_demo::pos_pack::PosInitial
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosInitial
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosInitial
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosInitial
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosInitial
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosInitial where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosInitial::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosInitial where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosInitial::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosInitial::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosInitial where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosInitial::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosInitial::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosInitial where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosInitial::Owned = T
+pub fn tirbase_demo::pos_pack::PosInitial::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosInitial::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosInitial where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosInitial::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosInitial where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosInitial::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosInitial where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosInitial::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosInitial where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosInitial::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosInitial
+pub fn tirbase_demo::pos_pack::PosInitial::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosInitial where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosKds
+pub tirbase_demo::pos_pack::PosKds::check: alloc::string::String
+pub tirbase_demo::pos_pack::PosKds::line: alloc::string::String
+pub tirbase_demo::pos_pack::PosKds::name: alloc::string::String
+pub tirbase_demo::pos_pack::PosKds::order: alloc::string::String
+pub tirbase_demo::pos_pack::PosKds::quantity_thousandths: i64
+pub tirbase_demo::pos_pack::PosKds::sequence: u64
+pub tirbase_demo::pos_pack::PosKds::station: alloc::string::String
+pub tirbase_demo::pos_pack::PosKds::ticket: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosKds
+pub fn tirbase_demo::pos_pack::PosKds::clone(&self) -> tirbase_demo::pos_pack::PosKds
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosKds
+pub fn tirbase_demo::pos_pack::PosKds::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosKds
+pub fn tirbase_demo::pos_pack::PosKds::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosKds
+impl core::marker::Send for tirbase_demo::pos_pack::PosKds
+impl core::marker::Sync for tirbase_demo::pos_pack::PosKds
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosKds
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosKds
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosKds
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosKds
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosKds where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosKds::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosKds where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosKds::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosKds::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosKds where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosKds::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosKds::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosKds where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosKds::Owned = T
+pub fn tirbase_demo::pos_pack::PosKds::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosKds::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosKds where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosKds::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosKds where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosKds::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosKds where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosKds::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosKds where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosKds::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosKds
+pub fn tirbase_demo::pos_pack::PosKds::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosKds where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosPack
+pub tirbase_demo::pos_pack::PosPack::expected: tirbase_demo::pos_pack::PosExpectedOutputs
+pub tirbase_demo::pos_pack::PosPack::manifest: tirbase_demo::pos_pack::PosPackManifest
+pub tirbase_demo::pos_pack::PosPack::root: std::path::PathBuf
+pub tirbase_demo::pos_pack::PosPack::scenarios: alloc::vec::Vec<tirbase_demo::pos_pack::PosScenario>
+impl tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::outcome(&self, &str) -> core::option::Option<&tirbase_demo::pos_pack::PosExpectedScenario>
+pub fn tirbase_demo::pos_pack::PosPack::scenario(&self, &str) -> core::option::Option<&tirbase_demo::pos_pack::PosScenario>
+impl core::clone::Clone for tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::clone(&self) -> tirbase_demo::pos_pack::PosPack
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosPack
+impl core::marker::Send for tirbase_demo::pos_pack::PosPack
+impl core::marker::Sync for tirbase_demo::pos_pack::PosPack
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosPack
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosPack
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosPack
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosPack
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosPack where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosPack::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosPack where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosPack::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosPack::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosPack where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosPack::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosPack::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosPack where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosPack::Owned = T
+pub fn tirbase_demo::pos_pack::PosPack::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosPack::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_demo::pos_pack::PosPack where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPack::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosPack where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPack::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosPack where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPack::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosPack where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPack::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosPack where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosPack::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::from(T) -> T
+pub struct tirbase_demo::pos_pack::PosPackManifest
+pub tirbase_demo::pos_pack::PosPackManifest::description: alloc::string::String
+pub tirbase_demo::pos_pack::PosPackManifest::docs: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::pos_pack::PosPackManifest::expected: alloc::string::String
+pub tirbase_demo::pos_pack::PosPackManifest::id: alloc::string::String
+pub tirbase_demo::pos_pack::PosPackManifest::kind: alloc::string::String
+pub tirbase_demo::pos_pack::PosPackManifest::licence: alloc::string::String
+pub tirbase_demo::pos_pack::PosPackManifest::run: alloc::string::String
+pub tirbase_demo::pos_pack::PosPackManifest::scenarios: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::pos_pack::PosPackManifest::schema_version: u32
+pub tirbase_demo::pos_pack::PosPackManifest::tirbase_min_version: alloc::string::String
+pub tirbase_demo::pos_pack::PosPackManifest::title: alloc::string::String
+pub tirbase_demo::pos_pack::PosPackManifest::version: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosPackManifest
+pub fn tirbase_demo::pos_pack::PosPackManifest::clone(&self) -> tirbase_demo::pos_pack::PosPackManifest
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosPackManifest
+pub fn tirbase_demo::pos_pack::PosPackManifest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosPackManifest
+pub fn tirbase_demo::pos_pack::PosPackManifest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosPackManifest
+impl core::marker::Send for tirbase_demo::pos_pack::PosPackManifest
+impl core::marker::Sync for tirbase_demo::pos_pack::PosPackManifest
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosPackManifest
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosPackManifest
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosPackManifest
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosPackManifest
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosPackManifest where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosPackManifest::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosPackManifest where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosPackManifest::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosPackManifest::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosPackManifest where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosPackManifest::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosPackManifest::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosPackManifest where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosPackManifest::Owned = T
+pub fn tirbase_demo::pos_pack::PosPackManifest::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosPackManifest::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosPackManifest where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPackManifest::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosPackManifest where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPackManifest::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosPackManifest where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPackManifest::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosPackManifest where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosPackManifest::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosPackManifest
+pub fn tirbase_demo::pos_pack::PosPackManifest::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosPackManifest where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosPartition
+pub tirbase_demo::pos_pack::PosPartition::actor: alloc::string::String
+pub tirbase_demo::pos_pack::PosPartition::from_ms: i64
+pub tirbase_demo::pos_pack::PosPartition::offline: bool
+pub tirbase_demo::pos_pack::PosPartition::reason: alloc::string::String
+pub tirbase_demo::pos_pack::PosPartition::to_ms: i64
+impl core::clone::Clone for tirbase_demo::pos_pack::PosPartition
+pub fn tirbase_demo::pos_pack::PosPartition::clone(&self) -> tirbase_demo::pos_pack::PosPartition
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosPartition
+pub fn tirbase_demo::pos_pack::PosPartition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosPartition
+pub fn tirbase_demo::pos_pack::PosPartition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosPartition
+impl core::marker::Send for tirbase_demo::pos_pack::PosPartition
+impl core::marker::Sync for tirbase_demo::pos_pack::PosPartition
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosPartition
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosPartition
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosPartition
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosPartition
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosPartition where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosPartition::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosPartition where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosPartition::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosPartition::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosPartition where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosPartition::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosPartition::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosPartition where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosPartition::Owned = T
+pub fn tirbase_demo::pos_pack::PosPartition::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosPartition::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosPartition where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPartition::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosPartition where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPartition::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosPartition where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPartition::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosPartition where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosPartition::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosPartition
+pub fn tirbase_demo::pos_pack::PosPartition::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosPartition where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosPricing
+pub tirbase_demo::pos_pack::PosPricing::item: alloc::string::String
+pub tirbase_demo::pos_pack::PosPricing::item_name: alloc::string::String
+pub tirbase_demo::pos_pack::PosPricing::new_effective_ms: i64
+pub tirbase_demo::pos_pack::PosPricing::new_price_minor: i64
+pub tirbase_demo::pos_pack::PosPricing::new_version: alloc::string::String
+pub tirbase_demo::pos_pack::PosPricing::old_price_minor: i64
+pub tirbase_demo::pos_pack::PosPricing::old_version: alloc::string::String
+pub tirbase_demo::pos_pack::PosPricing::tax_rate_ppm: i32
+impl core::clone::Clone for tirbase_demo::pos_pack::PosPricing
+pub fn tirbase_demo::pos_pack::PosPricing::clone(&self) -> tirbase_demo::pos_pack::PosPricing
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosPricing
+pub fn tirbase_demo::pos_pack::PosPricing::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosPricing
+pub fn tirbase_demo::pos_pack::PosPricing::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosPricing
+impl core::marker::Send for tirbase_demo::pos_pack::PosPricing
+impl core::marker::Sync for tirbase_demo::pos_pack::PosPricing
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosPricing
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosPricing
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosPricing
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosPricing
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosPricing where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosPricing::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosPricing where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosPricing::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosPricing::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosPricing where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosPricing::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosPricing::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosPricing where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosPricing::Owned = T
+pub fn tirbase_demo::pos_pack::PosPricing::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosPricing::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosPricing where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPricing::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosPricing where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPricing::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosPricing where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPricing::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosPricing where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosPricing::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosPricing
+pub fn tirbase_demo::pos_pack::PosPricing::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosPricing where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosScenario
+pub tirbase_demo::pos_pack::PosScenario::approvals: alloc::vec::Vec<tirbase_demo::pos_pack::PosApproval>
+pub tirbase_demo::pos_pack::PosScenario::attack: alloc::string::String
+pub tirbase_demo::pos_pack::PosScenario::commands: alloc::vec::Vec<tirbase_demo::pos_pack::PosCommand>
+pub tirbase_demo::pos_pack::PosScenario::id: alloc::string::String
+pub tirbase_demo::pos_pack::PosScenario::initial: tirbase_demo::pos_pack::PosInitial
+pub tirbase_demo::pos_pack::PosScenario::invariant: alloc::string::String
+pub tirbase_demo::pos_pack::PosScenario::partitions: alloc::vec::Vec<tirbase_demo::pos_pack::PosPartition>
+pub tirbase_demo::pos_pack::PosScenario::schema_version: u32
+pub tirbase_demo::pos_pack::PosScenario::title: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosScenario
+pub fn tirbase_demo::pos_pack::PosScenario::clone(&self) -> tirbase_demo::pos_pack::PosScenario
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosScenario
+pub fn tirbase_demo::pos_pack::PosScenario::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosScenario
+pub fn tirbase_demo::pos_pack::PosScenario::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosScenario
+impl core::marker::Send for tirbase_demo::pos_pack::PosScenario
+impl core::marker::Sync for tirbase_demo::pos_pack::PosScenario
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosScenario
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosScenario
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosScenario
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosScenario
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosScenario where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosScenario::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosScenario where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosScenario::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosScenario::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosScenario where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosScenario::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosScenario::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosScenario where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosScenario::Owned = T
+pub fn tirbase_demo::pos_pack::PosScenario::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosScenario::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosScenario where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosScenario::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosScenario::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosScenario::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosScenario where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosScenario::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosScenario
+pub fn tirbase_demo::pos_pack::PosScenario::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosScenario where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::pos_pack::PosSplit
+pub tirbase_demo::pos_pack::PosSplit::lamport: u64
+pub tirbase_demo::pos_pack::PosSplit::line_item: alloc::string::String
+pub tirbase_demo::pos_pack::PosSplit::source_check: alloc::string::String
+pub tirbase_demo::pos_pack::PosSplit::target_a: alloc::string::String
+pub tirbase_demo::pos_pack::PosSplit::target_b: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosSplit
+pub fn tirbase_demo::pos_pack::PosSplit::clone(&self) -> tirbase_demo::pos_pack::PosSplit
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosSplit
+pub fn tirbase_demo::pos_pack::PosSplit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosSplit
+pub fn tirbase_demo::pos_pack::PosSplit::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosSplit
+impl core::marker::Send for tirbase_demo::pos_pack::PosSplit
+impl core::marker::Sync for tirbase_demo::pos_pack::PosSplit
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosSplit
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosSplit
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosSplit
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosSplit
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosSplit where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosSplit::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosSplit where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosSplit::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosSplit::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosSplit where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosSplit::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosSplit::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosSplit where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosSplit::Owned = T
+pub fn tirbase_demo::pos_pack::PosSplit::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosSplit::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosSplit where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosSplit::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosSplit where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosSplit::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosSplit where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosSplit::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosSplit where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosSplit::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosSplit
+pub fn tirbase_demo::pos_pack::PosSplit::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosSplit where T: for<'de> serde_core::de::Deserialize<'de>
+pub const tirbase_demo::pos_pack::POS_COMMAND_PERMITS: &[&str]
+pub const tirbase_demo::pos_pack::POS_PACK_KIND: &str
+pub const tirbase_demo::pos_pack::POS_PACK_LAUNCHER: &str
+pub const tirbase_demo::pos_pack::POS_PACK_LICENCE: &str
+pub const tirbase_demo::pos_pack::POS_PACK_MANIFEST_FILE: &str
+pub const tirbase_demo::pos_pack::POS_PACK_REQUIRED_SCENARIOS: &[&str]
+pub const tirbase_demo::pos_pack::POS_PACK_SCHEMA_VERSION: u32
+pub fn tirbase_demo::pos_pack::load_pos_pack(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_demo::pos_pack::PosPack, tirbase_demo::PackError>
 pub mod tirbase_demo::workflow
 pub enum tirbase_demo::workflow::WorkflowConfigError
 pub tirbase_demo::workflow::WorkflowConfigError::Field
@@ -1802,6 +2352,547 @@ pub unsafe fn tirbase_demo::PackScenario::clone_to_uninit(&self, *mut u8)
 impl<T> core::convert::From<T> for tirbase_demo::PackScenario
 pub fn tirbase_demo::PackScenario::from(T) -> T
 impl<T> serde_core::de::DeserializeOwned for tirbase_demo::PackScenario where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosApproval
+pub tirbase_demo::PosApproval::action: alloc::string::String
+pub tirbase_demo::PosApproval::amount_minor: i64
+pub tirbase_demo::PosApproval::approver: alloc::string::String
+pub tirbase_demo::PosApproval::expires_at_ms: i64
+pub tirbase_demo::PosApproval::id: alloc::string::String
+pub tirbase_demo::PosApproval::reason: alloc::string::String
+pub tirbase_demo::PosApproval::requested_at_ms: i64
+pub tirbase_demo::PosApproval::requester: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosApproval
+pub fn tirbase_demo::pos_pack::PosApproval::clone(&self) -> tirbase_demo::pos_pack::PosApproval
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosApproval
+pub fn tirbase_demo::pos_pack::PosApproval::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosApproval
+pub fn tirbase_demo::pos_pack::PosApproval::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosApproval
+impl core::marker::Send for tirbase_demo::pos_pack::PosApproval
+impl core::marker::Sync for tirbase_demo::pos_pack::PosApproval
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosApproval
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosApproval
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosApproval
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosApproval
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosApproval where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosApproval::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosApproval where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosApproval::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosApproval::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosApproval where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosApproval::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosApproval::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosApproval where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosApproval::Owned = T
+pub fn tirbase_demo::pos_pack::PosApproval::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosApproval::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosApproval where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosApproval::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosApproval where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosApproval::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosApproval where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosApproval::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosApproval where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosApproval::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosApproval
+pub fn tirbase_demo::pos_pack::PosApproval::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosApproval where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosCommand
+pub tirbase_demo::PosCommand::actor: alloc::string::String
+pub tirbase_demo::PosCommand::amount_minor: core::option::Option<i64>
+pub tirbase_demo::PosCommand::approval: core::option::Option<alloc::string::String>
+pub tirbase_demo::PosCommand::at_ms: i64
+pub tirbase_demo::PosCommand::counter: core::option::Option<u64>
+pub tirbase_demo::PosCommand::denial: core::option::Option<alloc::string::String>
+pub tirbase_demo::PosCommand::effective_ms: core::option::Option<i64>
+pub tirbase_demo::PosCommand::expect: alloc::string::String
+pub tirbase_demo::PosCommand::id: alloc::string::String
+pub tirbase_demo::PosCommand::kind: alloc::string::String
+pub tirbase_demo::PosCommand::lamport: core::option::Option<u64>
+pub tirbase_demo::PosCommand::line_item: core::option::Option<alloc::string::String>
+pub tirbase_demo::PosCommand::nonce: core::option::Option<alloc::string::String>
+pub tirbase_demo::PosCommand::target_check: core::option::Option<alloc::string::String>
+impl core::clone::Clone for tirbase_demo::pos_pack::PosCommand
+pub fn tirbase_demo::pos_pack::PosCommand::clone(&self) -> tirbase_demo::pos_pack::PosCommand
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosCommand
+pub fn tirbase_demo::pos_pack::PosCommand::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosCommand
+pub fn tirbase_demo::pos_pack::PosCommand::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosCommand
+impl core::marker::Send for tirbase_demo::pos_pack::PosCommand
+impl core::marker::Sync for tirbase_demo::pos_pack::PosCommand
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosCommand
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosCommand
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosCommand
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosCommand
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosCommand where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosCommand::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosCommand where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosCommand::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosCommand::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosCommand where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosCommand::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosCommand::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosCommand where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosCommand::Owned = T
+pub fn tirbase_demo::pos_pack::PosCommand::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosCommand::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosCommand where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosCommand::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosCommand where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosCommand::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosCommand where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosCommand::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosCommand where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosCommand::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosCommand
+pub fn tirbase_demo::pos_pack::PosCommand::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosCommand where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosExpectedOutputs
+pub tirbase_demo::PosExpectedOutputs::scenario: alloc::vec::Vec<tirbase_demo::pos_pack::PosExpectedScenario>
+pub tirbase_demo::PosExpectedOutputs::schema_version: u32
+impl core::clone::Clone for tirbase_demo::pos_pack::PosExpectedOutputs
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::clone(&self) -> tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosExpectedOutputs
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosExpectedOutputs
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::marker::Send for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::marker::Sync for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosExpectedOutputs
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosExpectedOutputs
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosExpectedOutputs where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosExpectedOutputs where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosExpectedOutputs::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosExpectedOutputs where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosExpectedOutputs::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosExpectedOutputs where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosExpectedOutputs::Owned = T
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosExpectedOutputs where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosExpectedOutputs where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosExpectedOutputs where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosExpectedOutputs where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosExpectedOutputs::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosExpectedOutputs
+pub fn tirbase_demo::pos_pack::PosExpectedOutputs::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosExpectedOutputs where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosExpectedScenario
+pub tirbase_demo::PosExpectedScenario::id: alloc::string::String
+pub tirbase_demo::PosExpectedScenario::ledger: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::PosExpectedScenario::permit: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for tirbase_demo::pos_pack::PosExpectedScenario
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::clone(&self) -> tirbase_demo::pos_pack::PosExpectedScenario
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosExpectedScenario
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosExpectedScenario
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::marker::Send for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::marker::Sync for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosExpectedScenario
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosExpectedScenario
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosExpectedScenario where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosExpectedScenario where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosExpectedScenario::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosExpectedScenario where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosExpectedScenario::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosExpectedScenario where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosExpectedScenario::Owned = T
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosExpectedScenario where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosExpectedScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosExpectedScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosExpectedScenario where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosExpectedScenario::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosExpectedScenario
+pub fn tirbase_demo::pos_pack::PosExpectedScenario::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosExpectedScenario where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosInitial
+pub tirbase_demo::PosInitial::approver: alloc::string::String
+pub tirbase_demo::PosInitial::check: alloc::string::String
+pub tirbase_demo::PosInitial::check_status: alloc::string::String
+pub tirbase_demo::PosInitial::check_total_minor: i64
+pub tirbase_demo::PosInitial::currency: alloc::string::String
+pub tirbase_demo::PosInitial::epoch: u64
+pub tirbase_demo::PosInitial::intent: alloc::string::String
+pub tirbase_demo::PosInitial::intent_status: alloc::string::String
+pub tirbase_demo::PosInitial::kds: core::option::Option<tirbase_demo::pos_pack::PosKds>
+pub tirbase_demo::PosInitial::operator: alloc::string::String
+pub tirbase_demo::PosInitial::payment: alloc::string::String
+pub tirbase_demo::PosInitial::pricing: core::option::Option<tirbase_demo::pos_pack::PosPricing>
+pub tirbase_demo::PosInitial::split: core::option::Option<tirbase_demo::pos_pack::PosSplit>
+pub tirbase_demo::PosInitial::terminal: alloc::string::String
+pub tirbase_demo::PosInitial::tip_minor: i64
+impl core::clone::Clone for tirbase_demo::pos_pack::PosInitial
+pub fn tirbase_demo::pos_pack::PosInitial::clone(&self) -> tirbase_demo::pos_pack::PosInitial
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosInitial
+pub fn tirbase_demo::pos_pack::PosInitial::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosInitial
+pub fn tirbase_demo::pos_pack::PosInitial::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosInitial
+impl core::marker::Send for tirbase_demo::pos_pack::PosInitial
+impl core::marker::Sync for tirbase_demo::pos_pack::PosInitial
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosInitial
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosInitial
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosInitial
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosInitial
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosInitial where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosInitial::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosInitial where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosInitial::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosInitial::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosInitial where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosInitial::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosInitial::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosInitial where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosInitial::Owned = T
+pub fn tirbase_demo::pos_pack::PosInitial::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosInitial::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosInitial where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosInitial::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosInitial where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosInitial::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosInitial where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosInitial::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosInitial where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosInitial::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosInitial
+pub fn tirbase_demo::pos_pack::PosInitial::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosInitial where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosKds
+pub tirbase_demo::PosKds::check: alloc::string::String
+pub tirbase_demo::PosKds::line: alloc::string::String
+pub tirbase_demo::PosKds::name: alloc::string::String
+pub tirbase_demo::PosKds::order: alloc::string::String
+pub tirbase_demo::PosKds::quantity_thousandths: i64
+pub tirbase_demo::PosKds::sequence: u64
+pub tirbase_demo::PosKds::station: alloc::string::String
+pub tirbase_demo::PosKds::ticket: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosKds
+pub fn tirbase_demo::pos_pack::PosKds::clone(&self) -> tirbase_demo::pos_pack::PosKds
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosKds
+pub fn tirbase_demo::pos_pack::PosKds::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosKds
+pub fn tirbase_demo::pos_pack::PosKds::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosKds
+impl core::marker::Send for tirbase_demo::pos_pack::PosKds
+impl core::marker::Sync for tirbase_demo::pos_pack::PosKds
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosKds
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosKds
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosKds
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosKds
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosKds where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosKds::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosKds where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosKds::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosKds::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosKds where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosKds::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosKds::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosKds where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosKds::Owned = T
+pub fn tirbase_demo::pos_pack::PosKds::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosKds::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosKds where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosKds::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosKds where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosKds::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosKds where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosKds::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosKds where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosKds::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosKds
+pub fn tirbase_demo::pos_pack::PosKds::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosKds where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosPack
+pub tirbase_demo::PosPack::expected: tirbase_demo::pos_pack::PosExpectedOutputs
+pub tirbase_demo::PosPack::manifest: tirbase_demo::pos_pack::PosPackManifest
+pub tirbase_demo::PosPack::root: std::path::PathBuf
+pub tirbase_demo::PosPack::scenarios: alloc::vec::Vec<tirbase_demo::pos_pack::PosScenario>
+impl tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::outcome(&self, &str) -> core::option::Option<&tirbase_demo::pos_pack::PosExpectedScenario>
+pub fn tirbase_demo::pos_pack::PosPack::scenario(&self, &str) -> core::option::Option<&tirbase_demo::pos_pack::PosScenario>
+impl core::clone::Clone for tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::clone(&self) -> tirbase_demo::pos_pack::PosPack
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosPack
+impl core::marker::Send for tirbase_demo::pos_pack::PosPack
+impl core::marker::Sync for tirbase_demo::pos_pack::PosPack
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosPack
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosPack
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosPack
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosPack
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosPack where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosPack::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosPack where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosPack::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosPack::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosPack where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosPack::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosPack::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosPack where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosPack::Owned = T
+pub fn tirbase_demo::pos_pack::PosPack::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosPack::to_owned(&self) -> T
+impl<T> alloc::string::ToString for tirbase_demo::pos_pack::PosPack where T: core::fmt::Display + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPack::to_string(&self) -> alloc::string::String
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosPack where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPack::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosPack where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPack::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosPack where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPack::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosPack where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosPack::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosPack
+pub fn tirbase_demo::pos_pack::PosPack::from(T) -> T
+pub struct tirbase_demo::PosPackManifest
+pub tirbase_demo::PosPackManifest::description: alloc::string::String
+pub tirbase_demo::PosPackManifest::docs: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::PosPackManifest::expected: alloc::string::String
+pub tirbase_demo::PosPackManifest::id: alloc::string::String
+pub tirbase_demo::PosPackManifest::kind: alloc::string::String
+pub tirbase_demo::PosPackManifest::licence: alloc::string::String
+pub tirbase_demo::PosPackManifest::run: alloc::string::String
+pub tirbase_demo::PosPackManifest::scenarios: alloc::vec::Vec<alloc::string::String>
+pub tirbase_demo::PosPackManifest::schema_version: u32
+pub tirbase_demo::PosPackManifest::tirbase_min_version: alloc::string::String
+pub tirbase_demo::PosPackManifest::title: alloc::string::String
+pub tirbase_demo::PosPackManifest::version: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosPackManifest
+pub fn tirbase_demo::pos_pack::PosPackManifest::clone(&self) -> tirbase_demo::pos_pack::PosPackManifest
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosPackManifest
+pub fn tirbase_demo::pos_pack::PosPackManifest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosPackManifest
+pub fn tirbase_demo::pos_pack::PosPackManifest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosPackManifest
+impl core::marker::Send for tirbase_demo::pos_pack::PosPackManifest
+impl core::marker::Sync for tirbase_demo::pos_pack::PosPackManifest
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosPackManifest
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosPackManifest
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosPackManifest
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosPackManifest
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosPackManifest where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosPackManifest::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosPackManifest where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosPackManifest::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosPackManifest::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosPackManifest where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosPackManifest::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosPackManifest::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosPackManifest where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosPackManifest::Owned = T
+pub fn tirbase_demo::pos_pack::PosPackManifest::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosPackManifest::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosPackManifest where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPackManifest::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosPackManifest where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPackManifest::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosPackManifest where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPackManifest::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosPackManifest where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosPackManifest::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosPackManifest
+pub fn tirbase_demo::pos_pack::PosPackManifest::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosPackManifest where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosPartition
+pub tirbase_demo::PosPartition::actor: alloc::string::String
+pub tirbase_demo::PosPartition::from_ms: i64
+pub tirbase_demo::PosPartition::offline: bool
+pub tirbase_demo::PosPartition::reason: alloc::string::String
+pub tirbase_demo::PosPartition::to_ms: i64
+impl core::clone::Clone for tirbase_demo::pos_pack::PosPartition
+pub fn tirbase_demo::pos_pack::PosPartition::clone(&self) -> tirbase_demo::pos_pack::PosPartition
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosPartition
+pub fn tirbase_demo::pos_pack::PosPartition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosPartition
+pub fn tirbase_demo::pos_pack::PosPartition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosPartition
+impl core::marker::Send for tirbase_demo::pos_pack::PosPartition
+impl core::marker::Sync for tirbase_demo::pos_pack::PosPartition
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosPartition
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosPartition
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosPartition
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosPartition
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosPartition where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosPartition::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosPartition where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosPartition::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosPartition::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosPartition where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosPartition::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosPartition::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosPartition where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosPartition::Owned = T
+pub fn tirbase_demo::pos_pack::PosPartition::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosPartition::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosPartition where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPartition::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosPartition where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPartition::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosPartition where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPartition::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosPartition where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosPartition::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosPartition
+pub fn tirbase_demo::pos_pack::PosPartition::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosPartition where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosPricing
+pub tirbase_demo::PosPricing::item: alloc::string::String
+pub tirbase_demo::PosPricing::item_name: alloc::string::String
+pub tirbase_demo::PosPricing::new_effective_ms: i64
+pub tirbase_demo::PosPricing::new_price_minor: i64
+pub tirbase_demo::PosPricing::new_version: alloc::string::String
+pub tirbase_demo::PosPricing::old_price_minor: i64
+pub tirbase_demo::PosPricing::old_version: alloc::string::String
+pub tirbase_demo::PosPricing::tax_rate_ppm: i32
+impl core::clone::Clone for tirbase_demo::pos_pack::PosPricing
+pub fn tirbase_demo::pos_pack::PosPricing::clone(&self) -> tirbase_demo::pos_pack::PosPricing
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosPricing
+pub fn tirbase_demo::pos_pack::PosPricing::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosPricing
+pub fn tirbase_demo::pos_pack::PosPricing::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosPricing
+impl core::marker::Send for tirbase_demo::pos_pack::PosPricing
+impl core::marker::Sync for tirbase_demo::pos_pack::PosPricing
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosPricing
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosPricing
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosPricing
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosPricing
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosPricing where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosPricing::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosPricing where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosPricing::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosPricing::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosPricing where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosPricing::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosPricing::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosPricing where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosPricing::Owned = T
+pub fn tirbase_demo::pos_pack::PosPricing::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosPricing::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosPricing where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPricing::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosPricing where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPricing::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosPricing where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosPricing::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosPricing where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosPricing::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosPricing
+pub fn tirbase_demo::pos_pack::PosPricing::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosPricing where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosScenario
+pub tirbase_demo::PosScenario::approvals: alloc::vec::Vec<tirbase_demo::pos_pack::PosApproval>
+pub tirbase_demo::PosScenario::attack: alloc::string::String
+pub tirbase_demo::PosScenario::commands: alloc::vec::Vec<tirbase_demo::pos_pack::PosCommand>
+pub tirbase_demo::PosScenario::id: alloc::string::String
+pub tirbase_demo::PosScenario::initial: tirbase_demo::pos_pack::PosInitial
+pub tirbase_demo::PosScenario::invariant: alloc::string::String
+pub tirbase_demo::PosScenario::partitions: alloc::vec::Vec<tirbase_demo::pos_pack::PosPartition>
+pub tirbase_demo::PosScenario::schema_version: u32
+pub tirbase_demo::PosScenario::title: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosScenario
+pub fn tirbase_demo::pos_pack::PosScenario::clone(&self) -> tirbase_demo::pos_pack::PosScenario
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosScenario
+pub fn tirbase_demo::pos_pack::PosScenario::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosScenario
+pub fn tirbase_demo::pos_pack::PosScenario::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosScenario
+impl core::marker::Send for tirbase_demo::pos_pack::PosScenario
+impl core::marker::Sync for tirbase_demo::pos_pack::PosScenario
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosScenario
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosScenario
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosScenario
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosScenario
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosScenario where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosScenario::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosScenario where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosScenario::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosScenario::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosScenario where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosScenario::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosScenario::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosScenario where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosScenario::Owned = T
+pub fn tirbase_demo::pos_pack::PosScenario::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosScenario::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosScenario where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosScenario::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosScenario::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosScenario where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosScenario::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosScenario where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosScenario::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosScenario
+pub fn tirbase_demo::pos_pack::PosScenario::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosScenario where T: for<'de> serde_core::de::Deserialize<'de>
+pub struct tirbase_demo::PosSplit
+pub tirbase_demo::PosSplit::lamport: u64
+pub tirbase_demo::PosSplit::line_item: alloc::string::String
+pub tirbase_demo::PosSplit::source_check: alloc::string::String
+pub tirbase_demo::PosSplit::target_a: alloc::string::String
+pub tirbase_demo::PosSplit::target_b: alloc::string::String
+impl core::clone::Clone for tirbase_demo::pos_pack::PosSplit
+pub fn tirbase_demo::pos_pack::PosSplit::clone(&self) -> tirbase_demo::pos_pack::PosSplit
+impl core::fmt::Debug for tirbase_demo::pos_pack::PosSplit
+pub fn tirbase_demo::pos_pack::PosSplit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'de> serde_core::de::Deserialize<'de> for tirbase_demo::pos_pack::PosSplit
+pub fn tirbase_demo::pos_pack::PosSplit::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for tirbase_demo::pos_pack::PosSplit
+impl core::marker::Send for tirbase_demo::pos_pack::PosSplit
+impl core::marker::Sync for tirbase_demo::pos_pack::PosSplit
+impl core::marker::Unpin for tirbase_demo::pos_pack::PosSplit
+impl core::marker::UnsafeUnpin for tirbase_demo::pos_pack::PosSplit
+impl core::panic::unwind_safe::RefUnwindSafe for tirbase_demo::pos_pack::PosSplit
+impl core::panic::unwind_safe::UnwindSafe for tirbase_demo::pos_pack::PosSplit
+impl<T, U> core::convert::Into<U> for tirbase_demo::pos_pack::PosSplit where U: core::convert::From<T>
+pub fn tirbase_demo::pos_pack::PosSplit::into(self) -> U
+impl<T, U> core::convert::TryFrom<U> for tirbase_demo::pos_pack::PosSplit where U: core::convert::Into<T>
+pub type tirbase_demo::pos_pack::PosSplit::Error = core::convert::Infallible
+pub fn tirbase_demo::pos_pack::PosSplit::try_from(U) -> core::result::Result<T, <T as core::convert::TryFrom<U>>::Error>
+impl<T, U> core::convert::TryInto<U> for tirbase_demo::pos_pack::PosSplit where U: core::convert::TryFrom<T>
+pub type tirbase_demo::pos_pack::PosSplit::Error = <U as core::convert::TryFrom<T>>::Error
+pub fn tirbase_demo::pos_pack::PosSplit::try_into(self) -> core::result::Result<U, <U as core::convert::TryFrom<T>>::Error>
+impl<T> alloc::borrow::ToOwned for tirbase_demo::pos_pack::PosSplit where T: core::clone::Clone
+pub type tirbase_demo::pos_pack::PosSplit::Owned = T
+pub fn tirbase_demo::pos_pack::PosSplit::clone_into(&self, &mut T)
+pub fn tirbase_demo::pos_pack::PosSplit::to_owned(&self) -> T
+impl<T> core::any::Any for tirbase_demo::pos_pack::PosSplit where T: 'static + ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosSplit::type_id(&self) -> core::any::TypeId
+impl<T> core::borrow::Borrow<T> for tirbase_demo::pos_pack::PosSplit where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosSplit::borrow(&self) -> &T
+impl<T> core::borrow::BorrowMut<T> for tirbase_demo::pos_pack::PosSplit where T: ?core::marker::Sized
+pub fn tirbase_demo::pos_pack::PosSplit::borrow_mut(&mut self) -> &mut T
+impl<T> core::clone::CloneToUninit for tirbase_demo::pos_pack::PosSplit where T: core::clone::Clone
+pub unsafe fn tirbase_demo::pos_pack::PosSplit::clone_to_uninit(&self, *mut u8)
+impl<T> core::convert::From<T> for tirbase_demo::pos_pack::PosSplit
+pub fn tirbase_demo::pos_pack::PosSplit::from(T) -> T
+impl<T> serde_core::de::DeserializeOwned for tirbase_demo::pos_pack::PosSplit where T: for<'de> serde_core::de::Deserialize<'de>
 pub struct tirbase_demo::QualificationDocument
 pub tirbase_demo::QualificationDocument::certification: alloc::string::String
 pub tirbase_demo::QualificationDocument::evidence_boundary: alloc::string::String
@@ -2176,6 +3267,12 @@ pub const tirbase_demo::PACK_LAUNCHER: &str
 pub const tirbase_demo::PACK_LICENCE: &str
 pub const tirbase_demo::PACK_MANIFEST_FILE: &str
 pub const tirbase_demo::PACK_MANIFEST_SCHEMA_VERSION: u32
+pub const tirbase_demo::POS_COMMAND_PERMITS: &[&str]
+pub const tirbase_demo::POS_PACK_KIND: &str
+pub const tirbase_demo::POS_PACK_LICENCE: &str
+pub const tirbase_demo::POS_PACK_MANIFEST_FILE: &str
+pub const tirbase_demo::POS_PACK_REQUIRED_SCENARIOS: &[&str]
+pub const tirbase_demo::POS_PACK_SCHEMA_VERSION: u32
 pub const tirbase_demo::RELEASE_CODE_CALIBRATION_EXPIRED: &str
 pub const tirbase_demo::RELEASE_CODE_CLEAR: &str
 pub const tirbase_demo::RELEASE_CODE_CUMULATIVE_DRIFT: &str
@@ -2185,6 +3282,7 @@ pub const tirbase_demo::RELEASE_CODE_SENSOR_FAILURE: &str
 pub const tirbase_demo::RELEASE_CODE_TRANSIENT_EXCURSION: &str
 pub fn tirbase_demo::classify_excursion(&tirbase_demo::PackScenario, &tirbase_demo::GdpStorage) -> tirbase_demo::ExcursionSummary
 pub fn tirbase_demo::load_pack(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_demo::Pack, tirbase_demo::PackError>
+pub fn tirbase_demo::load_pos_pack(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_demo::pos_pack::PosPack, tirbase_demo::PackError>
 pub fn tirbase_demo::load_workflow_config(impl core::convert::AsRef<std::path::Path>) -> core::result::Result<tirbase_demo::workflow::WorkflowConfig, tirbase_demo::workflow::WorkflowConfigError>
 pub fn tirbase_demo::longest_door_open_secs(&tirbase_demo::PackScenario, &str) -> core::option::Option<i64>
 pub fn tirbase_demo::pack_has_required_layout(&std::path::Path, &[&str]) -> bool

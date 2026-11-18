@@ -1,0 +1,83 @@
+# A captured payment on a closed check cannot be voided without approval. The
+# approved void executes once; its retry is a replay and a fresh nonce against
+# the voided intent is denied.
+schema_version = 1
+id = "void_after_capture"
+title = "Void after capture"
+attack = "Void a captured payment after the check closed, first without approval, then retry the approved void and attempt a second nonce."
+invariant = "captured_void_requires_approval_and_happens_once"
+
+[initial]
+currency = "USD"
+terminal = "till-1"
+operator = "emp-1"
+approver = "supervisor"
+epoch = 1
+check = "check-1"
+check_total_minor = 2400
+tip_minor = 0
+check_status = "closed"
+intent = "intent-1"
+intent_status = "captured"
+payment = "pay-1"
+
+[[partitions]]
+actor = "till-1"
+offline = true
+from_ms = 900
+to_ms = 1250
+reason = "approval relay unavailable"
+
+[[approvals]]
+id = "void-captured"
+action = "void_payment"
+amount_minor = 2400
+reason = "duplicate tender"
+requester = "emp-1"
+approver = "supervisor"
+requested_at_ms = 1000
+expires_at_ms = 5000
+
+[[commands]]
+id = "void-without-approval"
+kind = "void"
+actor = "till-1"
+at_ms = 1200
+nonce = "void-1"
+counter = 1
+amount_minor = 2400
+expect = "denied"
+denial = "void.approval_required"
+
+[[commands]]
+id = "void-approved"
+kind = "void"
+actor = "till-1"
+at_ms = 1300
+nonce = "void-2"
+counter = 2
+amount_minor = 2400
+approval = "void-captured"
+expect = "accepted"
+
+[[commands]]
+id = "void-approved-replay"
+kind = "void"
+actor = "till-1"
+at_ms = 1400
+nonce = "void-2"
+counter = 2
+amount_minor = 2400
+approval = "void-captured"
+expect = "replayed"
+
+[[commands]]
+id = "void-fresh-nonce"
+kind = "void"
+actor = "till-1"
+at_ms = 1500
+nonce = "void-3"
+counter = 3
+amount_minor = 2400
+expect = "denied"
+denial = "envelope.intent_state"

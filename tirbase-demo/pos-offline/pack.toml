@@ -1,0 +1,28 @@
+# POS-09 offline scenario pack manifest (POS pack format v1).
+# This directory is data only: no executable code other than run.sh.
+schema_version = 1
+id = "pos-offline"
+version = "1.0.0"
+title = "Offline POS defended scenario pack"
+description = """
+Six POS conflict scenarios for the prototype order, payment, catalog and KDS
+models: a capture retried after reconnect, a replayed refund, two terminals
+splitting the same line, an offline price change, a void after capture, and a
+duplicate kitchen ticket. Each scenario declares an initial state, a partition
+timeline, commands, approvals, expected permit/ledger outcomes and an
+invariant. The pack is data only; the AGPL gateway test executes it.
+"""
+licence = "Apache-2.0"
+kind = "pos_offline"
+tirbase_min_version = "0.1.0"
+run = "run.sh"
+docs = ["docs/README.md", "docs/non-goals.md"]
+expected = "expected/outcomes.toml"
+scenarios = [
+  "scenarios/01_double_charge_on_reconnect.toml",
+  "scenarios/02_replayed_refund.toml",
+  "scenarios/03_split_bill_conflict.toml",
+  "scenarios/04_offline_price_change.toml",
+  "scenarios/05_void_after_capture.toml",
+  "scenarios/06_duplicate_kds_ticket.toml",
+]

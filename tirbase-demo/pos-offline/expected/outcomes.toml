@@ -1,0 +1,79 @@
+# Expected defended output for the offline POS pack (POS pack format v1).
+#
+# `permit` has one entry per command, in command order. `ledger` is the
+# canonical final ledger, one sorted `key=value` row at a time, as asserted by
+# tirbase-gateway/tests/pos_offline_scenarios.rs.
+schema_version = 1
+
+[[scenario]]
+id = "double_charge_on_reconnect"
+permit = ["accepted", "replayed", "denied"]
+ledger = [
+  "capture_count=1",
+  "captured_minor=2400",
+  "intent_status=captured",
+  "nonce_count=1",
+  "refund_count=0",
+  "void_count=0",
+]
+
+[[scenario]]
+id = "replayed_refund"
+permit = ["accepted", "replayed", "denied"]
+ledger = [
+  "capture_count=1",
+  "captured_minor=2400",
+  "intent_status=refunded",
+  "nonce_count=2",
+  "refund_count=1",
+  "refunded_minor=2400",
+  "void_count=0",
+]
+
+[[scenario]]
+id = "split_bill_conflict"
+permit = ["winner", "loser"]
+ledger = [
+  "conserved=true",
+  "rejected_operations=1",
+  "source_total_minor=0",
+  "target_a_total_minor=1000",
+  "target_b_exists=false",
+  "winner=till-1",
+]
+
+[[scenario]]
+id = "offline_price_change"
+permit = ["accepted", "accepted", "accepted"]
+ledger = [
+  "closed_new_minor=1500",
+  "closed_old_minor=1000",
+  "new_pin=price-v2",
+  "old_pin=price-v1",
+  "unchanged=true",
+  "versions=2",
+]
+
+[[scenario]]
+id = "void_after_capture"
+permit = ["denied", "accepted", "replayed", "denied"]
+ledger = [
+  "capture_count=1",
+  "captured_minor=2400",
+  "intent_status=voided",
+  "nonce_count=2",
+  "refund_count=0",
+  "void_count=1",
+  "voided_minor=2400",
+]
+
+[[scenario]]
+id = "duplicate_kds_ticket"
+permit = ["accepted", "deduplicated"]
+ledger = [
+  "accepted_tickets=1",
+  "duplicate_frames=0",
+  "frames=1",
+  "retries=0",
+  "sends=1",
+]

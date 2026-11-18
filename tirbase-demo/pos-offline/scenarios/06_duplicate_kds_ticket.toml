@@ -1,0 +1,55 @@
+# The kitchen link drops an acknowledgement and the same ticket is submitted
+# again. The endpoint answers from its ticket journal, so the display receives
+# one frame and one ticket.
+schema_version = 1
+id = "duplicate_kds_ticket"
+title = "Duplicate kitchen ticket"
+attack = "Resubmit a ticket after a lost acknowledgement to make the kitchen display fire the same line twice."
+invariant = "duplicate_ticket_is_delivered_once"
+
+approvals = []
+
+[initial]
+currency = "USD"
+terminal = "till-1"
+operator = "emp-1"
+approver = "supervisor"
+epoch = 1
+check = "check-1"
+check_total_minor = 2000
+tip_minor = 0
+check_status = "open"
+intent = "intent-kds"
+intent_status = "authorized"
+payment = "pay-kds"
+
+[initial.kds]
+ticket = "ticket-1"
+sequence = 7
+order = "order-1"
+check = "check-1"
+station = "grill"
+line = "line-1"
+name = "Burger one"
+quantity_thousandths = 2000
+
+[[partitions]]
+actor = "kds-1"
+offline = true
+from_ms = 900
+to_ms = 1100
+reason = "lost acknowledgement on the kitchen link"
+
+[[commands]]
+id = "submit-ticket"
+kind = "kds_submit"
+actor = "till-1"
+at_ms = 1000
+expect = "accepted"
+
+[[commands]]
+id = "resubmit-ticket"
+kind = "kds_submit"
+actor = "till-1"
+at_ms = 1100
+expect = "deduplicated"

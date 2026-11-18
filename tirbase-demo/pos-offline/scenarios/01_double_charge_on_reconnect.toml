@@ -1,0 +1,63 @@
+# A capture is retried after the terminal reconnects. The first attempt is
+# executed; the identical retry is answered from the nonce cache; a fresh nonce
+# against the already-captured intent is denied. Exactly one capture reaches the
+# intent ledger.
+schema_version = 1
+id = "double_charge_on_reconnect"
+title = "Capture retried after reconnect"
+attack = "Retry a capture after the WAN returns, then try a fresh nonce against the same intent to make the acquirer capture twice."
+invariant = "one_capture_per_intent"
+
+approvals = []
+
+[initial]
+currency = "USD"
+terminal = "till-1"
+operator = "emp-1"
+approver = "supervisor"
+epoch = 1
+check = "check-1"
+check_total_minor = 2400
+tip_minor = 0
+check_status = "open"
+intent = "intent-1"
+intent_status = "authorized"
+payment = "pay-1"
+
+[[partitions]]
+actor = "till-1"
+offline = true
+from_ms = 1000
+to_ms = 2000
+reason = "WAN down during capture"
+
+[[commands]]
+id = "capture-before-reconnect"
+kind = "capture"
+actor = "till-1"
+at_ms = 1200
+nonce = "capture-1"
+counter = 1
+amount_minor = 2400
+expect = "accepted"
+
+[[commands]]
+id = "retry-after-reconnect"
+kind = "capture"
+actor = "till-1"
+at_ms = 2100
+nonce = "capture-1"
+counter = 1
+amount_minor = 2400
+expect = "replayed"
+
+[[commands]]
+id = "fresh-nonce-after-capture"
+kind = "capture"
+actor = "till-1"
+at_ms = 2200
+nonce = "capture-2"
+counter = 2
+amount_minor = 2400
+expect = "denied"
+denial = "envelope.intent_state"

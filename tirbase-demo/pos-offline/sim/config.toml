@@ -1,0 +1,11 @@
+# Declarative simulator configuration (POS pack format v1).
+# No simulator code lives in the pack; the AGPL integration test reads these
+# values as the scenario time base and terminal set.
+schema_version = 1
+clock = "caller_supplied"
+currency = "USD"
+store = "store-1"
+terminals = ["till-1", "till-2"]
+kitchen_displays = ["kds-1"]
+scenario_time_origin_ms = 0
+reconnect_grace_ms = 250

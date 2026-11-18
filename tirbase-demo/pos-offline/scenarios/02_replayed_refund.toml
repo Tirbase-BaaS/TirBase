@@ -1,0 +1,72 @@
+# A full refund is authorized once. Its identical retry is a replay; a fresh
+# nonce against the already-refunded intent is denied. The refund counter moves
+# once and the approval is consumed once.
+schema_version = 1
+id = "replayed_refund"
+title = "Refund replayed from the offline queue"
+attack = "Replay a queued refund after reconnect, then submit it again under a new nonce to refund the captured payment twice."
+invariant = "one_refund_per_intent"
+
+[initial]
+currency = "USD"
+terminal = "till-1"
+operator = "emp-1"
+approver = "supervisor"
+epoch = 1
+check = "check-1"
+check_total_minor = 2400
+tip_minor = 0
+check_status = "closed"
+intent = "intent-1"
+intent_status = "captured"
+payment = "pay-1"
+
+[[partitions]]
+actor = "till-1"
+offline = true
+from_ms = 900
+to_ms = 1500
+reason = "refund queued during WAN outage"
+
+[[approvals]]
+id = "refund-full"
+action = "refund"
+amount_minor = 2400
+reason = "customer return"
+requester = "emp-1"
+approver = "supervisor"
+requested_at_ms = 1000
+expires_at_ms = 5000
+
+[[commands]]
+id = "refund-once"
+kind = "refund"
+actor = "till-1"
+at_ms = 1200
+nonce = "refund-1"
+counter = 1
+amount_minor = 2400
+approval = "refund-full"
+expect = "accepted"
+
+[[commands]]
+id = "refund-replay"
+kind = "refund"
+actor = "till-1"
+at_ms = 1300
+nonce = "refund-1"
+counter = 1
+amount_minor = 2400
+approval = "refund-full"
+expect = "replayed"
+
+[[commands]]
+id = "refund-fresh-nonce"
+kind = "refund"
+actor = "till-1"
+at_ms = 1400
+nonce = "refund-2"
+counter = 2
+amount_minor = 2400
+expect = "denied"
+denial = "envelope.intent_state"

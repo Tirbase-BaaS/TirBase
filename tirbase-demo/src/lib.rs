@@ -28,7 +28,10 @@
 //! coverage. It performs no I/O beyond reading the pack directory and never
 //! executes anything.
 //!
-//! The reference pack is `tirbase-demo/cold-room/`.
+//! The reference device pack is `tirbase-demo/cold-room/`. The POS-09 offline
+//! scenario pack at `tirbase-demo/pos-offline/` uses the [`pos_pack`] schema and
+//! is loaded by [`load_pos_pack`]; it carries no device profiles or register
+//! maps.
 //!
 //! ## Demo pack format (CLAIM-46.1, PV-16)
 //!
@@ -49,8 +52,15 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 use tirbase_types::FixedPointValue;
 
+pub mod pos_pack;
 pub mod workflow;
 
+pub use pos_pack::{
+    load_pos_pack, PosApproval, PosCommand, PosExpectedOutputs, PosExpectedScenario, PosInitial,
+    PosKds, PosPack, PosPackManifest, PosPartition, PosPricing, PosScenario, PosSplit,
+    POS_COMMAND_PERMITS, POS_PACK_KIND, POS_PACK_LICENCE, POS_PACK_MANIFEST_FILE,
+    POS_PACK_REQUIRED_SCENARIOS, POS_PACK_SCHEMA_VERSION,
+};
 pub use workflow::{load_workflow_config, WorkflowConfig, WorkflowConfigError};
 
 /// Relative paths that define a complete legacy demo pack (CLAIM-46.1).

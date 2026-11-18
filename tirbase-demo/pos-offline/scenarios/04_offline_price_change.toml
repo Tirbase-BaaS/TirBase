@@ -1,0 +1,64 @@
+# A price version is published while one terminal is offline. The check closed
+# before the change keeps its pinned old price; a check opened after reconnect
+# pins the new version. A later publication never reprices a closed check.
+schema_version = 1
+id = "offline_price_change"
+title = "Offline price change"
+attack = "Publish a higher price while a terminal is offline, then reconnect and hope the closed check or its pinned line is silently repriced."
+invariant = "closed_check_keeps_its_pinned_price"
+
+approvals = []
+
+[initial]
+currency = "USD"
+terminal = "till-1"
+operator = "emp-1"
+approver = "supervisor"
+epoch = 1
+check = "check-1"
+check_total_minor = 1000
+tip_minor = 0
+check_status = "open"
+intent = "intent-price"
+intent_status = "authorized"
+payment = "pay-price"
+
+[initial.pricing]
+item = "coffee-1"
+item_name = "Coffee"
+old_price_minor = 1000
+new_price_minor = 1500
+new_effective_ms = 2000
+tax_rate_ppm = 0
+old_version = "price-v1"
+new_version = "price-v2"
+
+[[partitions]]
+actor = "till-1"
+offline = true
+from_ms = 900
+to_ms = 2500
+reason = "price publication missed during outage"
+
+[[commands]]
+id = "close-old-price"
+kind = "close_check"
+actor = "till-1"
+at_ms = 1000
+expect = "accepted"
+
+[[commands]]
+id = "publish-new-price"
+kind = "publish_price"
+actor = "supervisor"
+at_ms = 1500
+amount_minor = 1500
+effective_ms = 2000
+expect = "accepted"
+
+[[commands]]
+id = "close-new-price"
+kind = "close_check"
+actor = "till-1"
+at_ms = 3000
+expect = "accepted"

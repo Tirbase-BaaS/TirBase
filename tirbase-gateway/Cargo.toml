@@ -143,6 +143,8 @@ tirbase-guard = { workspace = true }
 tirbase-types = { workspace = true }
 tirbase-sim   = { workspace = true }
 tirbase-drivers = { workspace = true }
+# AGPL POS runtime executed by the Apache POS-09 scenario pack (POS-09).
+tirbase-pos = { workspace = true }
 rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
 serde_json = "1"
 wat = "1"
