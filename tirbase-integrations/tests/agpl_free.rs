@@ -19,6 +19,7 @@ const AGPL_WORKSPACE_CRATES: &[&str] = &[
     "tirbase-drivers",
     "tirbase-gateway",
     "tirbase-guard",
+    "tirbase-pos",
     "tirbase-sim",
 ];
 

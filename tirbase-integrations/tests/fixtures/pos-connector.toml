@@ -1,0 +1,43 @@
+schema_version = 1
+connector = "acme-pos"
+families = ["payment", "accounting", "einvoicing", "delivery", "tax"]
+endpoint = "https://pos.acme.example/v1"
+timeout_ms = 4000
+
+[retry]
+max_attempts = 4
+base_delay_secs = 3
+factor = 2
+max_delay_secs = 60
+
+[reconciliation]
+enabled = true
+interval_secs = 900
+tolerance_minor = 0
+unsettled_after_secs = 1800
+
+[[secret]]
+name = "api_key"
+from = "env:ACME_POS_API_KEY"
+
+[[secret]]
+name = "hmac_key"
+from = "file:/run/secrets/acme-pos-hmac"
+
+[mapping]
+schema_version = 1
+
+[[mapping.field]]
+target = "payment.amount_minor"
+source = "payload.amount_minor"
+required = true
+
+[[mapping.field]]
+target = "payment.currency"
+source = "payload.currency"
+default = "EUR"
+
+[[mapping.field]]
+target = "payment.reference"
+source = "payload.payment_intent"
+transform = "trim"

@@ -55,6 +55,7 @@ pub mod mapping;
 pub mod mock;
 pub mod observability;
 pub mod outbox;
+pub mod pos;
 pub mod retry;
 
 pub use auth::{ApiKey, Auth, HmacWebhook, MutualTls, OAuth2Client, SecretString};
