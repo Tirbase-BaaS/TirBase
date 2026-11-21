@@ -49,7 +49,7 @@ pub struct SystemTimeSource {
 }
 
 impl SystemTimeSource {
- /// Construct a new `SystemTimeSource`.
+    /// Construct a new `SystemTimeSource`.
     pub fn new() -> Self {
         SystemTimeSource {
             inner: CoreTimeSource::new(),
@@ -57,9 +57,9 @@ impl SystemTimeSource {
         }
     }
 
- /// Construct a source whose monotonic domain is advanced by `micros`.
- ///
- /// Used by tests and `tirbase-sim` to model elapsed time deterministically.
+    /// Construct a source whose monotonic domain is advanced by `micros`.
+    ///
+    /// Used by tests and `tirbase-sim` to model elapsed time deterministically.
     pub fn with_monotonic_offset(micros: u64) -> Self {
         SystemTimeSource {
             inner: CoreTimeSource::new(),
@@ -67,15 +67,15 @@ impl SystemTimeSource {
         }
     }
 
- /// Install this source as the process-wide time source used by all
- /// `tirbase-core` subsystems, returning the shared handle.
+    /// Install this source as the process-wide time source used by all
+    /// `tirbase-core` subsystems, returning the shared handle.
     pub fn install(self) -> Arc<dyn TimeSource> {
         let source: Arc<dyn TimeSource> = Arc::new(self);
         tirbase_core::traits::install_time_source(source.clone());
         source
     }
 
- /// The `TIRBASE_TIME_SIM_OFFSET_SECS` value, in microseconds.
+    /// The `TIRBASE_TIME_SIM_OFFSET_SECS` value, in microseconds.
     fn simulated_offset_micros() -> u64 {
         std::env::var(MONOTONIC_OFFSET_ENV)
             .ok()
@@ -84,7 +84,7 @@ impl SystemTimeSource {
             .saturating_mul(1_000_000)
     }
 
- /// `TIRBASE_BOOT_ID` override, when set to a valid integer.
+    /// `TIRBASE_BOOT_ID` override, when set to a valid integer.
     fn environment_boot_id() -> Option<u64> {
         std::env::var(BOOT_ID_ENV)
             .ok()
@@ -118,9 +118,9 @@ fn clock_micros(clock: libc::clockid_t) -> Option<u64> {
         tv_sec: 0,
         tv_nsec: 0,
     };
- // SAFETY: `clock_gettime` writes into the `timespec` we own, and the clock
- // ids passed in are libc constants (CLOCK_BOOTTIME / CLOCK_REALTIME) that
- // are valid for this target.
+    // SAFETY: `clock_gettime` writes into the `timespec` we own, and the clock
+    // ids passed in are libc constants (CLOCK_BOOTTIME / CLOCK_REALTIME) that
+    // are valid for this target.
     let rc = unsafe { libc::clock_gettime(clock, &mut ts) };
     if rc != 0 {
         return None;
@@ -183,7 +183,7 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
 
- /// Guards tests that swap the process-wide core time source.
+    /// Guards tests that swap the process-wide core time source.
     static TIME_SOURCE_LOCK: Mutex<()> = Mutex::new(());
 
     #[derive(Debug)]
@@ -237,7 +237,7 @@ mod tests {
         });
         let previous = tirbase_core::traits::install_time_source(fixed);
 
- // These are the exact accessors every core subsystem uses.
+        // These are the exact accessors every core subsystem uses.
         assert_eq!(tirbase_core::traits::monotonic_now(), 777_000);
         assert_eq!(
             tirbase_core::traits::wall_hint(),

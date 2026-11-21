@@ -2149,7 +2149,11 @@ impl ReportService {
     /// subject ids are resolved from the tenant's generations and their exports
     /// and signatures; signer enrollment, pruning and chain-verification rows are
     /// gateway-level and deliberately excluded from a tenant view.
-    pub fn audit_for_tenant(&self, tenant: &str, limit: usize) -> Result<Vec<AuditEntry>, ReportError> {
+    pub fn audit_for_tenant(
+        &self,
+        tenant: &str,
+        limit: usize,
+    ) -> Result<Vec<AuditEntry>, ReportError> {
         let mut subjects: BTreeSet<String> = BTreeSet::new();
         let mut statement = self
             .conn
@@ -2166,7 +2170,11 @@ impl ReportService {
         }
         for report_id in &report_ids {
             subjects.insert(report_id.clone());
-            subjects.extend(self.exports_for(report_id)?.into_iter().map(|export| export.export_id));
+            subjects.extend(
+                self.exports_for(report_id)?
+                    .into_iter()
+                    .map(|export| export.export_id),
+            );
             for signature in self.signatures_for(report_id)? {
                 subjects.insert(signature.signature_id);
                 subjects.insert(signature.ceremony_id);

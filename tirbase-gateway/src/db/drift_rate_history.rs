@@ -40,9 +40,9 @@ pub struct DriftSummaryRow {
     pub last_value: FixedPointValue,
     pub window_start_est: i64,
     pub cumulative_delta_mantissa: i64,
- /// Monotonic time of last accepted value change for this (target,param).
+    /// Monotonic time of last accepted value change for this (target,param).
     pub last_change_mono: i64,
- /// Monotonic time of last accepted deactivation (Bool 1→0), if observed.
+    /// Monotonic time of last accepted deactivation (Bool 1→0), if observed.
     pub last_deactivation_mono: Option<i64>,
 }
 
@@ -67,8 +67,8 @@ pub fn create_summary_table(conn: &Connection) -> Result<(), String> {
 }
 
 pub fn create_table(conn: &Connection) -> Result<(), String> {
- // Legacy-compatible sample table; Stage 16/Stage 13 summary columns are
- // added by migrations or ensured best-effort below.
+    // Legacy-compatible sample table; Stage 16/Stage 13 summary columns are
+    // added by migrations or ensured best-effort below.
     conn.execute_batch(&format!(
         "CREATE TABLE IF NOT EXISTS {DRIFT_RATE_HISTORY_TABLE} (
              issuer_did     TEXT NOT NULL,
@@ -90,7 +90,7 @@ pub fn create_table(conn: &Connection) -> Result<(), String> {
 }
 
 fn ensure_summary_columns(conn: &Connection) -> Result<(), String> {
- // Best-effort additive columns for DBs not yet on migration v2.
+    // Best-effort additive columns for DBs not yet on migration v2.
     for sql in [
         "ALTER TABLE drift_rate_history ADD COLUMN last_accepted_mono INTEGER",
         "ALTER TABLE drift_rate_history ADD COLUMN last_change_mono INTEGER",
@@ -195,7 +195,7 @@ impl SqliteDriftRateHistoryStore {
         }
     }
 
- /// Insert/replace one sample row (legacy-compatible API).
+    /// Insert/replace one sample row (legacy-compatible API).
     pub fn record(&self, row: &DriftHistoryRow) -> Result<(), String> {
         self.lock()
             .execute(
@@ -218,7 +218,7 @@ impl SqliteDriftRateHistoryStore {
         Ok(())
     }
 
- /// Recent samples since `since_mono_secs` (legacy-compatible API).
+    /// Recent samples since `since_mono_secs` (legacy-compatible API).
     pub fn recent(
         &self,
         issuer_did: &str,

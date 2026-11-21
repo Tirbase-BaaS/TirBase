@@ -87,7 +87,7 @@ pub struct CloudAnchorAcknowledgement {
     pub device_did: String,
     pub acknowledged_seq: u64,
     pub acknowledged_hash: [u8; 32],
- /// The anchor's prior view of this device's chain (None on first contact).
+    /// The anchor's prior view of this device's chain (None on first contact).
     pub previously_witnessed_seq: Option<u64>,
     pub previously_witnessed_hash: Option<[u8; 32]>,
     pub observed_at: i64,
@@ -113,9 +113,9 @@ pub struct CloudAnchorResponse {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CloudAnchorIngress {
     pub anchor_did: String,
- /// Chain position the anchor has now witnessed for this device.
+    /// Chain position the anchor has now witnessed for this device.
     pub acknowledged: (u64, [u8; 32]),
- /// The anchor's prior witness, checked against the local tail.
+    /// The anchor's prior witness, checked against the local tail.
     pub previously_witnessed: Option<(u64, [u8; 32])>,
     pub observed_at: i64,
 }
@@ -141,11 +141,11 @@ impl std::fmt::Debug for CloudAnchorClient {
 }
 
 impl CloudAnchorClient {
- /// Build the client from gateway configuration.
- ///
- /// Returns `Ok(None)` when cloud anchoring is not configured. Partial
- /// configuration is rejected by `GatewayConfig::validate`; a direct caller
- /// gets an error here instead.
+    /// Build the client from gateway configuration.
+    ///
+    /// Returns `Ok(None)` when cloud anchoring is not configured. Partial
+    /// configuration is rejected by `GatewayConfig::validate`; a direct caller
+    /// gets an error here instead.
     pub fn from_config(
         config: &GatewayConfig,
         key_provider: Arc<dyn KeyProvider>,
@@ -177,10 +177,10 @@ impl CloudAnchorClient {
         }))
     }
 
- /// Report one checkpoint to the anchor and return the verified ingress.
- ///
- /// An acknowledgement signed by anyone other than the configured anchor,
- /// or one that does not echo this device's `(seq, hash)`, is rejected.
+    /// Report one checkpoint to the anchor and return the verified ingress.
+    ///
+    /// An acknowledgement signed by anyone other than the configured anchor,
+    /// or one that does not echo this device's `(seq, hash)`, is rejected.
     pub async fn exchange_checkpoint(
         &self,
         seq: u64,

@@ -81,10 +81,8 @@ impl AuditTimeEvidenceSource for RatchetAuditTimeSource {
             );
         }
 
-        let elapsed_since_anchor_secs = ts
-            .monotonic_now()
-            .saturating_sub(ratchet.mono_at_beacon())
-            / 1_000_000;
+        let elapsed_since_anchor_secs =
+            ts.monotonic_now().saturating_sub(ratchet.mono_at_beacon()) / 1_000_000;
         let elapsed_since_anchor_secs =
             i64::try_from(elapsed_since_anchor_secs).unwrap_or(i64::MAX);
 
@@ -114,7 +112,9 @@ impl AuditTimeEvidenceSource for RatchetAuditTimeSource {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tirbase_guard::time::{TimeRatchetConfig, TimeRatchetError, TimeRatchetRecord, TimeRatchetStore};
+    use tirbase_guard::time::{
+        TimeRatchetConfig, TimeRatchetError, TimeRatchetRecord, TimeRatchetStore,
+    };
 
     #[derive(Debug, Default)]
     struct MemoryStore {
@@ -156,8 +156,11 @@ mod tests {
     #[test]
     fn no_beacon_is_unverified() {
         let ratchet = Arc::new(Mutex::new(
-            TimeRatchet::open(Arc::new(MemoryStore::default()), TimeRatchetConfig::default())
-                .expect("ratchet"),
+            TimeRatchet::open(
+                Arc::new(MemoryStore::default()),
+                TimeRatchetConfig::default(),
+            )
+            .expect("ratchet"),
         ));
         let clock: Arc<dyn TimeSource> = Arc::new(FixedClock {
             mono_us: 5_000_000,

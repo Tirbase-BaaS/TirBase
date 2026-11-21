@@ -65,7 +65,7 @@ struct Route {
 }
 
 impl Route {
- /// `(collection, item, child-collection)` shape used by the handler.
+    /// `(collection, item, child-collection)` shape used by the handler.
     fn collection(&self) -> &str {
         if self.child.is_some() {
             self.child.as_deref().unwrap_or_default()
@@ -73,7 +73,6 @@ impl Route {
             &self.kind
         }
     }
-
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,8 +162,8 @@ fn parse_route(path: &str) -> Option<Route> {
     let rest = path.strip_prefix("/admin/")?;
     let segments: Vec<&str> = rest.split('/').filter(|s| !s.is_empty()).collect();
     match segments.as_slice() {
- // Venues are their own root collection (`/admin/venues`), unlike
- // cold-chain and POS which always have an explicit kind segment.
+        // Venues are their own root collection (`/admin/venues`), unlike
+        // cold-chain and POS which always have an explicit kind segment.
         ["venues"] => Some(Route {
             vertical: "venues".to_string(),
             kind: "venues".to_string(),
@@ -194,9 +193,7 @@ fn parse_route(path: &str) -> Option<Route> {
             child: None,
         }),
         [vertical, kind, id]
-            if validate_kind(vertical, kind)
-                && !is_child_kind(kind)
-                && valid_name(id, 64) =>
+            if validate_kind(vertical, kind) && !is_child_kind(kind) && valid_name(id, 64) =>
         {
             Some(Route {
                 vertical: vertical.to_string(),
@@ -395,7 +392,7 @@ impl VerticalApi {
         }
     }
 
- /// Route one vertical API request. Returns `(http_status, json_body)`.
+    /// Route one vertical API request. Returns `(http_status, json_body)`.
     pub fn dispatch(
         &self,
         method: &str,
@@ -418,17 +415,14 @@ impl VerticalApi {
     ) -> (u16, String) {
         let started = Instant::now();
         let method_upper = method.to_ascii_uppercase();
-        let mut span = crate::telemetry::Span::from_traceparent(
-            "vertical_api.dispatch",
-            traceparent,
-        );
+        let mut span =
+            crate::telemetry::Span::from_traceparent("vertical_api.dispatch", traceparent);
         span.set_attr("http.method", method_upper.clone());
         let Some(route) = parse_route(path) else {
             span.set_attr("vertical", "unknown");
             span.set_attr("http.status", "404");
             span.finish("error");
-            crate::metrics::global_metrics()
-                .observe_vertical_request("unknown", started.elapsed());
+            crate::metrics::global_metrics().observe_vertical_request("unknown", started.elapsed());
             return (
                 404,
                 json!({"status":404,"code":"VERTICAL_ROUTE_NOT_FOUND","error":"unknown vertical route"})
@@ -464,7 +458,11 @@ impl VerticalApi {
         span.finish(if result.0 >= 500 { "error" } else { "ok" });
         crate::telemetry::audit(
             "vertical.object.request",
-            if result.0 < 300 { "accepted" } else { "rejected" },
+            if result.0 < 300 {
+                "accepted"
+            } else {
+                "rejected"
+            },
             &[
                 ("vertical", route.vertical.as_str()),
                 ("kind", route.collection()),
@@ -484,7 +482,11 @@ impl VerticalApi {
     ) {
         let metrics = crate::metrics::global_metrics();
         metrics.observe_vertical_request(&route.vertical, elapsed);
-        let outcome = if result.0 < 300 { "accepted" } else { "rejected" };
+        let outcome = if result.0 < 300 {
+            "accepted"
+        } else {
+            "rejected"
+        };
         let kind = route.collection();
 
         // Vertical ledger appends are readings, order lines and gate events.
@@ -510,7 +512,10 @@ impl VerticalApi {
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .to_ascii_lowercase();
-                if matches!(status.as_str(), "paid" | "captured" | "completed" | "succeeded") {
+                if matches!(
+                    status.as_str(),
+                    "paid" | "captured" | "completed" | "succeeded"
+                ) {
                     let created = object
                         .get("created_est")
                         .and_then(Value::as_i64)
@@ -596,14 +601,21 @@ impl VerticalApi {
             Err(e) => return store_error(&format!("prepare list: {e}")),
         };
         let items: Vec<VerticalObject> = match stmt.query_map(
-            params![route.vertical, kind, tenant, parent, limit as i64, offset as i64],
+            params![
+                route.vertical,
+                kind,
+                tenant,
+                parent,
+                limit as i64,
+                offset as i64
+            ],
             row_to_object,
         ) {
             Ok(rows) => rows.filter_map(Result::ok).collect(),
             Err(e) => return store_error(&format!("list rows: {e}")),
         };
-        let next = ((offset + items.len()) < total as usize)
-            .then(|| (offset + items.len()).to_string());
+        let next =
+            ((offset + items.len()) < total as usize).then(|| (offset + items.len()).to_string());
         (
             200,
             json!({
@@ -648,12 +660,7 @@ impl VerticalApi {
         self.find_kind(&route.vertical, route.collection(), id, tenant)
     }
 
-    fn get(
-        &self,
-        route: &Route,
-        id: &str,
-        query: &BTreeMap<String, String>,
-    ) -> (u16, String) {
+    fn get(&self, route: &Route, id: &str, query: &BTreeMap<String, String>) -> (u16, String) {
         let tenant = match tenant_from(&json!({}), query) {
             Ok(t) => t,
             Err(e) => return bad_request(&e),
@@ -737,8 +744,7 @@ impl VerticalApi {
             {
                 return (
                     200,
-                    json!({"status":200,"idempotent_replay":true,"object":existing})
-                        .to_string(),
+                    json!({"status":200,"idempotent_replay":true,"object":existing}).to_string(),
                 );
             }
         }

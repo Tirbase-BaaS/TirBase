@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use tirbase_core::api::CoreHandle;
+use tirbase_core::provisioning::{DeviceQuery, ProvisioningPayload, ReportedVersions};
 use tirbase_core::traits::TimeSource;
 use tirbase_guard::admit::{
     ChallengeNonceStore, DEFAULT_CHALLENGE_NONCE_TTL_SECS, DEFAULT_CHALLENGE_REQUESTS_PER_MINUTE,
@@ -23,16 +24,13 @@ use tirbase_guard::signed_operation::SignedOperation;
 use tirbase_guard::time::TimeRatchet;
 use tirbase_guard::trust_root::TrustRootRecord;
 use tirbase_guard::PolicyBundle;
-use tirbase_core::provisioning::{DeviceQuery, ProvisioningPayload, ReportedVersions};
 use tirbase_types::envelope::EnvelopeProfile;
 
 use crate::provisioning::{
     parse_device_state, parse_public_key_hex, ProvisioningService, ProvisioningServiceError,
 };
 
-use crate::self_update::{
-    SelfUpdateController, SignedConfigRollback, SignedFirmwareManifest,
-};
+use crate::self_update::{SelfUpdateController, SignedConfigRollback, SignedFirmwareManifest};
 
 /// State shared by the admin endpoints.
 pub struct AdminState {
@@ -40,54 +38,55 @@ pub struct AdminState {
     pub epochs: Option<Arc<EpochRegistry>>,
     pub trust_root: Option<Arc<TrustRootRecord>>,
     pub policy: Option<Arc<std::sync::Mutex<tirbase_guard::PolicyLifecycle>>>,
- /// /13.3: operational mode and lockdown persistence.
+    /// /13.3: operational mode and lockdown persistence.
     pub node_mode: Option<Arc<NodeModeState>>,
     pub lockdown_store: Option<Arc<dyn LockdownStore>>,
     pub envelope_profile: Option<Arc<EnvelopeProfile>>,
- /// : simulate() dry-run production caller (replaces stub).
+    /// : simulate() dry-run production caller (replaces stub).
     pub guard: Option<Arc<tirbase_guard::CommandGuard>>,
- /// /16.3: production challenge nonce issuance/consumption store.
+    /// /16.3: production challenge nonce issuance/consumption store.
     pub challenge_store: Option<Arc<dyn ChallengeNonceStore>>,
- /// /S32: max challenge nonce requests per device/target/param/minute.
+    /// /S32: max challenge nonce requests per device/target/param/minute.
     pub challenge_requests_per_minute: u32,
- /// /21.3/21.5/21.9: primary DB path for lease/AEF admin operations.
+    /// /21.3/21.5/21.9: primary DB path for lease/AEF admin operations.
     pub primary_db_path: Option<std::path::PathBuf>,
- /// : hash-chained security event log (export/GDPR production callers).
+    /// : hash-chained security event log (export/GDPR production callers).
     pub security_log: Option<std::sync::Arc<crate::security_log::SecurityEventLog>>,
- /// : device key provider for signed exports/evidence bundles.
+    /// : device key provider for signed exports/evidence bundles.
     pub key_provider: Option<std::sync::Arc<dyn tirbase_core::traits::KeyProvider>>,
- /// /36.7: Stage-16 store supplies anti-replay window positions
- /// and `SingleWriterLease` state for the Guard status API.
+    /// /36.7: Stage-16 store supplies anti-replay window positions
+    /// and `SingleWriterLease` state for the Guard status API.
     pub stage16: Option<Arc<crate::guard::SqliteStage16Store>>,
- /// /36.9: live core handle used to replay quarantine entries and
- /// (via the mesh challenge path) request nonces from peers.
+    /// /36.9: live core handle used to replay quarantine entries and
+    /// (via the mesh challenge path) request nonces from peers.
     pub core_handle: Option<Arc<CoreHandle>>,
- /// : core.db path holding the schema quarantine ledger.
+    /// : core.db path holding the schema quarantine ledger.
     pub core_db_path: Option<std::path::PathBuf>,
- /// : authenticated-time ratchet for `/admin/time-reset`.
+    /// : authenticated-time ratchet for `/admin/time-reset`.
     pub ratchet: Option<Arc<std::sync::Mutex<TimeRatchet>>>,
- /// : time source used when evaluating signed operations.
+    /// : time source used when evaluating signed operations.
     pub time_source: Option<Arc<dyn TimeSource>>,
- /// : root CA seed used to mint scoped Biscuit tokens. Never
- /// serialized or logged.
+    /// : root CA seed used to mint scoped Biscuit tokens. Never
+    /// serialized or logged.
     pub mint_root_ca_seed: Option<Arc<Vec<u8>>>,
- /// : device key rotation backend.
+    /// : device key rotation backend.
     pub key_rotator: Option<Arc<dyn crate::key_rotation::KeyRotator>>,
- /// /PV-7.13: event-inspection view window in days (default 7).
+    /// /PV-7.13: event-inspection view window in days (default 7).
     pub events_view_window_days: i64,
- /// : page size cap for a single event-inspection query.
+    /// : page size cap for a single event-inspection query.
     pub events_page_size: usize,
- /// / RD-6: UpdateSigner-verified firmware/config updates and
- /// PolicyAuthority-signed config rollback.
- ///
- /// `None` means this deployment has not configured the role keys and the
- /// live config path; the endpoint then answers 503 rather than pretending
- /// the capability exists.
+    /// / RD-6: UpdateSigner-verified firmware/config updates and
+    /// PolicyAuthority-signed config rollback.
+    ///
+    /// `None` means this deployment has not configured the role keys and the
+    /// live config path; the endpoint then answers 503 rather than pretending
+    /// the capability exists.
     pub self_update: Option<Arc<std::sync::Mutex<SelfUpdateController>>>,
- /// F-04: durable device provisioning/lifecycle service.
+    /// F-04: durable device provisioning/lifecycle service.
     pub provisioning: Option<Arc<ProvisioningService>>,
- /// F-04: authority public key accepted for signed provisioning payloads.
-    pub provisioning_authority_public_key: Option<[u8; 32]>,    /// F-08: tenant-scoped cold-chain, POS and venue resource API.
+    /// F-04: authority public key accepted for signed provisioning payloads.
+    pub provisioning_authority_public_key: Option<[u8; 32]>,
+    /// F-08: tenant-scoped cold-chain, POS and venue resource API.
     pub vertical_api: Option<Arc<crate::vertical_api::VerticalApi>>,
     /// CC-21: report generation, exports, e-signatures and the audit chain.
     ///
@@ -215,10 +214,10 @@ impl AdminState {
 /// token proves the caller's role for privileged operations.
 #[derive(Debug, Clone, Default)]
 pub enum AdminCaller {
- /// Kernel-attested local process (root or the gateway's own UID).
+    /// Kernel-attested local process (root or the gateway's own UID).
     #[default]
     Local,
- /// Client-certificate-authenticated remote caller.
+    /// Client-certificate-authenticated remote caller.
     Remote { biscuit_token_hex: Option<String> },
 }
 
@@ -299,9 +298,9 @@ pub fn dispatch_http_request(
     caller: &AdminCaller,
 ) -> (u16, String) {
     let (path_only, query) = path.split_once('?').unwrap_or((path, ""));
- // F-08 vertical resources share the same auth model but have their own
- // tenant-scoped store. Remote reads still require a valid credential;
- // mutations additionally require Auditor/PolicyAuthority.
+    // F-08 vertical resources share the same auth model but have their own
+    // tenant-scoped store. Remote reads still require a valid credential;
+    // mutations additionally require Auditor/PolicyAuthority.
     if path_only == "/admin/venues"
         || ["/admin/cold-chain/", "/admin/pos/", "/admin/venues/"]
             .iter()
@@ -325,9 +324,7 @@ pub fn dispatch_http_request(
             );
         }
         if !method.eq_ignore_ascii_case("GET") {
-            if let Err(response) =
-                require_privileged(state, "{}", caller, now_est, "vertical")
-            {
+            if let Err(response) = require_privileged(state, "{}", caller, now_est, "vertical") {
                 let status = serde_json::from_str::<serde_json::Value>(&response)
                     .ok()
                     .and_then(|v| v.get("status").and_then(|s| s.as_u64()))
@@ -381,17 +378,21 @@ pub fn dispatch_http_request(
         ("POST", "/admin/provisioning/rotate") => ("provisioning-rotate", None, None),
         ("POST", "/admin/provisioning/revoke") => ("provisioning-revoke", None, None),
         ("POST", "/admin/provisioning/replace") => ("provisioning-replace", None, None),
-        ("POST", "/admin/provisioning/decommission") => {
-            ("provisioning-decommission", None, None)
-        }
+        ("POST", "/admin/provisioning/decommission") => ("provisioning-decommission", None, None),
         ("POST", "/admin/provisioning/reissue") => ("provisioning-reissue", None, None),
         ("POST", "/admin/provisioning/transfer") => ("provisioning-transfer", None, None),
         ("POST", "/admin/provisioning/report") => ("provisioning-report", None, None),
         ("GET", "/admin/provisioning/devices") => ("provisioning-query", None, None),
         ("GET", "/admin/provisioning/audit") => ("provisioning-audit", None, None),
         ("GET", p) if p.starts_with("/admin/provisioning/drift/") => {
-            let device = p.trim_start_matches("/admin/provisioning/drift/").to_string();
-            ("provisioning-drift", Some(serde_json::json!({"device_id": device})), None)
+            let device = p
+                .trim_start_matches("/admin/provisioning/drift/")
+                .to_string();
+            (
+                "provisioning-drift",
+                Some(serde_json::json!({"device_id": device})),
+                None,
+            )
         }
         _ => ("", None, Some(404u16)),
     };
@@ -568,13 +569,13 @@ fn dispatch_enroll(
         Ok(request) => request,
         Err(error) => return bad_request(&format!("invalid enrollment request: {error}")),
     };
- // (PV-11.2): a remote enrollment must carry a PolicyAuthority
- // delegation bound to this device DID, role and bootstrap nonce. Local
- // callers on the peer-credential socket are already trusted by the kernel,
- // but a delegation supplied there is still verified when present.
+    // (PV-11.2): a remote enrollment must carry a PolicyAuthority
+    // delegation bound to this device DID, role and bootstrap nonce. Local
+    // callers on the peer-credential socket are already trusted by the kernel,
+    // but a delegation supplied there is still verified when present.
     let delegation = payload.get("delegation");
     if caller.is_local() && delegation.is_none() {
- // kernel-attested local operator: trusted path
+        // kernel-attested local operator: trusted path
     } else {
         let Some(delegation) = delegation else {
             return serde_json::json!({
@@ -1052,10 +1053,10 @@ struct MintRequest {
     did: String,
     role: String,
     ttl_secs: u64,
- /// Optional `caveat("...")` fact. Restricted to
- /// [`tirbase_core::auth::biscuit::ALLOWED_CAVEATS`]; today that is
- /// `disaster-alert`, the credential `activate_saturate_mode` requires
- /// (Req 13.1, 13.7), so emergency activation no longer needs a test hook.
+    /// Optional `caveat("...")` fact. Restricted to
+    /// [`tirbase_core::auth::biscuit::ALLOWED_CAVEATS`]; today that is
+    /// `disaster-alert`, the credential `activate_saturate_mode` requires
+    /// (Req 13.1, 13.7), so emergency activation no longer needs a test hook.
     #[serde(default)]
     caveat: Option<String>,
 }
@@ -1086,8 +1087,8 @@ fn dispatch_mint(
         Ok(r) => r,
         Err(e) => return bad_request(&format!("invalid mint request: {e}")),
     };
- // wiring-mutation guard: a TTL above 86,400 s is rejected before
- // any token is minted. Removing this check makes the integration test fail.
+    // wiring-mutation guard: a TTL above 86,400 s is rejected before
+    // any token is minted. Removing this check makes the integration test fail.
     if request.ttl_secs > MAX_ADMIN_MINT_TTL_SECS {
         return deny(
             409,
@@ -1205,8 +1206,8 @@ fn dispatch_events(command: &str, state: Option<&AdminState>, now_est: i64) -> S
     let query: EventsQuery = payload_value(command)
         .and_then(|value| serde_json::from_value(value).ok())
         .unwrap_or_default();
- // PV-7.13/PV-11.2: the view window defaults to 7 days and is always bounded
- // by the configured security-event retention window.
+    // PV-7.13/PV-11.2: the view window defaults to 7 days and is always bounded
+    // by the configured security-event retention window.
     let view_days = state.events_view_window_days.max(1);
     let default_start = now_est.saturating_sub(view_days.saturating_mul(86_400));
     let window_start = query.since_est.unwrap_or(default_start);
@@ -1454,9 +1455,9 @@ fn dispatch_quarantine_replay(command: &str, state: Option<&AdminState>, now_est
             )
         }
     };
- // The core-local quarantine mirror has a `detail` column but not the
- // derived.db replay bookkeeping; add it idempotently so replay status is
- // durable wherever the entry lives.
+    // The core-local quarantine mirror has a `detail` column but not the
+    // derived.db replay bookkeeping; add it idempotently so replay status is
+    // durable wherever the entry lives.
     let _ = conn.execute_batch(
         "ALTER TABLE schema_quarantine ADD COLUMN replay_status TEXT;\n\
          ALTER TABLE schema_quarantine ADD COLUMN replay_ts INTEGER;",
@@ -1713,12 +1714,7 @@ fn dispatch_self_update(command: &str, state: Option<&AdminState>) -> String {
                 "outcome": "last_good_config_recorded",
             })
             .to_string(),
-            Err(error) => deny(
-                409,
-                "CHECKPOINT_FAILED",
-                &error.to_string(),
-                "self-update",
-            ),
+            Err(error) => deny(409, "CHECKPOINT_FAILED", &error.to_string(), "self-update"),
         },
         "apply" => {
             let Some(manifest_value) = payload.get("manifest").cloned() else {
@@ -1763,12 +1759,7 @@ fn dispatch_self_update(command: &str, state: Option<&AdminState>) -> String {
                     "restored_version": version,
                 })
                 .to_string(),
-                Err(error) => deny(
-                    422,
-                    "ROLLBACK_REJECTED",
-                    &error.to_string(),
-                    "self-update",
-                ),
+                Err(error) => deny(422, "ROLLBACK_REJECTED", &error.to_string(), "self-update"),
             }
         }
         _ => bad_request("unknown self-update action"),
@@ -1784,38 +1775,42 @@ fn dispatch_rollout_status(state: Option<&AdminState>) -> String {
         .unwrap_or_else(|| "Starting".into());
     let profile = state.and_then(|s| s.envelope_profile.as_ref());
     serde_json::json!({
-        "status": 200,
-        "endpoint": "rollout-status",
-        "gateway_version": env!("CARGO_PKG_VERSION"),
-        "node_mode": mode,
-        "profile_installed": profile.is_some(),
-        "profile_id": profile.map(|p| hex::encode(p.profile_id)),
-        "profile_version": profile.map(|p| p.version),
-        "device_class": profile.map(|p| p.device_class.clone()),
-        "self_update": if state.and_then(|s| s.self_update.as_ref()).is_some() {
-            "WIRED"
-        } else {
- // Self-update is not implemented; RFC-tuf describes the intended TUF
- // flow. Report the honest blocked status rather than a vague
- // "UNCONFIGURED" (the endpoint always reports a definite state).
-            "BLOCKED_PENDING_RFC_TUF"
-        },
-    })
+           "status": 200,
+           "endpoint": "rollout-status",
+           "gateway_version": env!("CARGO_PKG_VERSION"),
+           "node_mode": mode,
+           "profile_installed": profile.is_some(),
+           "profile_id": profile.map(|p| hex::encode(p.profile_id)),
+           "profile_version": profile.map(|p| p.version),
+           "device_class": profile.map(|p| p.device_class.clone()),
+           "self_update": if state.and_then(|s| s.self_update.as_ref()).is_some() {
+               "WIRED"
+           } else {
+    // Self-update is not implemented; RFC-tuf describes the intended TUF
+    // flow. Report the honest blocked status rather than a vague
+    // "UNCONFIGURED" (the endpoint always reports a definite state).
+               "BLOCKED_PENDING_RFC_TUF"
+           },
+       })
     .to_string()
 }
-
 
 // ── OTA / release channels / rollback (F-11) ────────────────────────────────
 
 fn ota_not_configured() -> String {
-    not_configured("ota", "ota_state_dir and ota_signer_public_key_hex (or update_signer_public_key_hex)")
+    not_configured(
+        "ota",
+        "ota_state_dir and ota_signer_public_key_hex (or update_signer_public_key_hex)",
+    )
 }
 
 fn ota_status_value(state: Option<&AdminState>) -> serde_json::Value {
     let Some(slots) = state.and_then(|s| s.ota_slots.as_ref()) else {
         return serde_json::json!({"configured": false});
     };
-    let boot = slots.reconcile_on_boot().unwrap_or_else(|_| crate::ota::BootState::default());
+    let boot = slots
+        .reconcile_on_boot()
+        .unwrap_or_else(|_| crate::ota::BootState::default());
     let rollout = load_ota_rollout(state);
     serde_json::json!({
         "configured": true,
@@ -1832,7 +1827,10 @@ fn load_ota_rollout(state: Option<&AdminState>) -> Option<crate::ota::RolloutSta
     serde_json::from_str(&body).ok()
 }
 
-fn save_ota_rollout(state: Option<&AdminState>, rollout: &crate::ota::RolloutState) -> Result<(), String> {
+fn save_ota_rollout(
+    state: Option<&AdminState>,
+    rollout: &crate::ota::RolloutState,
+) -> Result<(), String> {
     let path = state
         .and_then(|s| s.ota_rollout_state_path.as_ref())
         .ok_or_else(|| "ota_rollout_state_path not configured".to_string())?;
@@ -1843,14 +1841,21 @@ fn save_ota_rollout(state: Option<&AdminState>, rollout: &crate::ota::RolloutSta
     crate::ota::atomic_write(path, &bytes).map_err(|e| e.to_string())
 }
 
-fn parse_ota_bundle_payload(payload: &serde_json::Value) -> Result<(tirbase_types::ota::SignedOtaBundle, Vec<u8>), String> {
+fn parse_ota_bundle_payload(
+    payload: &serde_json::Value,
+) -> Result<(tirbase_types::ota::SignedOtaBundle, Vec<u8>), String> {
     // Online form: { bundle: <SignedOtaBundle>, artifact_base64: "..." }
     // Offline form: { offline_path: "/path/to/dir" } containing manifest.json+artifact.bin
     if let Some(path) = payload.get("offline_path").and_then(|v| v.as_str()) {
-        return crate::ota::load_offline_bundle(std::path::Path::new(path)).map_err(|e| e.to_string());
+        return crate::ota::load_offline_bundle(std::path::Path::new(path))
+            .map_err(|e| e.to_string());
     }
-    let bundle_val = payload.get("bundle").cloned().ok_or_else(|| "ota requires `bundle` or `offline_path`".to_string())?;
-    let bundle: tirbase_types::ota::SignedOtaBundle = serde_json::from_value(bundle_val).map_err(|e| format!("invalid bundle: {e}"))?;
+    let bundle_val = payload
+        .get("bundle")
+        .cloned()
+        .ok_or_else(|| "ota requires `bundle` or `offline_path`".to_string())?;
+    let bundle: tirbase_types::ota::SignedOtaBundle =
+        serde_json::from_value(bundle_val).map_err(|e| format!("invalid bundle: {e}"))?;
     let artifact = if let Some(hex_art) = payload.get("artifact_hex").and_then(|v| v.as_str()) {
         hex::decode(hex_art).map_err(|e| format!("invalid artifact_hex: {e}"))?
     } else if let Some(path) = payload.get("artifact_path").and_then(|v| v.as_str()) {
@@ -1862,13 +1867,21 @@ fn parse_ota_bundle_payload(payload: &serde_json::Value) -> Result<(tirbase_type
 }
 
 fn dispatch_ota(command: &str, state: Option<&AdminState>) -> String {
-    let Some(state) = state else { return ota_not_configured(); };
-    let (Some(slots), Some(signer_key)) = (state.ota_slots.as_ref(), state.ota_signer_public_key.as_ref()) else {
+    let Some(state) = state else {
+        return ota_not_configured();
+    };
+    let (Some(slots), Some(signer_key)) = (
+        state.ota_slots.as_ref(),
+        state.ota_signer_public_key.as_ref(),
+    ) else {
         return ota_not_configured();
     };
     let policy = state.ota_channel_policy.clone().unwrap_or_default();
     let payload = payload_value(command).unwrap_or_else(|| serde_json::json!({}));
-    let action = payload.get("action").and_then(|v| v.as_str()).unwrap_or("status");
+    let action = payload
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("status");
 
     match action {
         "status" => {
@@ -2022,7 +2035,6 @@ fn dispatch_ota(command: &str, state: Option<&AdminState>) -> String {
     }
 }
 
-
 // ─── F-04 provisioning / device lifecycle ───────────────────────────────────
 
 fn provisioning_error(error: ProvisioningServiceError) -> String {
@@ -2036,7 +2048,10 @@ fn parse_query_payload(query: &str) -> Option<serde_json::Value> {
         return None;
     }
     let decode = |raw: &str| {
-        raw.replace('+', " ").replace("%2F", "/").replace("%3A", ":").replace("%20", " ")
+        raw.replace('+', " ")
+            .replace("%2F", "/")
+            .replace("%3A", ":")
+            .replace("%20", " ")
     };
     let mut map = serde_json::Map::new();
     for pair in query.split('&') {
@@ -2048,7 +2063,9 @@ fn parse_query_payload(query: &str) -> Option<serde_json::Value> {
     Some(serde_json::Value::Object(map))
 }
 
-fn tenant_value(value: Option<&serde_json::Value>) -> Result<Option<tirbase_types::identity::TenantPath>, String> {
+fn tenant_value(
+    value: Option<&serde_json::Value>,
+) -> Result<Option<tirbase_types::identity::TenantPath>, String> {
     let Some(value) = value else {
         return Ok(None);
     };
@@ -2061,7 +2078,8 @@ fn tenant_value(value: Option<&serde_json::Value>) -> Result<Option<tirbase_type
 }
 
 fn provisioning_payload_value(value: &serde_json::Value) -> Result<ProvisioningPayload, String> {
-    serde_json::from_value(value.clone()).map_err(|error| format!("invalid provisioning payload: {error}"))
+    serde_json::from_value(value.clone())
+        .map_err(|error| format!("invalid provisioning payload: {error}"))
 }
 
 fn dispatch_provisioning_cmd(
@@ -2114,7 +2132,10 @@ fn dispatch_provisioning_cmd(
                 .to_string();
             service.issue_claim_code(
                 tenant,
-                payload.get("site").and_then(|v| v.as_str()).map(str::to_string),
+                payload
+                    .get("site")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
                 payload
                     .get("device_type")
                     .and_then(|v| v.as_str())
@@ -2133,7 +2154,9 @@ fn dispatch_provisioning_cmd(
             };
             let (Some(device_id), Some(public_hex), Some(device_type)) = (
                 payload.get("device_id").and_then(|v| v.as_str()),
-                payload.get("device_public_key_hex").and_then(|v| v.as_str()),
+                payload
+                    .get("device_public_key_hex")
+                    .and_then(|v| v.as_str()),
                 payload.get("device_type").and_then(|v| v.as_str()),
             ) else {
                 return bad_request(
@@ -2162,16 +2185,17 @@ fn dispatch_provisioning_cmd(
                 .get("payload_id")
                 .and_then(|v| v.as_str())
                 .map(str::to_string)
-                .unwrap_or_else(|| {
-                    format!("payload-{device_id}-{now_est}")
-                });
+                .unwrap_or_else(|| format!("payload-{device_id}-{now_est}"));
             service
                 .build_payload(
                     payload_id,
                     device_id.to_string(),
                     device_public_key,
                     tenant,
-                    payload.get("site").and_then(|v| v.as_str()).map(str::to_string),
+                    payload
+                        .get("site")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_string),
                     device_type.to_string(),
                     payload
                         .get("claim_code")
@@ -2208,7 +2232,9 @@ fn dispatch_provisioning_cmd(
             };
             service.apply_offline(&signed, actor, now_est)
         }
-        "provisioning-rotate" | "provisioning-replace" | "provisioning-decommission"
+        "provisioning-rotate"
+        | "provisioning-replace"
+        | "provisioning-decommission"
         | "provisioning-reissue" => {
             let Some(device_id) = payload.get("device_id").and_then(|v| v.as_str()) else {
                 return bad_request(&format!("{cmd} requires device_id"));
@@ -2243,7 +2269,10 @@ fn dispatch_provisioning_cmd(
             service.transfer(
                 device_id,
                 tenant,
-                payload.get("site").and_then(|v| v.as_str()).map(str::to_string),
+                payload
+                    .get("site")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
                 actor,
                 now_est,
             )
@@ -2285,7 +2314,10 @@ fn dispatch_provisioning_cmd(
             };
             service.query(&DeviceQuery {
                 tenant,
-                site: payload.get("site").and_then(|v| v.as_str()).map(str::to_string),
+                site: payload
+                    .get("site")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
                 device_type: payload
                     .get("device_type")
                     .or_else(|| payload.get("type"))
@@ -2520,7 +2552,7 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) 
     }
     let target = tirbase_types::TargetId::new(&target_id);
 
- // Consumption path (one-time-use proof / admin helper).
+    // Consumption path (one-time-use proof / admin helper).
     if let (Some(nonce_hex), Some(issuer_did)) =
         (req.nonce_hex.as_deref(), req.issuer_did.as_deref())
     {
@@ -2528,8 +2560,8 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) 
             let Some(nonce) = hex_decode_32(nonce_hex) else {
                 return bad_request("invalid nonce_hex");
             };
- // Nonce expiry is monotonic, so consumption must use the guard's
- // monotonic clock, not the authenticated wall estimate.
+            // Nonce expiry is monotonic, so consumption must use the guard's
+            // monotonic clock, not the authenticated wall estimate.
             let mono_now = st
                 .guard
                 .as_ref()
@@ -2552,7 +2584,7 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) 
         return not_configured("challenge", "challenge nonce store");
     }
 
- // Issuance path (): only for Unverified + critical parameter.
+    // Issuance path (): only for Unverified + critical parameter.
     let Some(guard) = st.guard.as_ref() else {
         return not_configured("challenge", "CommandGuard with a decision pipeline");
     };
@@ -2577,12 +2609,12 @@ fn dispatch_challenge(command: &str, state: Option<&AdminState>, _now_est: i64) 
     } else {
         st.challenge_requests_per_minute
     };
- // Sync pipeline limit with admin/runtime config for S32 enforcement.
+    // Sync pipeline limit with admin/runtime config for S32 enforcement.
     pipeline.set_challenge_requests_per_minute(limit);
     if !pipeline.check_challenge_issue_rate_limit(&device_id, &target_id, &param, mono_now) {
         return serde_json::json!({"status":429,"error":"challenge nonce issuance rate limited (S32)","code":"CHALLENGE_RATE_LIMITED","retry_after_secs":60,"limit_per_minute":limit,"endpoint":"challenge"}).to_string();
     }
- // In-process pipeline limit is authoritative for this admin endpoint (S32).
+    // In-process pipeline limit is authoritative for this admin endpoint (S32).
     let _ = st.challenge_store.as_ref();
     match pipeline.issue_challenge_nonce_for_device(&device_id, &issuer_did, &target_id, &param) {
         Ok(nonce) => serde_json::json!({
@@ -2690,8 +2722,8 @@ struct LeasePreemptRequest {
     new_issuer_did: Option<String>,
     #[serde(default)]
     lease_duration_secs: Option<i64>,
- /// Bound into the signed payload when the caller supplies it; falls back to
- /// the dispatch time for callers that sign with the admin clock.
+    /// Bound into the signed payload when the caller supplies it; falls back to
+    /// the dispatch time for callers that sign with the admin clock.
     #[serde(default)]
     now_est: Option<i64>,
 }
@@ -2723,7 +2755,7 @@ fn dispatch_lease_preempt(command: &str, state: Option<&AdminState>, now_est: i6
         Ok(r) => r,
         Err(e) => return bad_request(&format!("invalid lease-preempt: {e}")),
     };
- // Require joint M-of-N: at least one PolicyAuthority and one RevocationManager signature.
+    // Require joint M-of-N: at least one PolicyAuthority and one RevocationManager signature.
     if let Some(opv) = op_val {
         let op: tirbase_guard::SignedOperation<LeasePreemptPayload> =
             match serde_json::from_value(opv) {
@@ -3136,7 +3168,7 @@ fn dispatch_sequence_reset(command: &str, state: Option<&AdminState>, _now_est: 
         Ok(r) => r,
         Err(e) => return bad_request(&format!("invalid sequence-reset: {e}")),
     };
- // Verify PA signatures and payload binding (domain-separated).
+    // Verify PA signatures and payload binding (domain-separated).
     let resolve = |did: &str| -> Option<Vec<u8>> {
         trust_root
             .role_thresholds
@@ -3162,7 +3194,7 @@ fn dispatch_sequence_reset(command: &str, state: Option<&AdminState>, _now_est: 
         return serde_json::json!({"status":409,"error":e.to_string(),"endpoint":"sequence-reset"})
             .to_string();
     }
- // Require at least one PolicyAuthority role signature (trust root role registry enforces PA keys via resolver).
+    // Require at least one PolicyAuthority role signature (trust root role registry enforces PA keys via resolver).
     let has_pa = req
         .operation
         .signatures
@@ -3171,11 +3203,11 @@ fn dispatch_sequence_reset(command: &str, state: Option<&AdminState>, _now_est: 
     if !has_pa {
         return serde_json::json!({"status":409,"error":"sequence-reset requires PolicyAuthority signature","endpoint":"sequence-reset"}).to_string();
     }
- // Persist baseline. Uses primary.db path if configured via guard/store context in future; for now
- // apply in-memory verified reset semantics and report success when a store is available via state.
- // AdminState does not yet carry anti-replay store handle; the endpoint is wired as production caller
- // and returns verified outcome. Persistence is performed by Stage 16 store on next command and by
- // admin DB-backed reset when store handle is added ().
+    // Persist baseline. Uses primary.db path if configured via guard/store context in future; for now
+    // apply in-memory verified reset semantics and report success when a store is available via state.
+    // AdminState does not yet carry anti-replay store handle; the endpoint is wired as production caller
+    // and returns verified outcome. Persistence is performed by Stage 16 store on next command and by
+    // admin DB-backed reset when store handle is added ().
     serde_json::json!({
         "status": 200,
         "endpoint": "sequence-reset",

@@ -15,9 +15,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StorageBudget {
- /// Bytes allowed for primary.db plus derived.db.
+    /// Bytes allowed for primary.db plus derived.db.
     pub ledgers_bytes: u64,
- /// Bytes allowed for the signed archive directory.
+    /// Bytes allowed for the signed archive directory.
     pub archive_bytes: u64,
 }
 
@@ -40,7 +40,7 @@ pub struct StorageUsage {
     pub ledger_utilization_ppm: u64,
     pub archive_utilization_ppm: u64,
     pub within_budget: bool,
- /// Classes whose retention can free ledger space, in policy order.
+    /// Classes whose retention can free ledger space, in policy order.
     pub reclaimable_classes: Vec<String>,
 }
 
@@ -120,9 +120,7 @@ pub fn class_bytes(conn: &rusqlite::Connection) -> Result<BTreeMap<String, i64>,
     ] {
         let bytes: i64 = conn
             .query_row(
-                &format!(
-                    "SELECT COALESCE(SUM(LENGTH(QUOTE({table}))),0) FROM {table}"
-                ),
+                &format!("SELECT COALESCE(SUM(LENGTH(QUOTE({table}))),0) FROM {table}"),
                 [],
                 |r| r.get(0),
             )

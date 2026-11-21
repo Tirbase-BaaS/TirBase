@@ -159,7 +159,7 @@ mod tests {
     #[test]
     fn beacon_file_is_admitted_and_advances_the_ratchet() {
         let anchor = InMemoryKeyProvider::generate().expect("key");
- // A jump this large requires the default quorum of two distinct anchors.
+        // A jump this large requires the default quorum of two distinct anchors.
         let second_anchor = InMemoryKeyProvider::generate().expect("key");
         let beacon = TimeBeacon {
             wall_time_secs: 1_800_000_000,

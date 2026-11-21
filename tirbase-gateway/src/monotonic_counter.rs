@@ -47,8 +47,8 @@ pub struct SoftwareMonotonicCounter {
 }
 
 impl SoftwareMonotonicCounter {
- /// Open (or create) the counter database at `path`, seeding it with
- /// `initial` on first boot.
+    /// Open (or create) the counter database at `path`, seeding it with
+    /// `initial` on first boot.
     pub fn open(path: impl AsRef<Path>, initial: u64) -> Result<Self, TirBaseError> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {
@@ -66,8 +66,8 @@ impl SoftwareMonotonicCounter {
 
         let conn = Connection::open(path).map_err(|e| db_error("open", e))?;
 
- // Durability: WAL + synchronous=FULL (CLAIM-6.5). `pragma_update`
- // fails loudly if SQLite rejects either setting.
+        // Durability: WAL + synchronous=FULL (CLAIM-6.5). `pragma_update`
+        // fails loudly if SQLite rejects either setting.
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| db_error("set journal_mode=WAL", e))?;
         conn.pragma_update(None, "synchronous", "FULL")
@@ -92,8 +92,8 @@ impl SoftwareMonotonicCounter {
         })
     }
 
- /// The effective `PRAGMA synchronous` value (2 = FULL). Exposed for the
- /// wiring-mutation test for CLAIM-6.5.
+    /// The effective `PRAGMA synchronous` value (2 = FULL). Exposed for the
+    /// wiring-mutation test for CLAIM-6.5.
     #[cfg(test)]
     pub fn synchronous_pragma(&self) -> Result<i64, TirBaseError> {
         self.with_conn(|conn| {
@@ -102,7 +102,7 @@ impl SoftwareMonotonicCounter {
         })
     }
 
- /// The effective `PRAGMA journal_mode` value (expected: `"wal"`).
+    /// The effective `PRAGMA journal_mode` value (expected: `"wal"`).
     #[cfg(test)]
     pub fn journal_mode_pragma(&self) -> Result<String, TirBaseError> {
         self.with_conn(|conn| {
@@ -171,7 +171,7 @@ impl MonotonicCounterTrait for SoftwareMonotonicCounter {
                 params![to_i64(next)?],
             )
             .map_err(|e| db_error("increment", e))?;
- // Commit under synchronous=FULL: fsynced before returning.
+            // Commit under synchronous=FULL: fsynced before returning.
             tx.commit().map_err(|e| db_error("commit increment", e))?;
             Ok(next)
         })
@@ -223,8 +223,8 @@ pub struct NamedMonotonicCounter {
 }
 
 impl NamedMonotonicCounter {
- /// Open (or create) `key` in the `monotonic_counters` table, seeding it
- /// with `initial` on first use.
+    /// Open (or create) `key` in the `monotonic_counters` table, seeding it
+    /// with `initial` on first use.
     pub fn open(
         path: impl AsRef<Path>,
         key: impl Into<String>,
@@ -270,7 +270,7 @@ impl NamedMonotonicCounter {
         })
     }
 
- /// The row key this counter is bound to.
+    /// The row key this counter is bound to.
     #[cfg(test)]
     pub fn key(&self) -> &str {
         &self.key
@@ -415,7 +415,7 @@ pub struct SimulatedHardwareCounter {
 }
 
 impl SimulatedHardwareCounter {
- /// Construct with an initial simulated NV value.
+    /// Construct with an initial simulated NV value.
     pub fn new(initial: u64) -> Self {
         SimulatedHardwareCounter {
             value: AtomicU64::new(initial),
@@ -509,12 +509,12 @@ pub struct Tpm2MonotonicCounter {
 
 #[cfg(feature = "tpm2")]
 impl Tpm2MonotonicCounter {
- /// Address the given TPM2 NV index (or RPMB counter slot).
+    /// Address the given TPM2 NV index (or RPMB counter slot).
     pub fn new(nv_index: u32) -> Self {
         Tpm2MonotonicCounter { nv_index }
     }
 
- /// The NV index this counter would use.
+    /// The NV index this counter would use.
     #[cfg(test)]
     pub fn nv_index(&self) -> u32 {
         self.nv_index
@@ -526,9 +526,9 @@ mod tpm2_nv {
     use std::str::FromStr;
 
     use tss_esapi::attributes::NvIndexAttributesBuilder;
+    use tss_esapi::constants::NvIndexType;
     use tss_esapi::handles::{NvIndexHandle, NvIndexTpmHandle, TpmHandle};
     use tss_esapi::interface_types::algorithm::HashingAlgorithm;
-    use tss_esapi::constants::NvIndexType;
     use tss_esapi::interface_types::resource_handles::{NvAuth, Provision};
     use tss_esapi::interface_types::session_handles::AuthSession;
     use tss_esapi::structures::NvPublicBuilder;
@@ -545,13 +545,15 @@ mod tpm2_nv {
     }
 
     pub(super) fn open(nv_index: u32) -> Result<(Context, NvIndexHandle), TirBaseError> {
-        let spec = std::env::var("TIRBASE_TPM2_TCTI")
-            .unwrap_or_else(|_| "device:/dev/tpmrm0".to_string());
+        let spec =
+            std::env::var("TIRBASE_TPM2_TCTI").unwrap_or_else(|_| "device:/dev/tpmrm0".to_string());
         let tcti = TctiNameConf::from_str(&spec).map_err(unavailable)?;
         let mut context = Context::new(tcti).map_err(unavailable)?;
         context.set_sessions((Some(AuthSession::Password), None, None));
         let tpm_handle = TpmHandle::NvIndex(NvIndexTpmHandle::new(nv_index).map_err(unavailable)?);
-        let object = context.tr_from_tpm_public(tpm_handle).map_err(unavailable)?;
+        let object = context
+            .tr_from_tpm_public(tpm_handle)
+            .map_err(unavailable)?;
         Ok((context, NvIndexHandle::from(object)))
     }
 
@@ -571,11 +573,11 @@ mod tpm2_nv {
         Ok(u64::from_be_bytes(raw))
     }
 
- /// Create the counter index if it does not exist yet (empty hierarchy auth).
- /// Used by provisioning and by the swtpm integration test.
+    /// Create the counter index if it does not exist yet (empty hierarchy auth).
+    /// Used by provisioning and by the swtpm integration test.
     pub fn provision_counter_index(nv_index: u32) -> Result<(), TirBaseError> {
-        let spec = std::env::var("TIRBASE_TPM2_TCTI")
-            .unwrap_or_else(|_| "device:/dev/tpmrm0".to_string());
+        let spec =
+            std::env::var("TIRBASE_TPM2_TCTI").unwrap_or_else(|_| "device:/dev/tpmrm0".to_string());
         let tcti = TctiNameConf::from_str(&spec).map_err(unavailable)?;
         let mut context = Context::new(tcti).map_err(unavailable)?;
         context.set_sessions((Some(AuthSession::Password), None, None));
@@ -621,16 +623,19 @@ impl MonotonicCounterTrait for Tpm2MonotonicCounter {
     fn increment(&self) -> Result<u64, TirBaseError> {
         let (mut context, handle) = tpm2_nv::open(self.nv_index)?;
         context
-            .nv_increment(tss_esapi::interface_types::resource_handles::NvAuth::Owner, handle)
+            .nv_increment(
+                tss_esapi::interface_types::resource_handles::NvAuth::Owner,
+                handle,
+            )
             .map_err(tpm2_nv::unavailable)?;
         tpm2_nv::read(&mut context, handle)
     }
 
- /// Raise the hardware counter to at least `value`.
- ///
- /// A TPM2 counter index only supports increment, so raising it to a target
- /// above the current value costs `value - current` increments. The caller
- /// bounds this by the checkpoint cadence (default 1000).
+    /// Raise the hardware counter to at least `value`.
+    ///
+    /// A TPM2 counter index only supports increment, so raising it to a target
+    /// above the current value costs `value - current` increments. The caller
+    /// bounds this by the checkpoint cadence (default 1000).
     fn set_if_greater(&self, value: u64) -> Result<u64, TirBaseError> {
         let (mut context, handle) = tpm2_nv::open(self.nv_index)?;
         let current = tpm2_nv::read(&mut context, handle)?;
@@ -645,7 +650,10 @@ impl MonotonicCounterTrait for Tpm2MonotonicCounter {
         }
         for _ in 0..steps {
             context
-                .nv_increment(tss_esapi::interface_types::resource_handles::NvAuth::Owner, handle)
+                .nv_increment(
+                    tss_esapi::interface_types::resource_handles::NvAuth::Owner,
+                    handle,
+                )
                 .map_err(tpm2_nv::unavailable)?;
         }
         tpm2_nv::read(&mut context, handle)

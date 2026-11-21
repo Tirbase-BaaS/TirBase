@@ -23,13 +23,13 @@ pub struct ExportedLog {
     pub device_did: String,
     pub device_public_key_hex: String,
     pub pseudonymized: bool,
- /// Explicit disclaimer (CLAIM-27.2, PV-7.8): pseudonymized export is NOT chain-verified.
+    /// Explicit disclaimer (CLAIM-27.2, PV-7.8): pseudonymized export is NOT chain-verified.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disclaimer: Option<String>,
     pub events: Vec<ExportedEvent>,
     pub checkpoints: Vec<ExportedCheckpoint>,
     pub chain_report: VerifyReport,
- /// Signed time-confidence evidence for the export operation itself (F-06).
+    /// Signed time-confidence evidence for the export operation itself (F-06).
     pub time_evidence: SignedTimeEvidence,
     pub signature_hex: String,
 }
@@ -48,8 +48,8 @@ pub struct ExportedEvent {
     pub prev_hash_hex: String,
     pub hash_hex: String,
     pub personal_commitments: Vec<ExportedPersonalCommitment>,
- /// Signed time-confidence marker captured when the audit record was
- /// appended (F-06); `None` for records written without an evidence source.
+    /// Signed time-confidence marker captured when the audit record was
+    /// appended (F-06); `None` for records written without an evidence source.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub time_evidence: Option<SignedTimeEvidence>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -208,7 +208,7 @@ fn read_chain_records(conn: &Connection) -> Result<Vec<SecurityEvent>, String> {
         .map_err(|e| e.to_string())?;
     for row in rows {
         let mut ev = row.map_err(|e| e.to_string())?;
- // Reconstruct commitments from stored plaintext+salt for verification/export (27.1).
+        // Reconstruct commitments from stored plaintext+salt for verification/export (27.1).
         let pfs = read_personal_fields_for_seq(conn, ev.seq).map_err(|e| e.to_string())?;
         for (field_name, salt, plaintext_bytes) in pfs {
             let plaintext = String::from_utf8_lossy(&plaintext_bytes).to_string();
@@ -323,13 +323,9 @@ pub fn build_export_time_evidence(
                     elapsed_since_anchor_secs.saturating_add(extra),
                     drift,
                 ),
-                TimeConfidence::Unverified { reason } => TimeEvidence::unverified(
-                    wall_time_secs,
-                    mono_secs,
-                    boot_id,
-                    floor,
-                    *reason,
-                ),
+                TimeConfidence::Unverified { reason } => {
+                    TimeEvidence::unverified(wall_time_secs, mono_secs, boot_id, floor, *reason)
+                }
             }
         }
         Some(previous) => TimeEvidence::unverified(

@@ -91,17 +91,14 @@ impl BlockLayerCounter {
     }
 
     pub fn supported(&self) -> bool {
-        self.stat_path
-            .as_ref()
-            .map(|p| p.exists())
-            .unwrap_or(false)
+        self.stat_path.as_ref().map(|p| p.exists()).unwrap_or(false)
     }
 
     pub fn block_device(&self) -> Option<String> {
         self.block_device.clone()
     }
 
- /// Returns cumulative sectors written * 512 for the backing block device.
+    /// Returns cumulative sectors written * 512 for the backing block device.
     pub fn read_cumulative_write_bytes(&self) -> io::Result<u64> {
         let stat_path = self
             .stat_path
@@ -124,25 +121,25 @@ impl BlockLayerCounter {
 }
 
 fn parse_write_sectors(stat: &str) -> Option<u64> {
- // /sys/block/<dev>/stat fields:
- // 1 read_ios 2 read_merges 3 read_sectors 4 read_ticks
- // 5 write_ios 6 write_merges 7 write_sectors ...
+    // /sys/block/<dev>/stat fields:
+    // 1 read_ios 2 read_merges 3 read_sectors 4 read_ticks
+    // 5 write_ios 6 write_merges 7 write_sectors ...
     let fields: Vec<&str> = stat.split_whitespace().collect();
     fields.get(6).and_then(|v| v.parse::<u64>().ok())
 }
 
 fn resolve_block_device(path: &Path) -> Option<String> {
- // Best-effort Linux resolution: find mount source device for path, then map to /sys/block.
+    // Best-effort Linux resolution: find mount source device for path, then map to /sys/block.
     let mount_dev = find_mount_source(path)?;
     let name = mount_dev
         .strip_prefix("/dev/")
         .unwrap_or(&mount_dev)
         .to_string();
- // Partition (e.g. nvme0n1p1, sda1, mmcblk0p2) -> base block device if present.
+    // Partition (e.g. nvme0n1p1, sda1, mmcblk0p2) -> base block device if present.
     if Path::new(&format!("/sys/block/{name}")).exists() {
         return Some(name);
     }
- // Try trimming partition suffix.
+    // Try trimming partition suffix.
     let trimmed = trim_partition_suffix(&name);
     if Path::new(&format!("/sys/block/{trimmed}")).exists() {
         return Some(trimmed);
@@ -157,13 +154,13 @@ fn find_mount_source(path: &Path) -> Option<String> {
         .ok()?;
     let mut best: Option<(usize, String)> = None;
     for line in mounts.lines() {
- // mountinfo: ... - fstype source superopts
+        // mountinfo: ... - fstype source superopts
         let source = if line.contains(" - ") {
             let parts: Vec<&str> = line.splitn(2, " - ").collect();
             let right: Vec<&str> = parts.get(1)?.split_whitespace().collect();
             right.get(1).map(|s| s.to_string())
         } else {
- // /proc/mounts: source target fstype ...
+            // /proc/mounts: source target fstype ...
             let parts: Vec<&str> = line.split_whitespace().collect();
             parts.first().map(|s| s.to_string())
         };
@@ -189,19 +186,24 @@ fn find_mount_source(path: &Path) -> Option<String> {
 }
 
 fn trim_partition_suffix(name: &str) -> String {
- // nvme/mmcblk style: ...p<number>
+    // nvme/mmcblk style: ...p<number>
     if let Some(idx) = name.rfind('p') {
         let (base, suffix) = name.split_at(idx + 1);
         if !suffix.is_empty() && suffix.chars().all(|c| c.is_ascii_digit()) && base.len() > 1 {
- // keep base without trailing 'p' if it looks like mmcblk0p1/nvme0n1p1
+            // keep base without trailing 'p' if it looks like mmcblk0p1/nvme0n1p1
             if name.contains("mmcblk") || name.contains("nvme") || name.contains("loop") {
                 return name[..idx].to_string();
             }
         }
     }
- // sdX/vdX style: trailing digits
+    // sdX/vdX style: trailing digits
     let trimmed = name.trim_end_matches(|c: char| c.is_ascii_digit());
-    if trimmed.len() < name.len() && (name.starts_with("sd") || name.starts_with("vd") || name.starts_with("xvd") || name.starts_with("hd")) {
+    if trimmed.len() < name.len()
+        && (name.starts_with("sd")
+            || name.starts_with("vd")
+            || name.starts_with("xvd")
+            || name.starts_with("hd"))
+    {
         return trimmed.to_string();
     }
     name.to_string()
@@ -228,7 +230,10 @@ pub struct FlashBudgetController {
 impl std::fmt::Debug for FlashBudgetController {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FlashBudgetController")
-            .field("budget_bytes_per_day", &self.budget_bytes_per_day.load(Ordering::Relaxed))
+            .field(
+                "budget_bytes_per_day",
+                &self.budget_bytes_per_day.load(Ordering::Relaxed),
+            )
             .field("block_device", &self.counter.block_device())
             .field("supported", &self.counter.supported())
             .finish()
@@ -247,7 +252,7 @@ impl FlashBudgetController {
         })
     }
 
- /// Attach the security log whose batcher window is throttled for non-critical writes.
+    /// Attach the security log whose batcher window is throttled for non-critical writes.
     pub fn attach_security_log(&self, log: Arc<crate::security_log::SecurityEventLog>) {
         *self.security_log.write().unwrap_or_else(|p| p.into_inner()) = Some(log);
     }
@@ -257,7 +262,8 @@ impl FlashBudgetController {
     }
 
     pub fn set_budget_bytes_per_day(&self, budget: u64) {
-        self.budget_bytes_per_day.store(budget.max(1), Ordering::Relaxed);
+        self.budget_bytes_per_day
+            .store(budget.max(1), Ordering::Relaxed);
     }
 
     pub fn group_commit_window(&self) -> Duration {
@@ -273,7 +279,7 @@ impl FlashBudgetController {
         let cumulative = self.counter.read_cumulative_write_bytes().ok();
         let mut st = self.state.lock().unwrap_or_else(|p| p.into_inner());
 
- // Handle counter reset (reboot/wrap) by rebasing.
+        // Handle counter reset (reboot/wrap) by rebasing.
         if let (Some(prev), Some(cur)) = (st.last_bytes, cumulative) {
             if cur < prev {
                 st.today_start_bytes = Some(cur);
@@ -301,14 +307,18 @@ impl FlashBudgetController {
         drop(st);
     }
 
- /// Compute estimate/projection and apply throttling policy (PV-15.4).
+    /// Compute estimate/projection and apply throttling policy (PV-15.4).
     pub fn evaluate(&self) -> FlashWearEstimate {
         self.sample_once();
         let now = now_unix_secs();
         let budget = self.budget_bytes_per_day();
         let (rolling_7d_avg, projected, today_bytes) = {
             let st = self.state.lock().unwrap_or_else(|p| p.into_inner());
-            (self.rolling_7d_avg_locked(&st), self.projected_locked(&st, now), self.today_bytes_locked(&st))
+            (
+                self.rolling_7d_avg_locked(&st),
+                self.projected_locked(&st, now),
+                self.today_bytes_locked(&st),
+            )
         };
 
         let (new_window, active) = throttle_window_for_projection(projected, budget);
@@ -338,10 +348,15 @@ impl FlashBudgetController {
             );
         }
 
- // Apply to non-critical batching path only. HIGH/CRITICAL events bypass the
- // batcher/window in SecurityEventLog/GroupCommitBatcher and are persisted
- // immediately regardless of this window.
-        if let Some(log) = self.security_log.read().unwrap_or_else(|p| p.into_inner()).clone() {
+        // Apply to non-critical batching path only. HIGH/CRITICAL events bypass the
+        // batcher/window in SecurityEventLog/GroupCommitBatcher and are persisted
+        // immediately regardless of this window.
+        if let Some(log) = self
+            .security_log
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .clone()
+        {
             if let Some(batcher) = log.batcher() {
                 batcher.set_window(new_window);
             }
@@ -371,7 +386,7 @@ impl FlashBudgetController {
         let today = self.today_bytes_locked(st);
         let elapsed = (now - st.today_start_unix).max(1) as u64;
         let elapsed = elapsed.min(86_400);
- // project full-day bytes from today's observed block-layer writes
+        // project full-day bytes from today's observed block-layer writes
         today.saturating_mul(86_400) / elapsed.max(1)
     }
 
@@ -384,7 +399,7 @@ impl FlashBudgetController {
         };
         let delta = b.saturating_sub(a);
         let secs = (last.at_unix - first.at_unix).max(1) as u64;
- // bytes/day over observed window
+        // bytes/day over observed window
         delta.saturating_mul(86_400) / secs.max(1)
     }
 
@@ -392,7 +407,7 @@ impl FlashBudgetController {
         self.evaluate()
     }
 
- /// Background tracker/throttle loop (production caller, CLAIM-44.5/44.6).
+    /// Background tracker/throttle loop (production caller, CLAIM-44.5/44.6).
     pub fn spawn(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
         let this = Arc::clone(self);
         tokio::spawn(async move {
@@ -404,32 +419,38 @@ impl FlashBudgetController {
         })
     }
 
- /// Attach the global process controller (used by CLI/tests).
+    /// Attach the global process controller (used by CLI/tests).
     pub fn install_global(self: &Arc<Self>) -> Arc<Self> {
         let _ = GLOBAL_FLASH_BUDGET.set(Arc::clone(self));
-        global()
-            .unwrap_or_else(|| Arc::clone(self))
+        global().unwrap_or_else(|| Arc::clone(self))
     }
 }
 
 /// Compute throttled group-commit window from projected daily writes.
 /// `HIGH`/`CRITICAL` events bypass this window (handled by event path).
-pub fn throttle_window_for_projection(projected_bytes_per_day: u64, budget_bytes_per_day: u64) -> (Duration, bool) {
+pub fn throttle_window_for_projection(
+    projected_bytes_per_day: u64,
+    budget_bytes_per_day: u64,
+) -> (Duration, bool) {
     if budget_bytes_per_day == 0 || projected_bytes_per_day <= budget_bytes_per_day {
         return (DEFAULT_BATCH_WINDOW, false);
     }
     let over = projected_bytes_per_day.saturating_sub(budget_bytes_per_day);
     let budget = budget_bytes_per_day.max(1);
- // Linear ramp: at 2x budget reach max window.
+    // Linear ramp: at 2x budget reach max window.
     let ratio = (over as f64 / budget as f64).min(1.0);
     let base = DEFAULT_BATCH_WINDOW.as_millis() as f64;
     let max = MAX_BATCH_WINDOW.as_millis() as f64;
     let ms = (base + (max - base) * ratio).round() as u64;
-    let ms = ms.clamp(DEFAULT_BATCH_WINDOW.as_millis() as u64, MAX_BATCH_WINDOW.as_millis() as u64);
+    let ms = ms.clamp(
+        DEFAULT_BATCH_WINDOW.as_millis() as u64,
+        MAX_BATCH_WINDOW.as_millis() as u64,
+    );
     (Duration::from_millis(ms), true)
 }
 
-static GLOBAL_FLASH_BUDGET: std::sync::OnceLock<Arc<FlashBudgetController>> = std::sync::OnceLock::new();
+static GLOBAL_FLASH_BUDGET: std::sync::OnceLock<Arc<FlashBudgetController>> =
+    std::sync::OnceLock::new();
 
 pub fn global() -> Option<Arc<FlashBudgetController>> {
     GLOBAL_FLASH_BUDGET.get().cloned()
@@ -459,11 +480,13 @@ pub fn estimate_for_data_path(data_path: &Path, budget_bytes_per_day: u64) -> Fl
     let ctl = FlashBudgetController::new(data_path, budget_bytes_per_day);
     let sp = state_path(data_path);
     if let Ok(prev) = load_estimate(&sp) {
- // Seed with prior view is not enough for rolling history without persisted samples;
- // return fresh estimate but preserve context in fields.
+        // Seed with prior view is not enough for rolling history without persisted samples;
+        // return fresh estimate but preserve context in fields.
         let mut est = ctl.estimate();
         if !ctl.counter.supported() {
-            est.rolling_7d_avg_bytes_per_day = prev.rolling_7d_avg_bytes_per_day.max(est.rolling_7d_avg_bytes_per_day);
+            est.rolling_7d_avg_bytes_per_day = prev
+                .rolling_7d_avg_bytes_per_day
+                .max(est.rolling_7d_avg_bytes_per_day);
         }
         let _ = save_estimate(&sp, &est);
         return est;
@@ -479,7 +502,7 @@ mod tests {
 
     #[test]
     fn parses_write_sectors_from_sys_block_stat() {
- // field 7 (0-indexed 6) is sectors written
+        // field 7 (0-indexed 6) is sectors written
         let stat = "  100 0 200 0  50 0 4096 0 0 0 0 0 0 0 0 0 0 0 0\n";
         assert_eq!(parse_write_sectors(stat), Some(4096));
         assert_eq!(4096 * SECTOR_SIZE_BYTES, 2 * 1024 * 1024);

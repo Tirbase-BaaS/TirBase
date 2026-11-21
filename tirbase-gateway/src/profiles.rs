@@ -126,7 +126,7 @@ fn parse_signature(hex_s: &str) -> Result<DeviceSignature, ProfileTomlError> {
 fn toml_field_error(e: toml::de::Error) -> ProfileTomlError {
     let message = e.to_string();
     let mut field = "toml".to_string();
- // toml errors often include `missing field `x`` or `unknown field `x``.
+    // toml errors often include `missing field `x`` or `unknown field `x``.
     for pat in [
         "missing field `",
         "unknown field `",

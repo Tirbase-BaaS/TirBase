@@ -31,7 +31,9 @@ use tirbase_core::events::{
 use crate::security_log::SecurityEventLog;
 
 /// Record class used by retention policy and legal holds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum RecordClass {
     Operational,
@@ -78,10 +80,10 @@ impl std::fmt::Display for RecordClass {
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RetentionPolicy {
     pub class: RecordClass,
- /// Age after which the class becomes eligible. `None` means retain forever.
+    /// Age after which the class becomes eligible. `None` means retain forever.
     pub max_age_secs: Option<i64>,
- /// Whether this module may delete eligible rows. Audit archival is delegated
- /// to the security log's signed segment rotation.
+    /// Whether this module may delete eligible rows. Audit archival is delegated
+    /// to the security log's signed segment rotation.
     pub auto_purge: bool,
 }
 
@@ -130,7 +132,7 @@ pub struct RetentionReport {
     pub run_id: String,
     pub purged: BTreeMap<String, u64>,
     pub blocked_by_legal_hold: Vec<String>,
- /// A security event was appended for every class that was touched.
+    /// A security event was appended for every class that was touched.
     pub audited: bool,
 }
 
@@ -316,8 +318,7 @@ pub fn apply_retention(
                 // rows whose expiry has actually passed.
                 let cutoff = now_est;
                 let idem = delete_expired(conn, "idempotency_keys", "expires_at_est", cutoff)?;
-                let nonces =
-                    delete_expired(conn, "enrollment_nonces", "expires_at_est", cutoff)?;
+                let nonces = delete_expired(conn, "enrollment_nonces", "expires_at_est", cutoff)?;
                 let mono_cutoff = mono_secs;
                 let challenge = conn
                     .execute(

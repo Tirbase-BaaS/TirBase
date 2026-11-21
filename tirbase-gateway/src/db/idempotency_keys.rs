@@ -130,7 +130,6 @@ impl SqliteIdempotencyStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn clamp_retention_bounds() {

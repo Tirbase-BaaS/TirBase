@@ -42,7 +42,7 @@ pub struct BackupManifest {
     pub source_db: String,
     pub schema_version: i64,
     pub max_security_event_seq: i64,
- /// SHA-256 over the deterministic logical dump of the snapshot.
+    /// SHA-256 over the deterministic logical dump of the snapshot.
     pub ledger_root_hash: String,
     pub signer_did: String,
     pub public_key_hex: String,
@@ -50,7 +50,7 @@ pub struct BackupManifest {
 }
 
 impl BackupManifest {
- /// Bytes covered by the signature (everything except the signature itself).
+    /// Bytes covered by the signature (everything except the signature itself).
     pub fn signing_bytes(&self) -> Result<Vec<u8>, String> {
         let mut unsigned = self.clone();
         unsigned.signature_hex.clear();
@@ -190,13 +190,15 @@ pub fn create_backup(
         tirbase_types::DeviceSignature::P256(bytes) => hex::encode(bytes),
     };
     let body = serde_json::to_vec_pretty(&manifest).map_err(|e| format!("manifest json: {e}"))?;
-    let mut file = std::fs::File::create(&manifest_path)
-        .map_err(|e| format!("create manifest: {e}"))?;
+    let mut file =
+        std::fs::File::create(&manifest_path).map_err(|e| format!("create manifest: {e}"))?;
     file.write_all(&body)
         .and_then(|_| file.sync_all())
         .map_err(|e| format!("write manifest: {e}"))?;
 
-    let snapshot_bytes = std::fs::metadata(&ledger_path).map(|m| m.len()).unwrap_or(0);
+    let snapshot_bytes = std::fs::metadata(&ledger_path)
+        .map(|m| m.len())
+        .unwrap_or(0);
     Ok(BackupReport {
         out_dir: out_dir.display().to_string(),
         ledger_root_hash: root,
@@ -253,8 +255,7 @@ pub fn restore_backup(out_dir: &Path, target_db: &Path) -> Result<RestoreReport,
             .map_err(|e| format!("restore copy: {e}"))?;
     }
     drop(target);
-    let restored =
-        Connection::open(target_db).map_err(|e| format!("reopen restored db: {e}"))?;
+    let restored = Connection::open(target_db).map_err(|e| format!("reopen restored db: {e}"))?;
     quick_check(&restored)?;
     let root = ledger_root_hash(&restored)?;
     let matches = root == manifest.ledger_root_hash;
@@ -345,9 +346,7 @@ pub fn apply_delta(target_db: &Path, delta_jsonl: &str) -> Result<usize, String>
             .and_then(|v| v.as_str())
             .and_then(|h| hex::decode(h).ok())
             .unwrap_or_default();
-        let sig = row
-            .get("checkpoint_signature")
-            .and_then(json_blob);
+        let sig = row.get("checkpoint_signature").and_then(json_blob);
         let checkpoint_hash = row.get("checkpoint_hash_hex").and_then(json_blob);
         let evidence = row
             .get("time_evidence_json")
@@ -363,11 +362,17 @@ pub fn apply_delta(target_db: &Path, delta_jsonl: &str) -> Result<usize, String>
                 params![
                     row.get("seq").and_then(|v| v.as_i64()).unwrap_or(0),
                     row.get("segment_id").and_then(|v| v.as_i64()).unwrap_or(1),
-                    row.get("category").and_then(|v| v.as_str()).unwrap_or("SecurityLog"),
-                    row.get("severity").and_then(|v| v.as_str()).unwrap_or("LOW"),
+                    row.get("category")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("SecurityLog"),
+                    row.get("severity")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("LOW"),
                     row.get("actor_did").and_then(|v| v.as_str()),
                     row.get("target").and_then(|v| v.as_str()),
-                    row.get("reason_code").and_then(|v| v.as_str()).unwrap_or("Unknown"),
+                    row.get("reason_code")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Unknown"),
                     row.get("best_effort_wall_ts")
                         .and_then(|v| v.as_i64())
                         .unwrap_or(0),
@@ -375,7 +380,9 @@ pub fn apply_delta(target_db: &Path, delta_jsonl: &str) -> Result<usize, String>
                         .and_then(|v| v.as_str())
                         .unwrap_or("LogicalFallback"),
                     prev_hash,
-                    row.get("is_checkpoint").and_then(|v| v.as_i64()).unwrap_or(0),
+                    row.get("is_checkpoint")
+                        .and_then(|v| v.as_i64())
+                        .unwrap_or(0),
                     sig,
                     checkpoint_hash,
                     evidence,
@@ -449,9 +456,9 @@ pub struct EncryptedExport {
     pub format_version: u32,
     pub key_did: String,
     pub nonce_hex: String,
- /// ChaCha20-Poly1305 ciphertext (includes the 16-byte authentication tag).
+    /// ChaCha20-Poly1305 ciphertext (includes the 16-byte authentication tag).
     pub ciphertext_hex: String,
- /// SHA-256 of the plaintext, checked after successful decryption.
+    /// SHA-256 of the plaintext, checked after successful decryption.
     pub plaintext_sha256: String,
 }
 
@@ -512,8 +519,8 @@ pub fn decrypt_export_records(
         .map_err(|e| format!("nonce hex: {e}"))?
         .try_into()
         .map_err(|_| "nonce is not 12 bytes".to_string())?;
-    let ciphertext = hex::decode(&sealed.ciphertext_hex)
-        .map_err(|e| format!("ciphertext hex: {e}"))?;
+    let ciphertext =
+        hex::decode(&sealed.ciphertext_hex).map_err(|e| format!("ciphertext hex: {e}"))?;
     let mut bound = EXPORT_ENCRYPTION_CONTEXT.to_vec();
     bound.extend_from_slice(aad);
     let plaintext = cipher
@@ -558,7 +565,11 @@ pub fn write_encrypted_export(
 }
 
 /// Read and open a sealed export file.
-pub fn read_encrypted_export(key: &dyn KeyProvider, path: &Path, aad: &[u8]) -> Result<Vec<u8>, String> {
+pub fn read_encrypted_export(
+    key: &dyn KeyProvider,
+    path: &Path,
+    aad: &[u8],
+) -> Result<Vec<u8>, String> {
     let body = std::fs::read(path).map_err(|e| format!("read sealed export: {e}"))?;
     let sealed: EncryptedExport =
         serde_json::from_slice(&body).map_err(|e| format!("parse sealed export: {e}"))?;

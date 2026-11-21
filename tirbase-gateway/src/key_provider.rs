@@ -32,17 +32,17 @@ pub struct FileKeyProvider {
 }
 
 impl FileKeyProvider {
- /// Load the key at `key_path`, generating and persisting a new identity
- /// when the file does not exist yet.
- ///
- /// First-boot generation is reported by the caller so an operator can see
- /// that a new device identity was created ( adds enrollment).
+    /// Load the key at `key_path`, generating and persisting a new identity
+    /// when the file does not exist yet.
+    ///
+    /// First-boot generation is reported by the caller so an operator can see
+    /// that a new device identity was created ( adds enrollment).
     pub fn load_or_generate(key_path: impl AsRef<Path>) -> Result<Self, TirBaseError> {
         let inner = CoreFileKeyProvider::load_or_generate(key_path.as_ref())?;
         Ok(FileKeyProvider { inner })
     }
 
- /// Load an existing key file, failing if it is absent.
+    /// Load an existing key file, failing if it is absent.
     #[cfg(test)]
     pub fn load(key_path: impl AsRef<Path>) -> Result<Self, TirBaseError> {
         let inner = CoreFileKeyProvider::load(key_path.as_ref())?;
@@ -107,16 +107,16 @@ impl KeyProvider for FileKeyProvider {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Tpm2KeyMode {
- /// Ed25519 seed sealed to a PCR policy in an NV index.
+    /// Ed25519 seed sealed to a PCR policy in an NV index.
     Ed25519SealedSeed {
- /// TPM2 NV index that holds the sealed seed.
+        /// TPM2 NV index that holds the sealed seed.
         nv_handle: u32,
- /// PCR selection/policy digest the seed is sealed to.
+        /// PCR selection/policy digest the seed is sealed to.
         pcr_policy: Vec<u8>,
     },
- /// P-256 key resident inside the TPM.
+    /// P-256 key resident inside the TPM.
     P256 {
- /// Persistent handle of the P-256 key object.
+        /// Persistent handle of the P-256 key object.
         persistent_handle: u32,
     },
 }
@@ -138,7 +138,7 @@ pub struct Tpm2KeyProvider {
 #[cfg(feature = "tpm2")]
 #[allow(dead_code)] // stub constructors kept for the TPM2 deployment path
 impl Tpm2KeyProvider {
- /// Option A: Ed25519 seed sealed to a PCR policy (stub).
+    /// Option A: Ed25519 seed sealed to a PCR policy (stub).
     pub fn ed25519_sealed_seed(nv_handle: u32, pcr_policy: Vec<u8>) -> Self {
         Tpm2KeyProvider {
             did: format!("did:key:tpm2-sealed-{nv_handle:08x}"),
@@ -150,7 +150,7 @@ impl Tpm2KeyProvider {
         }
     }
 
- /// Option B: TPM-resident P-256 key (stub).
+    /// Option B: TPM-resident P-256 key (stub).
     pub fn p256(persistent_handle: u32) -> Self {
         Tpm2KeyProvider {
             did: format!("did:key:tpm2-p256-{persistent_handle:08x}"),
@@ -159,7 +159,7 @@ impl Tpm2KeyProvider {
         }
     }
 
- /// The sealing strategy this provider was constructed with.
+    /// The sealing strategy this provider was constructed with.
     pub fn mode(&self) -> &Tpm2KeyMode {
         &self.mode
     }
@@ -218,16 +218,16 @@ impl KeyProvider for Tpm2KeyProvider {
 pub struct Pkcs11KeyProvider {
     did: String,
     public_key: Vec<u8>,
- /// PKCS#11 slot / token identifier.
+    /// PKCS#11 slot / token identifier.
     slot: u64,
- /// Token PIN — redacted from `Debug` by `secrecy`.
+    /// Token PIN — redacted from `Debug` by `secrecy`.
     pin: secrecy::SecretString,
 }
 
 #[cfg(feature = "pkcs11")]
 #[allow(dead_code)] // stub-only surface
 impl Pkcs11KeyProvider {
- /// Construct the stub for a token in `slot`, authenticated with `pin`.
+    /// Construct the stub for a token in `slot`, authenticated with `pin`.
     pub fn new(slot: u64, pin: secrecy::SecretString) -> Self {
         Pkcs11KeyProvider {
             did: format!("did:key:pkcs11-{slot:08x}"),
@@ -237,7 +237,7 @@ impl Pkcs11KeyProvider {
         }
     }
 
- /// The PKCS#11 slot this provider addresses.
+    /// The PKCS#11 slot this provider addresses.
     pub fn slot(&self) -> u64 {
         self.slot
     }
@@ -268,8 +268,8 @@ impl KeyProvider for Pkcs11KeyProvider {
     }
 
     fn key_type(&self) -> DeviceKeyType {
- // The token's capability decides Ed25519 vs P-256; the stub advertises
- // the more widely available P-256.
+        // The token's capability decides Ed25519 vs P-256; the stub advertises
+        // the more widely available P-256.
         DeviceKeyType::P256
     }
 

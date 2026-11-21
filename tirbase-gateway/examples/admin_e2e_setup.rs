@@ -73,14 +73,8 @@ fn trust_root(
     ta2: &InMemoryKeyProvider,
 ) -> TrustRootRecord {
     let mut roles = BTreeMap::new();
-    roles.insert(
-        CommandRole::PolicyAuthority,
-        role_policy(1, &[pa]),
-    );
-    roles.insert(
-        CommandRole::RevocationManager,
-        role_policy(1, &[rm]),
-    );
+    roles.insert(CommandRole::PolicyAuthority, role_policy(1, &[pa]));
+    roles.insert(CommandRole::RevocationManager, role_policy(1, &[rm]));
     roles.insert(CommandRole::TimeAnchor, role_policy(2, &[ta1, ta2]));
     let mut record = TrustRootRecord {
         version: 1,
@@ -109,8 +103,7 @@ struct TestPki {
 
 fn build_pki() -> TestPki {
     let ca_key = KeyPair::generate().expect("ca key");
-    let mut ca_params =
-        CertificateParams::new(vec!["127.0.0.1".to_string()]).expect("ca params");
+    let mut ca_params = CertificateParams::new(vec!["127.0.0.1".to_string()]).expect("ca params");
     // Distinct distinguished names keep the chain unambiguous: identical
     // subject/issuer DNs would make the leaf look self-signed to verifiers.
     ca_params
@@ -156,10 +149,13 @@ fn write(path: &Path, contents: &str) {
 }
 
 fn main() {
-    let dir = std::env::args().nth(1).map(PathBuf::from).unwrap_or_else(|| {
-        eprintln!("usage: admin_e2e_setup <directory>");
-        std::process::exit(2);
-    });
+    let dir = std::env::args()
+        .nth(1)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            eprintln!("usage: admin_e2e_setup <directory>");
+            std::process::exit(2);
+        });
     std::fs::create_dir_all(&dir).expect("create dir");
 
     let pki = build_pki();
@@ -194,8 +190,7 @@ fn main() {
         &hex::encode(ca.secret_seed()),
     );
 
-    let profile_path =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../profiles/cold_room.toml");
+    let profile_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../profiles/cold_room.toml");
     let remote_port = free_port();
     let config_path = dir.join("gateway.toml");
     write(

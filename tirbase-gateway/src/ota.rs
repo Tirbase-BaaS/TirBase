@@ -33,17 +33,40 @@ pub const DEFAULT_STAGED_BATCH_PERCENT: u8 = 10;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "code", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum OtaError {
-    InvalidManifest { detail: String },
-    SignatureInvalid { detail: String },
+    InvalidManifest {
+        detail: String,
+    },
+    SignatureInvalid {
+        detail: String,
+    },
     MissingSignerKey,
-    ArtifactHashMismatch { expected: String, actual: String },
-    ArtifactSizeMismatch { expected: u64, actual: u64 },
-    DowngradeRejected { bundle_version: u64, committed_version: u64 },
-    ChannelRejected { detail: String },
-    VersionSkew { error: VersionSkewError },
-    StateIo { detail: String },
-    RolloutPaused { reason: String },
-    NotFound { detail: String },
+    ArtifactHashMismatch {
+        expected: String,
+        actual: String,
+    },
+    ArtifactSizeMismatch {
+        expected: u64,
+        actual: u64,
+    },
+    DowngradeRejected {
+        bundle_version: u64,
+        committed_version: u64,
+    },
+    ChannelRejected {
+        detail: String,
+    },
+    VersionSkew {
+        error: VersionSkewError,
+    },
+    StateIo {
+        detail: String,
+    },
+    RolloutPaused {
+        reason: String,
+    },
+    NotFound {
+        detail: String,
+    },
 }
 
 impl std::fmt::Display for OtaError {
@@ -275,17 +298,17 @@ fn verify_signature(
     let sig_bytes = hex::decode(signature_hex.trim()).map_err(|e| OtaError::InvalidManifest {
         detail: format!("signature hex: {e}"),
     })?;
-    let sig_arr: [u8; 64] = sig_bytes
-        .as_slice()
-        .try_into()
-        .map_err(|_| OtaError::InvalidManifest {
-            detail: "signature must be 64 bytes".into(),
-        })?;
-    let key = VerifyingKey::from_bytes(signer_public_key).map_err(|e| {
-        OtaError::SignatureInvalid {
+    let sig_arr: [u8; 64] =
+        sig_bytes
+            .as_slice()
+            .try_into()
+            .map_err(|_| OtaError::InvalidManifest {
+                detail: "signature must be 64 bytes".into(),
+            })?;
+    let key =
+        VerifyingKey::from_bytes(signer_public_key).map_err(|e| OtaError::SignatureInvalid {
             detail: format!("invalid signer public key: {e}"),
-        }
-    })?;
+        })?;
     let sig = Signature::from_bytes(&sig_arr);
     key.verify(message, &sig)
         .map_err(|_| OtaError::SignatureInvalid {
@@ -712,7 +735,10 @@ mod tests {
             artifact_hash_sha256_hex: artifact_sha256_hex(artifact),
             artifact_size: artifact.len() as u64,
             compatibility: OtaCompatibility {
-                component_versions: BTreeMap::from([(OtaComponent::Gateway, format!("1.0.{version}"))]),
+                component_versions: BTreeMap::from([(
+                    OtaComponent::Gateway,
+                    format!("1.0.{version}"),
+                )]),
                 ..Default::default()
             },
             metadata: BTreeMap::new(),
@@ -732,11 +758,28 @@ mod tests {
         let artifact = b"firmware-bytes";
         let mut b = signed_bundle(&k, 2, artifact);
         b.body.release_version = "tampered".into(); // mutate after signing
-        let err = verify_bundle(&b, artifact, &k.verifying_key().to_bytes(), 1, &ChannelPolicy::default()).unwrap_err();
-        assert!(matches!(err, OtaError::SignatureInvalid { .. } | OtaError::ArtifactHashMismatch { .. }));
+        let err = verify_bundle(
+            &b,
+            artifact,
+            &k.verifying_key().to_bytes(),
+            1,
+            &ChannelPolicy::default(),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            OtaError::SignatureInvalid { .. } | OtaError::ArtifactHashMismatch { .. }
+        ));
         // fully unsigned
         b.signature_hex = "00".repeat(64);
-        let err = verify_bundle(&b, artifact, &k.verifying_key().to_bytes(), 1, &ChannelPolicy::default()).unwrap_err();
+        let err = verify_bundle(
+            &b,
+            artifact,
+            &k.verifying_key().to_bytes(),
+            1,
+            &ChannelPolicy::default(),
+        )
+        .unwrap_err();
         assert!(matches!(err, OtaError::SignatureInvalid { .. }));
     }
 
@@ -745,7 +788,14 @@ mod tests {
         let k = key();
         let artifact = b"firmware-bytes";
         let b = signed_bundle(&k, 5, artifact);
-        let err = verify_bundle(&b, artifact, &k.verifying_key().to_bytes(), 5, &ChannelPolicy::default()).unwrap_err();
+        let err = verify_bundle(
+            &b,
+            artifact,
+            &k.verifying_key().to_bytes(),
+            5,
+            &ChannelPolicy::default(),
+        )
+        .unwrap_err();
         assert!(matches!(err, OtaError::DowngradeRejected { .. }));
     }
 
@@ -767,7 +817,11 @@ mod tests {
         mgr.stage_bundle(&bundle, artifact).unwrap();
         // simulate power loss: pending not committed, reboot reconciles
         let booted = mgr.reconcile_on_boot().unwrap();
-        assert_eq!(booted.current_slot, SlotName::A, "must boot previous known-good");
+        assert_eq!(
+            booted.current_slot,
+            SlotName::A,
+            "must boot previous known-good"
+        );
         assert_eq!(booted.known_good_slot, SlotName::A);
         assert!(booted.pending_slot.is_none());
         assert!(booted.last_rollback_reason.is_some());
@@ -777,7 +831,9 @@ mod tests {
     #[test]
     fn version_skew_returns_typed_error() {
         let mut compat = OtaCompatibility::default();
-        compat.min_compatible.insert(OtaComponent::Sdk, "2.0.0".into());
+        compat
+            .min_compatible
+            .insert(OtaComponent::Sdk, "2.0.0".into());
         let body = OtaBundleBody {
             bundle_version: 2,
             release_version: "1.0.2".into(),

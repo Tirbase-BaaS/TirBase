@@ -23,22 +23,22 @@ use tirbase_core::traits::KeyProvider;
 /// Result of a successful key rotation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RotationOutcome {
- /// DID of the identity that was replaced, if a key file existed.
+    /// DID of the identity that was replaced, if a key file existed.
     pub old_did: Option<String>,
- /// DID of the newly generated identity.
+    /// DID of the newly generated identity.
     pub new_did: String,
- /// Hex-encoded Ed25519 public key of the new identity.
+    /// Hex-encoded Ed25519 public key of the new identity.
     pub new_public_key_hex: String,
- /// Path where the new identity was written.
+    /// Path where the new identity was written.
     pub key_path: String,
- /// Path of the backup of the previous identity, if one was made.
+    /// Path of the backup of the previous identity, if one was made.
     pub backup_path: Option<String>,
 }
 
 /// Rotation backend used by the admin dispatcher.
 pub trait KeyRotator: Send + Sync + fmt::Debug {
- /// Rotate the active device identity. Implementations must not return
- /// `Ok` unless the new identity is durably written.
+    /// Rotate the active device identity. Implementations must not return
+    /// `Ok` unless the new identity is durably written.
     fn rotate(&self) -> Result<RotationOutcome, String>;
 }
 
@@ -50,7 +50,7 @@ pub struct FileKeyRotator {
 }
 
 impl FileKeyRotator {
- /// Create a rotator for `key_path`, backing up to `<key_path>.bak`.
+    /// Create a rotator for `key_path`, backing up to `<key_path>.bak`.
     pub fn new(key_path: impl Into<PathBuf>) -> Self {
         let key_path = key_path.into();
         let backup_path = PathBuf::from(format!("{}.bak", key_path.display()));
@@ -60,7 +60,7 @@ impl FileKeyRotator {
         }
     }
 
- /// Create a rotator with an explicit backup path.
+    /// Create a rotator with an explicit backup path.
     pub fn with_backup(key_path: impl Into<PathBuf>, backup_path: impl Into<PathBuf>) -> Self {
         Self {
             key_path: key_path.into(),

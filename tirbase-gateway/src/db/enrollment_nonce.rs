@@ -34,7 +34,7 @@ pub struct SqliteEnrollmentNonceStore {
 }
 
 impl SqliteEnrollmentNonceStore {
- /// Open with the default 72-hour retention and default capacity.
+    /// Open with the default 72-hour retention and default capacity.
     pub fn open_default(path: impl AsRef<Path>) -> Result<Self, EpochError> {
         Self::open(
             path,
@@ -43,9 +43,9 @@ impl SqliteEnrollmentNonceStore {
         )
     }
 
- /// Open `primary.db` with an explicit retention window and capacity.
- ///
- /// `retention_secs` is clamped to `>= 0`; `capacity` to `>= 1`.
+    /// Open `primary.db` with an explicit retention window and capacity.
+    ///
+    /// `retention_secs` is clamped to `>= 0`; `capacity` to `>= 1`.
     pub fn open(
         path: impl AsRef<Path>,
         retention_secs: i64,
@@ -83,12 +83,12 @@ impl SqliteEnrollmentNonceStore {
         })
     }
 
- /// Configured retention window in seconds.
+    /// Configured retention window in seconds.
     pub fn retention_secs(&self) -> i64 {
         self.retention_secs
     }
 
- /// Configured maximum number of retained nonces.
+    /// Configured maximum number of retained nonces.
     pub fn capacity(&self) -> usize {
         self.capacity
     }
@@ -108,7 +108,7 @@ impl EnrollmentNonceStore for SqliteEnrollmentNonceStore {
             .transaction()
             .map_err(|error| EpochError::Store(format!("begin record: {error}")))?;
 
- // Expired rows are re-usable even before the background purge runs.
+        // Expired rows are re-usable even before the background purge runs.
         tx.execute(
             &format!("DELETE FROM {ENROLLMENT_NONCES_TABLE} WHERE expires_at_est < ?1"),
             params![now_est],
@@ -136,7 +136,7 @@ impl EnrollmentNonceStore for SqliteEnrollmentNonceStore {
             )
             .map_err(|error| EpochError::Store(format!("count nonces: {error}")))?;
         if count as usize >= self.capacity {
- // Evict the row closest to expiry (deterministic ordering).
+            // Evict the row closest to expiry (deterministic ordering).
             tx.execute(
                 &format!(
                     "DELETE FROM {ENROLLMENT_NONCES_TABLE}
@@ -240,9 +240,9 @@ mod tests {
         assert!(store.contains(&[1u8; 32]).unwrap());
         assert_eq!(store.len().unwrap(), 1);
 
- // 1,100 is still inside (expires_at = 1,100 >= now).
+        // 1,100 is still inside (expires_at = 1,100 >= now).
         assert_eq!(store.purge_expired(1_100).unwrap(), 0);
- // At 1,101 the row is expired and may be recorded again.
+        // At 1,101 the row is expired and may be recorded again.
         assert_eq!(store.purge_expired(1_101).unwrap(), 1);
         assert!(store.record([1u8; 32], 1_200).unwrap());
         drop(store);

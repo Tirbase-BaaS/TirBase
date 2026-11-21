@@ -100,7 +100,7 @@ pub fn acquire_tx(
                 row.consecutive_renewals.saturating_add(1)
             };
             if renewals >= max_consecutive_renewals {
- // enter cooldown, do not grant lease now (S21 / CLAIM-21.4)
+                // enter cooldown, do not grant lease now (S21 / CLAIM-21.4)
                 let cooldown_until = now_mono_secs.saturating_add(lease_duration_secs);
                 tirbase_core::fail_crate::fail_point!("fp_lease_cooldown", |_| Err(
                     LeaseAcquireError::Store("failpoint fp_lease_cooldown".to_string())

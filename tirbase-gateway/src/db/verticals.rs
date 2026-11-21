@@ -16,9 +16,9 @@ use rusqlite::Connection;
 pub struct VerticalMigration {
     pub version: i64,
     pub name: &'static str,
- /// Additive DDL (`CREATE TABLE/INDEX IF NOT EXISTS`, guarded ALTERs).
+    /// Additive DDL (`CREATE TABLE/INDEX IF NOT EXISTS`, guarded ALTERs).
     pub sql: &'static str,
- /// Reverses `sql`. Destructive; called only by an explicit rollback.
+    /// Reverses `sql`. Destructive; called only by an explicit rollback.
     pub down_sql: &'static str,
 }
 

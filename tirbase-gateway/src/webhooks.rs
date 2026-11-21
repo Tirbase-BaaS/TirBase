@@ -45,7 +45,7 @@ impl WebhookHeaders {
 pub struct WebhookEndpoint {
     pub endpoint_id: String,
     pub url: String,
- /// Secret is never returned to API clients.
+    /// Secret is never returned to API clients.
     #[serde(skip_serializing)]
     pub secret: String,
     pub enabled: bool,
@@ -226,7 +226,7 @@ impl WebhookDispatcher {
             .map_err(|e| format!("endpoint row: {e}"))
     }
 
- /// Persist one delivery per enabled endpoint. Returns the created delivery ids.
+    /// Persist one delivery per enabled endpoint. Returns the created delivery ids.
     pub fn enqueue(
         &self,
         event_type: &str,
@@ -300,7 +300,7 @@ impl WebhookDispatcher {
             .map_err(|e| format!("pending webhook row: {e}"))
     }
 
- /// Attempt every due delivery once. Returns `(delivered, failed)`.
+    /// Attempt every due delivery once. Returns `(delivered, failed)`.
     pub fn deliver_pending(
         &self,
         transport: &dyn WebhookTransport,
@@ -327,7 +327,12 @@ impl WebhookDispatcher {
                 span.finish("error");
                 continue;
             };
-            let headers = signed_headers(&endpoint.secret, &delivery.delivery_id, now_est, &delivery.payload_json)?;
+            let headers = signed_headers(
+                &endpoint.secret,
+                &delivery.delivery_id,
+                now_est,
+                &delivery.payload_json,
+            )?;
             match transport.post(&endpoint.url, &headers.as_map(), &delivery.payload_json) {
                 Ok(status) if (200..300).contains(&status) => {
                     conn.execute(
@@ -376,7 +381,10 @@ impl WebhookDispatcher {
             crate::telemetry::audit(
                 "webhook.delivery",
                 "attempted",
-                &[("vertical", vertical), ("event_type", delivery.event_type.as_str())],
+                &[
+                    ("vertical", vertical),
+                    ("event_type", delivery.event_type.as_str()),
+                ],
             );
         }
         Ok((delivered, failed))
@@ -422,7 +430,7 @@ impl WebhookDispatcher {
         Ok(())
     }
 
- /// Receiver-side replay guard: records a delivery id exactly once.
+    /// Receiver-side replay guard: records a delivery id exactly once.
     pub fn mark_seen(&self, delivery_id: &str, now_est: i64) -> Result<bool, String> {
         let conn = open(&self.db_path)?;
         let changed = conn

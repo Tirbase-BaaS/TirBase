@@ -11,11 +11,11 @@ use std::time::Duration;
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
-use tirbase_drivers::cold_room_sim::ColdRoomSimDriver;
 use tirbase_driver_api::DriverTrait;
+use tirbase_driver_api::ModbusRegisterMap;
+use tirbase_drivers::cold_room_sim::ColdRoomSimDriver;
 use tirbase_drivers::modbus::ModbusTcpClient;
 use tirbase_drivers::mqtt::{client_config_with_roots, install_crypto_provider, MqttTlsClient};
-use tirbase_driver_api::ModbusRegisterMap;
 use tirbase_guard::envelope::install_profile;
 use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootRecord};
 use tirbase_types::CommandRole;
@@ -80,7 +80,7 @@ pub fn run_modbus_smoke(addr: &str, op: &str, register: u16, values: &[u16]) -> 
         Duration::from_secs(5),
         std::sync::Arc::new(tirbase_core::traits::monotonic_now),
     )
-        .map_err(|e| anyhow::anyhow!("{e}"))?;
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     match op {
         "read-holding" => {
             let qty = values.first().copied().unwrap_or(1);
@@ -131,9 +131,13 @@ pub fn run_mqtt_smoke(
         .collect::<std::result::Result<Vec<_>, _>>()
         .context("parse CA cert PEM")?;
     let cfg = client_config_with_roots(certs, false).map_err(|e| anyhow::anyhow!("{e}"))?;
-    let mut client =
-        MqttTlsClient::connect_mqtts(uri, "tirbase-gateway-reference-profile", cfg, Duration::from_secs(5))
-            .map_err(|e| anyhow::anyhow!("{e}"))?;
+    let mut client = MqttTlsClient::connect_mqtts(
+        uri,
+        "tirbase-gateway-reference-profile",
+        cfg,
+        Duration::from_secs(5),
+    )
+    .map_err(|e| anyhow::anyhow!("{e}"))?;
     client
         .publish_qos0(topic, payload.as_bytes())
         .map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -149,8 +153,8 @@ pub fn run_mqtt_smoke(
 pub fn run_cold_room_step(seed: u64, steps: usize) -> Result<()> {
     let mut driver = ColdRoomSimDriver::new(seed, "cold_room#1");
 
- // Exercise the canonical DriverTrait codec, not just the model internals:
- // capability discovery, the health-check codec and a read request/response.
+    // Exercise the canonical DriverTrait codec, not just the model internals:
+    // capability discovery, the health-check codec and a read request/response.
     let model = driver
         .capability_discovery()
         .map_err(|e| anyhow::anyhow!("driver capability discovery: {e}"))?;
@@ -206,7 +210,6 @@ pub fn run_register_map_check(path: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-
 /// Report 7-day rolling average and projected durable write bytes/day at the
 /// Linux block layer (PV-15.4, CLAIM-44.6).
 pub fn run_flash_wear_estimate(data_path: &Path, budget_bytes_per_day: u64) -> Result<()> {
@@ -223,6 +226,9 @@ pub fn run_flash_wear_estimate(data_path: &Path, budget_bytes_per_day: u64) -> R
         est.group_commit_window_ms,
         est.high_critical_bypass
     );
-    println!("{}", serde_json::to_string_pretty(&est).context("serialize flash-wear estimate")?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&est).context("serialize flash-wear estimate")?
+    );
     Ok(())
 }

@@ -229,7 +229,9 @@ pub fn time_weighted_mkt_c(
 /// Convert a temperature to milli-degrees Celsius, rejecting out-of-range values.
 fn scaled_milli_celsius(value: &FixedPointValue) -> Result<i64, MktError> {
     if value.unit_id != MKT_UNIT_ID {
-        return Err(MktError::InvalidParameters("MKT samples must be in degC (unit 1)"));
+        return Err(MktError::InvalidParameters(
+            "MKT samples must be in degC (unit 1)",
+        ));
     }
     let scale = value.exponent as i16 - MKT_EXPONENT as i16;
     let milli: i128 = if scale >= 0 {
@@ -271,7 +273,11 @@ fn finish(
     if milli > i64::MAX as f64 || milli < i64::MIN as f64 {
         return Err(MktError::NonFinite);
     }
-    Ok(FixedPointValue::new(milli as i64, MKT_EXPONENT, MKT_UNIT_ID))
+    Ok(FixedPointValue::new(
+        milli as i64,
+        MKT_EXPONENT,
+        MKT_UNIT_ID,
+    ))
 }
 
 /// A published MKT reference vector.

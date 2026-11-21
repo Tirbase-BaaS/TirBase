@@ -62,14 +62,14 @@ use tirbase_guard::signed_operation::{SignedOperation, SignedOperationPayload};
 use tirbase_types::{CommandRole, DeviceSignature, FixedPointValue};
 
 use crate::excursion::mkt::{MktError, MktParameters};
-use crate::lineage_ledger::sink::LedgerSink;
-use crate::lineage_ledger::{
-    AppendRequest, EVENT_EXCURSION_DISPOSITIONED, EVENT_EXCURSION_RESOLVED,
-};
 use crate::excursion::notifier::{
     ExcursionNotification, NotificationEvent, NotifierDispatcher, NotifyError,
 };
 use crate::excursion::store::ExcursionStore;
+use crate::lineage_ledger::sink::LedgerSink;
+use crate::lineage_ledger::{
+    AppendRequest, EVENT_EXCURSION_DISPOSITIONED, EVENT_EXCURSION_RESOLVED,
+};
 
 /// Domain-separation context for the signed resolution payload.
 pub const CONTEXT_EXCURSION_RESOLUTION: &str = "TirBase/v1/ExcursionResolution";
@@ -176,10 +176,7 @@ impl ExcursionState {
 
     /// Whether the lot is still under quarantine control.
     pub fn is_quarantined(self) -> bool {
-        matches!(
-            self,
-            ExcursionState::Quarantined | ExcursionState::Notified
-        )
+        matches!(self, ExcursionState::Quarantined | ExcursionState::Notified)
     }
 }
 
@@ -423,7 +420,8 @@ impl DetectionOutcome {
         let mut hasher = Sha256::new();
         hasher.update(b"TirBase/v1/ExcursionDetection\0");
         hasher.update(serde_json::to_vec(self).unwrap_or_default());
-        hasher.finalize()
+        hasher
+            .finalize()
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect()
@@ -469,12 +467,10 @@ pub fn evaluate_detection(
         }
     }
 
-    if let (Some(previous), Some(current)) = (inputs.previous_temperature_c, inputs.temperature_c)
-    {
+    if let (Some(previous), Some(current)) = (inputs.previous_temperature_c, inputs.temperature_c) {
         if inputs.elapsed_secs > 0 {
             let delta = (scaled(&current, -1) - scaled(&previous, -1)).abs();
-            let rate_milli = delta * 1000
-                / (i128::from(inputs.elapsed_secs) * 10);
+            let rate_milli = delta * 1000 / (i128::from(inputs.elapsed_secs) * 10);
             let limit_milli = scaled(&thresholds.max_rate_c_per_sec, -3);
             if rate_milli > limit_milli {
                 findings.push(DetectionFinding {
@@ -651,7 +647,8 @@ impl EvidenceBundle {
         let mut hasher = Sha256::new();
         hasher.update(b"TirBase/v1/ExcursionEvidence\0");
         hasher.update(serde_json::to_vec(self).unwrap_or_default());
-        hasher.finalize()
+        hasher
+            .finalize()
             .iter()
             .map(|byte| format!("{byte:02x}"))
             .collect()
@@ -1347,10 +1344,7 @@ impl ExcursionWorkflow {
         signed
             .verify(&expected, resolve_signer_key)
             .map_err(|error| ExcursionError::Signature(error.to_string()))?;
-        if record
-            .disposition
-            .as_ref()
-            .map(|d| d.operator_did.as_str())
+        if record.disposition.as_ref().map(|d| d.operator_did.as_str())
             != Some(expected.operator_did.as_str())
         {
             return Err(ExcursionError::Signature(

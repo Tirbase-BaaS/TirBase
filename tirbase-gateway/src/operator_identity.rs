@@ -11,7 +11,9 @@ use tirbase_core::operator_auth::service::{
     AcceptingMfaHook, AuthorizationRequest, LockoutPolicy, OperatorAuthService, SessionPolicy,
 };
 use tirbase_core::operator_auth::store::OperatorIdentityStore;
-use tirbase_types::identity::{OperatorPermission, OperatorRole, TenantLevel, TenantPath, TenantSegment, Vertical};
+use tirbase_types::identity::{
+    OperatorPermission, OperatorRole, TenantLevel, TenantPath, TenantSegment, Vertical,
+};
 
 /// Build an [`OperatorAuthService`] from configured paths/keys.
 ///
@@ -145,8 +147,8 @@ mod tests {
     use tirbase_core::operator_auth::service::{AcceptingMfaHook, LockoutPolicy, SessionPolicy};
     use tirbase_core::operator_auth::store::OperatorIdentityStore;
     use tirbase_types::identity::{
-        CapabilityScope, DelegationConstraints, OperatorCapability, OperatorPermission, OperatorRole,
-        PrincipalId, PrincipalKind, TenantLevel, TenantPath, TenantSegment, Vertical,
+        CapabilityScope, DelegationConstraints, OperatorCapability, OperatorPermission,
+        OperatorRole, PrincipalId, PrincipalKind, TenantLevel, TenantPath, TenantSegment, Vertical,
     };
 
     fn tenant() -> TenantPath {
@@ -188,7 +190,10 @@ mod tests {
                 Some(Vertical::Retail),
                 10_000,
             ),
-            delegation: DelegationConstraints { delegatable: false, max_depth: 0 },
+            delegation: DelegationConstraints {
+                delegatable: false,
+                max_depth: 0,
+            },
             issuer: "a".into(),
             capability_id: "c1".into(),
             issued_at: 1,
@@ -198,9 +203,25 @@ mod tests {
             TenantSegment::new(TenantLevel::Organisation, "acme"),
             TenantSegment::new(TenantLevel::Site, "s2"),
         ]);
-        let denied = authorize_operator_capability(&svc, &tok, OperatorRole::Operator, Vertical::Retail, &other, OperatorPermission::Read, 100);
+        let denied = authorize_operator_capability(
+            &svc,
+            &tok,
+            OperatorRole::Operator,
+            Vertical::Retail,
+            &other,
+            OperatorPermission::Read,
+            100,
+        );
         assert_eq!(denied["decision"], "deny");
-        let allowed = authorize_operator_capability(&svc, &tok, OperatorRole::Operator, Vertical::Retail, &tenant(), OperatorPermission::Read, 100);
+        let allowed = authorize_operator_capability(
+            &svc,
+            &tok,
+            OperatorRole::Operator,
+            Vertical::Retail,
+            &tenant(),
+            OperatorPermission::Read,
+            100,
+        );
         assert_eq!(allowed["decision"], "allow");
         let _ = std::fs::remove_dir_all(dir);
     }

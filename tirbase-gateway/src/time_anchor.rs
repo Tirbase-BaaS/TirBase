@@ -48,13 +48,13 @@ impl BeaconSink for NoopBeaconSink {
 /// Payload fields: `wall_time_secs`, `issuer_did`, `mono_seq`, `valid_for_secs`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CoseSign1Beacon {
- /// Protected header bytes (deterministic CBOR map).
+    /// Protected header bytes (deterministic CBOR map).
     pub protected: Vec<u8>,
- /// Unprotected header map (currently empty).
+    /// Unprotected header map (currently empty).
     pub unprotected: BTreeMap<String, CborValue>,
- /// Deterministic-CBOR payload bytes containing the beacon fields.
+    /// Deterministic-CBOR payload bytes containing the beacon fields.
     pub payload: Vec<u8>,
- /// Signature bytes (Ed25519, 64 bytes).
+    /// Signature bytes (Ed25519, 64 bytes).
     pub signature: Vec<u8>,
 }
 
@@ -81,7 +81,7 @@ impl TimeBeaconPayload {
 }
 
 fn protected_header_bytes() -> Result<Vec<u8>, String> {
- // { 1: -8 } (alg = EdDSA), deterministic CBOR.
+    // { 1: -8 } (alg = EdDSA), deterministic CBOR.
     let header = CborValue::Map(vec![(
         CborValue::Integer(1.into()),
         CborValue::Integer(COSE_ALG_EDDSA.into()),
@@ -161,7 +161,7 @@ pub fn verify_cose_beacon(
 /// Encode a COSE_Sign1 beacon as a deterministic-CBOR array
 /// `[protected, unprotected, payload, signature]`.
 pub fn encode_cose_sign1(beacon: &CoseSign1Beacon) -> Result<Vec<u8>, String> {
- // unprotected is an (empty) map
+    // unprotected is an (empty) map
     let unprot = CborValue::Map(Vec::new());
     let arr = CborValue::Array(vec![
         CborValue::Bytes(beacon.protected.clone()),
@@ -170,8 +170,7 @@ pub fn encode_cose_sign1(beacon: &CoseSign1Beacon) -> Result<Vec<u8>, String> {
         CborValue::Bytes(beacon.signature.clone()),
     ]);
     let mut buf = Vec::new();
-    ciborium::ser::into_writer(&arr, &mut buf)
-        .map_err(|e| format!("encode COSE_Sign1: {e}"))?;
+    ciborium::ser::into_writer(&arr, &mut buf).map_err(|e| format!("encode COSE_Sign1: {e}"))?;
     Ok(buf)
 }
 
@@ -222,7 +221,7 @@ pub fn beacon_fingerprint(beacon: &CoseSign1Beacon) -> [u8; 32] {
 #[derive(Debug, Clone)]
 pub struct PeerBeacon {
     pub beacon: CoseSign1Beacon,
- /// Trusted Ed25519 public key for the beacon issuer.
+    /// Trusted Ed25519 public key for the beacon issuer.
     pub anchor_public_key: Vec<u8>,
 }
 
@@ -249,9 +248,9 @@ pub fn select_authenticated_beacon(
         }
         let jump = payload.wall_time_secs.saturating_sub(persisted_floor);
         if jump > max_forward_jump_secs {
- // Large jumps require M-of-N at ratchet admission; single-peer COSE
- // beacon cannot satisfy the quorum here, so do not select it as a
- // standalone most-recent valid estimate.
+            // Large jumps require M-of-N at ratchet admission; single-peer COSE
+            // beacon cannot satisfy the quorum here, so do not select it as a
+            // standalone most-recent valid estimate.
             continue;
         }
         let replace = match &best {
@@ -279,7 +278,7 @@ pub struct TimeAnchorService {
     mono_seq: AtomicU64,
     sink: Arc<dyn BeaconSink>,
     running: Arc<AtomicBool>,
- /// Retain last produced beacon for observers/tests.
+    /// Retain last produced beacon for observers/tests.
     last_beacon: Arc<Mutex<Option<CoseSign1Beacon>>>,
 }
 
@@ -312,8 +311,8 @@ impl TimeAnchorService {
         }
     }
 
- /// Produce one signed COSE_Sign1 beacon using the current wall hint and
- /// increment the monotonic sequence number.
+    /// Produce one signed COSE_Sign1 beacon using the current wall hint and
+    /// increment the monotonic sequence number.
     pub fn produce_beacon(&self) -> Result<CoseSign1Beacon, String> {
         let seq = self.mono_seq.fetch_add(1, Ordering::SeqCst) + 1;
         let wall = self
@@ -337,8 +336,8 @@ impl TimeAnchorService {
         self.mono_seq.load(Ordering::SeqCst)
     }
 
- /// Spawn a periodic broadcast loop. Returns a handle that stops the loop
- /// when dropped/set.
+    /// Spawn a periodic broadcast loop. Returns a handle that stops the loop
+    /// when dropped/set.
     pub fn spawn_periodic(self: &Arc<Self>) -> Arc<AtomicBool> {
         let running = self.running.clone();
         running.store(true, Ordering::SeqCst);
@@ -373,7 +372,6 @@ pub fn best_authenticated_time(
 mod tests {
     use super::*;
     use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
-    
 
     #[test]
     fn cose_sign1_beacon_roundtrip_sign_verify_encode_decode() {
@@ -401,9 +399,18 @@ mod tests {
         let b2 = sign_cose_beacon(&b, 1_080, 2, 60).expect("b2");
         let too_far = sign_cose_beacon(&b, 1_500, 3, 60).expect("far");
         let peers = vec![
-            PeerBeacon { beacon: b1, anchor_public_key: a.public_key_bytes() },
-            PeerBeacon { beacon: b2.clone(), anchor_public_key: b.public_key_bytes() },
-            PeerBeacon { beacon: too_far, anchor_public_key: b.public_key_bytes() },
+            PeerBeacon {
+                beacon: b1,
+                anchor_public_key: a.public_key_bytes(),
+            },
+            PeerBeacon {
+                beacon: b2.clone(),
+                anchor_public_key: b.public_key_bytes(),
+            },
+            PeerBeacon {
+                beacon: too_far,
+                anchor_public_key: b.public_key_bytes(),
+            },
         ];
         let (selected, _) = select_authenticated_beacon(&peers, floor, max_jump).expect("selected");
         assert_eq!(selected.wall_time_secs, 1_080);

@@ -13,7 +13,7 @@ use tirbase_guard::admit::AdmitContext;
 use tirbase_guard::{AdmitError, AdmittedCommand, CommandGuard, DriverProxy, IngressSource};
 use tirbase_types::command::CommandMessage;
 
-use crate::guard::{AdmitRequest, DispatchTarget, admit_and_dispatch_blocking, SqliteStage16Store};
+use crate::guard::{admit_and_dispatch_blocking, AdmitRequest, DispatchTarget, SqliteStage16Store};
 
 /// Admit a command received over the local admin API and dispatch via the
 /// guard-owned proxy (legacy path; no Biscuit/pipeline context).
@@ -40,21 +40,21 @@ pub fn handle_local_admin_command_with_context<W: std::io::Write + Send>(
 /// One JSON-line request accepted by the local-admin command receiver.
 #[derive(Debug, Deserialize)]
 pub struct LocalAdminCommandRequest {
- /// Signed command to run through the guard pipeline.
+    /// Signed command to run through the guard pipeline.
     pub command: CommandMessage,
- /// Hex-encoded Biscuit token authorising the command issuer.
+    /// Hex-encoded Biscuit token authorising the command issuer.
     #[serde(default)]
     pub biscuit_token_hex: Option<String>,
- /// Hex-encoded actuation frame forwarded to the driver after admission.
+    /// Hex-encoded actuation frame forwarded to the driver after admission.
     #[serde(default)]
     pub frame_hex: Option<String>,
- /// Stage-0 pre-auth rate limit key (defaults to `LocalAdmin:<issuer>`).
+    /// Stage-0 pre-auth rate limit key (defaults to `LocalAdmin:<issuer>`).
     #[serde(default)]
     pub source_key: Option<String>,
- /// Authenticated time override; defaults to the pipeline ratchet.
+    /// Authenticated time override; defaults to the pipeline ratchet.
     #[serde(default)]
     pub now_est_secs: Option<i64>,
- /// Dry-run: evaluate Stages 0–15 without writing the effects ledger.
+    /// Dry-run: evaluate Stages 0–15 without writing the effects ledger.
     #[serde(default)]
     pub simulate: bool,
 }

@@ -57,7 +57,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
 use crate::config::GatewayConfig;
-use crate::guard::{AdmitRequest, DispatchTarget, admit_and_dispatch_blocking, SqliteStage16Store};
+use crate::guard::{admit_and_dispatch_blocking, AdmitRequest, DispatchTarget, SqliteStage16Store};
 
 /// Domain separation for the cloud device hello signature.
 pub const CLOUD_DEVICE_HELLO_CONTEXT: &str = "TirBase/v1/CloudDeviceHello";
@@ -65,9 +65,9 @@ pub const CLOUD_DEVICE_HELLO_CONTEXT: &str = "TirBase/v1/CloudDeviceHello";
 /// One message retained by the offline outbound ring buffer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QueuedCloudMessage {
- /// Monotonically increasing enqueue sequence used to prove replay order.
+    /// Monotonically increasing enqueue sequence used to prove replay order.
     pub seq: u64,
- /// Serialized newline-delimited JSON body.
+    /// Serialized newline-delimited JSON body.
     pub body: String,
 }
 
@@ -90,8 +90,8 @@ impl CloudOutbox {
         }
     }
 
- /// Enqueue `body`; when the ring is full the oldest entry is dropped.
- /// Returns the enqueue sequence.
+    /// Enqueue `body`; when the ring is full the oldest entry is dropped.
+    /// Returns the enqueue sequence.
     pub fn push(&self, body: String) -> u64 {
         let seq = self.next_seq.fetch_add(1, Ordering::Relaxed);
         let mut queue = match self.queue.lock() {
@@ -106,7 +106,7 @@ impl CloudOutbox {
         seq
     }
 
- /// Remove and return all queued messages in enqueue order.
+    /// Remove and return all queued messages in enqueue order.
     pub fn drain(&self) -> Vec<QueuedCloudMessage> {
         let mut queue = match self.queue.lock() {
             Ok(guard) => guard,
@@ -340,8 +340,8 @@ impl CloudClient {
         self.reconnects.load(Ordering::Relaxed)
     }
 
- /// Send an outbound message now, or queue it for ordered replay on the next
- /// connection.
+    /// Send an outbound message now, or queue it for ordered replay on the next
+    /// connection.
     pub fn enqueue(&self, body: String) {
         let sender = match self.sender.lock() {
             Ok(guard) => guard.clone(),
@@ -359,11 +359,11 @@ impl CloudClient {
         &self.endpoint
     }
 
- /// Reconnect loop with exponential backoff.
+    /// Reconnect loop with exponential backoff.
     pub async fn run(self: Arc<Self>) {
- // Control-plane boot notification. If the endpoint is unreachable this
- // is retained by the bounded outbox and replayed first on reconnect
- // ().
+        // Control-plane boot notification. If the endpoint is unreachable this
+        // is retained by the bounded outbox and replayed first on reconnect
+        // ().
         self.outbox.push(
             serde_json::json!({
                 "type": "result",
@@ -423,7 +423,7 @@ impl CloudClient {
     async fn session(&self, stream: tokio_rustls::client::TlsStream<tokio::net::TcpStream>) {
         let (read_half, mut write_half) = tokio::io::split(stream);
 
- // Device authentication proof, bound to the DID.
+        // Device authentication proof, bound to the DID.
         let hello = self.device_hello();
         if write_half
             .write_all(format!("{hello}\n").as_bytes())
@@ -432,7 +432,7 @@ impl CloudClient {
         {
             return;
         }
- // Replay queued messages in order before accepting new traffic.
+        // Replay queued messages in order before accepting new traffic.
         for queued in self.outbox.drain() {
             tracing::info!(seq = queued.seq, "cloud channel replaying queued message");
             if write_half
@@ -471,7 +471,7 @@ impl CloudClient {
             if line.trim().is_empty() {
                 continue;
             }
- // Per-connection inbound rate limit ().
+            // Per-connection inbound rate limit ().
             let now = self.runtime.time_source.monotonic_now();
             if now.saturating_sub(window_start) >= 1_000_000 {
                 window_start = now;
@@ -514,8 +514,8 @@ impl CloudClient {
                 }
             }
         }
- // Drop the shared sender before joining the writer: otherwise the
- // writer's receiver never closes and the reconnect loop stalls.
+        // Drop the shared sender before joining the writer: otherwise the
+        // writer's receiver never closes and the reconnect loop stalls.
         self.clear_sender();
         drop(tx);
         let _ = writer.await;

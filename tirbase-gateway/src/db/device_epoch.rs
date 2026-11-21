@@ -35,7 +35,7 @@ pub struct SqliteDeviceEpochStore {
 }
 
 impl SqliteDeviceEpochStore {
- /// Open `primary.db`, creating the `device_epoch` table idempotently.
+    /// Open `primary.db`, creating the `device_epoch` table idempotently.
     pub fn open(path: impl AsRef<Path>) -> Result<Self, EpochError> {
         let path = path.as_ref();
         if let Some(parent) = path.parent() {

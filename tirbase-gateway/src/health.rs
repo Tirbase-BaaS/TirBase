@@ -53,8 +53,8 @@ impl WatchdogNotifier for SdNotifyWatchdogNotifier {
     fn notify_watchdog(&self) {
         #[cfg(target_os = "linux")]
         {
- // Best-effort: if not under systemd watchdog this is ignored.
- // Use the minimal NOTIFY_SOCKET protocol to avoid a libsystemd dep.
+            // Best-effort: if not under systemd watchdog this is ignored.
+            // Use the minimal NOTIFY_SOCKET protocol to avoid a libsystemd dep.
             if let Ok(socket_path) = std::env::var("NOTIFY_SOCKET") {
                 use std::os::unix::net::UnixDatagram;
                 if let Ok(sock) = UnixDatagram::unbound() {
@@ -173,9 +173,9 @@ mod tests {
 
     #[tokio::test]
     async fn stalled_health_loop_stops_sending_watchdog_claim_13_7() {
- // Wiring-mutation/proof proxy: if the loop does not run, no keepalives
- // are sent. (A real watchdog timeout is a systemd behavior; this test
- // proves the notifier is driven only by the loop.)
+        // Wiring-mutation/proof proxy: if the loop does not run, no keepalives
+        // are sent. (A real watchdog timeout is a systemd behavior; this test
+        // proves the notifier is driven only by the loop.)
         let state = HealthLoopState::new();
         let notifier = Arc::new(CountingNotifier::default());
         let shutdown = Arc::new(Notify::new());
@@ -187,7 +187,7 @@ mod tests {
         ));
         tokio::time::sleep(Duration::from_millis(70)).await;
         let before = notifier.count();
- // "Stall" by stopping the loop (simulates a stalled forward-progress task).
+        // "Stall" by stopping the loop (simulates a stalled forward-progress task).
         shutdown.notify_one();
         let _ = task.await;
         tokio::time::sleep(Duration::from_millis(80)).await;

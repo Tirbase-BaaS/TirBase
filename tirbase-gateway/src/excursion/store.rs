@@ -451,14 +451,9 @@ fn row_to_record(row: &Row<'_>) -> rusqlite::Result<ExcursionRecord> {
             )
         })?;
     let detection_json: String = row.get(10)?;
-    let detection: DetectionOutcome =
-        serde_json::from_str(&detection_json).map_err(|error| {
-            rusqlite::Error::FromSqlConversionFailure(
-                10,
-                rusqlite::types::Type::Text,
-                Box::new(error),
-            )
-        })?;
+    let detection: DetectionOutcome = serde_json::from_str(&detection_json).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(10, rusqlite::types::Type::Text, Box::new(error))
+    })?;
     let disposition_json: Option<String> = row.get(11)?;
     let disposition: Option<DispositionRecord> = disposition_json
         .map(|json| serde_json::from_str(&json))

@@ -14,7 +14,7 @@ use tirbase_guard::admit::AdmitContext;
 use tirbase_guard::{AdmitError, AdmittedCommand, CommandGuard, DriverProxy, IngressSource};
 use tirbase_types::command::CommandMessage;
 
-use crate::guard::{AdmitRequest, DispatchTarget, SqliteStage16Store, admit_and_dispatch_blocking};
+use crate::guard::{admit_and_dispatch_blocking, AdmitRequest, DispatchTarget, SqliteStage16Store};
 
 /// Admit a mesh-delivered command (legacy path).
 pub fn handle_mesh_command<W: std::io::Write + Send>(
@@ -104,12 +104,7 @@ pub async fn process_mesh_command(
     stage16: Arc<SqliteStage16Store>,
 ) -> serde_json::Value {
     let source_key = format!("Mesh:{}", command.issuer_did.as_str());
-    let frame = format!(
-        "MESH:{}:{}",
-        command.target_id.as_str(),
-        command.param
-    )
-    .into_bytes();
+    let frame = format!("MESH:{}:{}", command.target_id.as_str(), command.param).into_bytes();
     let (now_est, now_mono_secs) = pipeline_clock(&guard).unwrap_or_else(|| {
         let now = tirbase_core::traits::wall_hint_secs().unwrap_or_default();
         (now, now)

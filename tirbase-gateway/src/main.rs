@@ -56,7 +56,6 @@ use tirbase_guard::{CommandGuard, GuardConfig, TargetAdmission};
 use tirbase_types::envelope::EnvelopeProfile;
 use tirbase_types::{CommandRole, DeviceSignature, TargetId};
 
-
 /// Payload signed at boot to exercise the domain-separated multi-party wrapper.
 #[derive(Debug, Serialize, Deserialize)]
 struct GatewayBootRecord {
@@ -76,19 +75,19 @@ impl SignedOperationPayload for GatewayBootRecord {
     about = "TirBase hardened edge gateway"
 )]
 struct Cli {
- /// Gateway config TOML path (plain, schema-validated)
+    /// Gateway config TOML path (plain, schema-validated)
     #[arg(value_name = "CONFIG", default_value = "/etc/tirbase/gateway.toml")]
     config: PathBuf,
 
- /// PolicyAuthority-signed config bundle (JSON). Requires --config-bundle-trust-root.
+    /// PolicyAuthority-signed config bundle (JSON). Requires --config-bundle-trust-root.
     #[arg(long)]
     config_bundle: Option<PathBuf>,
 
- /// Trust root used to verify a signed config bundle.
+    /// Trust root used to verify a signed config bundle.
     #[arg(long)]
     config_bundle_trust_root: Option<PathBuf>,
 
- /// + utility subcommands (compat).
+    /// + utility subcommands (compat).
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
     passthrough: Vec<String>,
 }
@@ -147,7 +146,9 @@ fn try_reference_cli(args: &[String]) -> Option<Result<()>> {
         "cold-room-sim" => {
             let seed: u64 = args.get(1).and_then(|s| s.parse().ok()).unwrap_or(42);
             let steps: usize = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(256);
-            Some(tirbase_gateway::reference_cli::run_cold_room_step(seed, steps))
+            Some(tirbase_gateway::reference_cli::run_cold_room_step(
+                seed, steps,
+            ))
         }
         "modbus-register-map" => {
             if args.len() < 2 {
@@ -188,9 +189,9 @@ async fn main() -> Result<()> {
         .with_writer(tirbase_gateway::telemetry::redacting_stdout())
         .init();
 
- // ── Driver runtime posture ────────────────────────────────────────────────
- // Report the kernel isolation capabilities the driver child will run under
- // (CLAIM-33.6, PV-10.4) and initialise crash/restart accounting (CLAIM-33.7).
+    // ── Driver runtime posture ────────────────────────────────────────────────
+    // Report the kernel isolation capabilities the driver child will run under
+    // (CLAIM-33.6, PV-10.4) and initialise crash/restart accounting (CLAIM-33.7).
     {
         let caps = tirbase_drivers::isolation::KernelIsolationCaps::detect();
         if caps.supports_landlock() {
@@ -207,10 +208,10 @@ async fn main() -> Result<()> {
                 "driver isolation: landlock unavailable; driver children stay disabled unless degraded isolation is explicitly opted into"
             );
         }
- // The persistent driver child is spawned and supervised through the
- // guard-owned proxy: socketpair isolation, SO_PEERCRED verification,
- // SCM_RIGHTS device handoff, and lifecycle-driven restart decisions
- // (CLAIM-33.5/33.6/33.7).
+        // The persistent driver child is spawned and supervised through the
+        // guard-owned proxy: socketpair isolation, SO_PEERCRED verification,
+        // SCM_RIGHTS device handoff, and lifecycle-driven restart decisions
+        // (CLAIM-33.5/33.6/33.7).
         tracing::info!(
             max_retries = tirbase_drivers::lifecycle::DRIVER_RESTART_MAX_RETRIES,
             initial_backoff_secs = tirbase_drivers::lifecycle::DRIVER_RESTART_INITIAL.as_secs(),
@@ -221,7 +222,7 @@ async fn main() -> Result<()> {
         start_driver_supervision();
     }
 
- // Prometheus metrics (CLAIM-35.5)
+    // Prometheus metrics (CLAIM-35.5)
     let metrics = tirbase_gateway::metrics::global_metrics();
     let metrics_addr = config.metrics_addr;
     let metrics_for_server = metrics.clone();
@@ -256,8 +257,8 @@ async fn main() -> Result<()> {
         tirbase_guard::node_mode::NodeModeState::new(tirbase_guard::node_mode::NodeMode::Starting);
     let primary_db_path = config.counter_db_path.clone();
     let derived_db_path = config.effective_derived_db_path();
- // Signed delta log source for derived-ledger rebuild (CLAIM-31.5, PV-9.3).
- // CoreHandle stores the signed DAG/delta log in core.db beside primary.db.
+    // Signed delta log source for derived-ledger rebuild (CLAIM-31.5, PV-9.3).
+    // CoreHandle stores the signed DAG/delta log in core.db beside primary.db.
     let core_db_path = primary_db_path.with_file_name("core.db");
     {
         let _primary = match db::open_primary_with_key(
@@ -356,8 +357,8 @@ async fn main() -> Result<()> {
         },
     )
     .context("failed to load the TimeRatchet from primary.db")?;
- // F-06: share the single TimeRatchet from the start so the audit log can
- // derive time evidence from it; it remains the sole expiry authority.
+    // F-06: share the single TimeRatchet from the start so the audit log can
+    // derive time evidence from it; it remains the sole expiry authority.
     let ratchet = Arc::new(Mutex::new(ratchet));
 
     let (freshness_before_beacon, now_est_at_load, floor_at_load) = {
@@ -414,10 +415,10 @@ async fn main() -> Result<()> {
         }
     }
 
- // (CLAIM-53.1, PV-28.1/28.2): broadcast our own signed
- // `COSE_Sign1` time beacons when a cadence is configured. Before this was
- // wired, `TimeAnchorService::spawn_periodic` had no production caller, so the
- // gateway never actually broadcast a beacon.
+    // (CLAIM-53.1, PV-28.1/28.2): broadcast our own signed
+    // `COSE_Sign1` time beacons when a cadence is configured. Before this was
+    // wired, `TimeAnchorService::spawn_periodic` had no production caller, so the
+    // gateway never actually broadcast a beacon.
     let _time_anchor_broadcast = if let Some(interval_secs) =
         config.time_anchor_broadcast_interval_secs
     {
@@ -536,9 +537,9 @@ async fn main() -> Result<()> {
         tirbase_gateway::security_log::SecurityLogRetentionConfig::from_gateway_config(&config),
     );
 
- // CLAIM-26.1: verify the persisted hash chain at startup. The log itself
- // emits TamperDetection and enters Restricted on a broken link; the boot
- // diagnostic makes the outcome observable to operators.
+    // CLAIM-26.1: verify the persisted hash chain at startup. The log itself
+    // emits TamperDetection and enters Restricted on a broken link; the boot
+    // diagnostic makes the outcome observable to operators.
     match security_log.verify_hash_chain() {
         Ok(None) => tracing::info!("security log hash chain verified intact at boot"),
         Ok(Some(first_broken_seq)) => tracing::error!(
@@ -558,9 +559,9 @@ async fn main() -> Result<()> {
     let _checkpoint_handle = security_log.spawn_checkpoint_loop();
     let _retention_handle = security_log.spawn_retention_rotation_loop();
 
- // F-07: apply the per-class retention matrix once at boot (operational
- // expiry purges plus the audit legal-hold gate), then report long-lived
- // ledger/archive occupancy against the configured budgets.
+    // F-07: apply the per-class retention matrix once at boot (operational
+    // expiry purges plus the audit legal-hold gate), then report long-lived
+    // ledger/archive occupancy against the configured budgets.
     match tirbase_gateway::db::migrations::open_primary_with_key(
         &primary_db_path,
         Some(key_provider.as_ref()),
@@ -620,9 +621,9 @@ async fn main() -> Result<()> {
         Err(error) => tracing::warn!(%error, "F-07 storage budget check could not open primary.db"),
     }
 
- // PV-15.4 (CLAIM-44.5/44.6): block-layer flash-write budget tracking and
- // throttling. HIGH/CRITICAL SecurityEvents bypass the batcher and budget
- // throttling and are written immediately.
+    // PV-15.4 (CLAIM-44.5/44.6): block-layer flash-write budget tracking and
+    // throttling. HIGH/CRITICAL SecurityEvents bypass the batcher and budget
+    // throttling and are written immediately.
     let flash_budget_path = config
         .flash_budget_data_path
         .clone()
@@ -646,9 +647,9 @@ async fn main() -> Result<()> {
         &mut ratchet.lock().unwrap_or_else(|p| p.into_inner()),
         time_source.as_ref(),
     )?;
- // F-06: audit records carry signed time-confidence evidence derived from the
- // same TimeRatchet (not a parallel clock). Installed after trust-root setup,
- // which holds the ratchet mutably, so evidence capture never waits on it.
+    // F-06: audit records carry signed time-confidence evidence derived from the
+    // same TimeRatchet (not a parallel clock). Installed after trust-root setup,
+    // which holds the ratchet mutably, so evidence capture never waits on it.
     security_log.set_time_evidence_source(Arc::new(
         tirbase_gateway::audit_time::RatchetAuditTimeSource::new(
             ratchet.clone(),
@@ -656,9 +657,7 @@ async fn main() -> Result<()> {
             tirbase_core::timesync::DriftBound::default(),
         ),
     ));
-    tracing::info!(
-        "security log time-evidence source installed from the live TimeRatchet (F-06)"
-    );
+    tracing::info!("security log time-evidence source installed from the live TimeRatchet (F-06)");
     let root_ca_registry = build_root_ca_registry(trust_root.as_deref())?;
     if let (Some(registry), Some(token_path)) =
         (&root_ca_registry, &config.root_ca_self_test_token_path)
@@ -703,9 +702,9 @@ async fn main() -> Result<()> {
         enrollment_now_est,
     )?;
 
- // Core runtime handle installed for the process lifetime (). It is
- // initialised from the configured primary DB location so the CRDT/transport
- // runtime lives beside the gateway ledgers rather than in a process-local DB.
+    // Core runtime handle installed for the process lifetime (). It is
+    // initialised from the configured primary DB location so the CRDT/transport
+    // runtime lives beside the gateway ledgers rather than in a process-local DB.
     let core_root_ca_keys = trust_root
         .as_ref()
         .map(|record| {
@@ -731,10 +730,10 @@ async fn main() -> Result<()> {
         "CoreHandle installed"
     );
 
- // 26.3/26.4/26.7 + 28.3: wire the security log to the core mesh. This
- // installs the checkpoint provider gossiped on peer connection, feeds peer
- // checkpoint observations into tail-truncation detection, supplies the real
- // witness state at checkpoint time, and publishes/merges security events.
+    // 26.3/26.4/26.7 + 28.3: wire the security log to the core mesh. This
+    // installs the checkpoint provider gossiped on peer connection, feeds peer
+    // checkpoint observations into tail-truncation detection, supplies the real
+    // witness state at checkpoint time, and publishes/merges security events.
     tirbase_gateway::mesh_wiring::wire_security_log_to_mesh(
         &core_handle,
         &security_log,
@@ -750,9 +749,9 @@ async fn main() -> Result<()> {
     );
     tracing::info!("security log wired to core mesh (CLAIM-26.3, 26.4, 26.7, 28.3)");
 
- // 26.7a (PV-7.10): when a trusted cloud anchor is configured, report the
- // latest checkpoint upstream and ingest its signed acknowledgement so tail
- // truncation stays detectable without mesh peers.
+    // 26.7a (PV-7.10): when a trusted cloud anchor is configured, report the
+    // latest checkpoint upstream and ingest its signed acknowledgement so tail
+    // truncation stays detectable without mesh peers.
     match tirbase_gateway::cloud_anchor::CloudAnchorClient::from_config(
         &config,
         key_provider.clone(),
@@ -776,7 +775,7 @@ async fn main() -> Result<()> {
         ),
     }
 
- // CommandGuard / Stage 16 runtime for the configured local target ().
+    // CommandGuard / Stage 16 runtime for the configured local target ().
     let pipeline_time_source: Arc<dyn TimeSource> = time_source.clone();
     let command_runtime = build_command_runtime(
         CommandRuntimeSetup {
@@ -793,7 +792,7 @@ async fn main() -> Result<()> {
         now_est,
     )?;
 
- // Persisted lockdown wins; otherwise leave boot mode and enter Normal.
+    // Persisted lockdown wins; otherwise leave boot mode and enter Normal.
     let lockdown_marker = primary_db_path.with_file_name("lockdown");
     let lockdown_store: Arc<dyn LockdownStore> =
         Arc::new(SqliteLockdownStore::new(&primary_db_path, &lockdown_marker));
@@ -825,9 +824,9 @@ async fn main() -> Result<()> {
     );
     let _pending_approvals = pending_approvals;
 
- // /36.8a–36.8f: outbound-initiated cloud channel. There is no
- // inbound cloud listener anywhere in this binary; the connection is dialled
- // from here and re-established with exponential backoff.
+    // /36.8a–36.8f: outbound-initiated cloud channel. There is no
+    // inbound cloud listener anywhere in this binary; the connection is dialled
+    // from here and re-established with exponential backoff.
     if config.cloud_endpoint.is_some() {
         match (
             command_runtime.guard.clone(),
@@ -862,9 +861,9 @@ async fn main() -> Result<()> {
         }
     }
 
- // Attach each handle independently: a gateway configured without an
- // enrollment CA must still serve policy/mode/lockdown/chain-recovery, so no
- // handle may be dropped just because a sibling is absent.
+    // Attach each handle independently: a gateway configured without an
+    // enrollment CA must still serve policy/mode/lockdown/chain-recovery, so no
+    // handle may be dropped just because a sibling is absent.
     let mint_root_ca_seed = match &config.enrollment_root_ca_private_key_path {
         Some(path) => match read_hex_key(path) {
             Ok(seed) => Some(Arc::new(seed)),
@@ -876,10 +875,10 @@ async fn main() -> Result<()> {
         None => None,
     };
     let rotator: Arc<dyn KeyRotator> = Arc::new(FileKeyRotator::new(config.key_path.clone()));
- // / RD-6: self-update requires the UpdateSigner and
- // PolicyAuthority keys plus the live config path. Missing or malformed
- // configuration leaves the capability unconfigured (the endpoint answers
- // 503) rather than half-enabled.
+    // / RD-6: self-update requires the UpdateSigner and
+    // PolicyAuthority keys plus the live config path. Missing or malformed
+    // configuration leaves the capability unconfigured (the endpoint answers
+    // 503) rather than half-enabled.
     let self_update = match (
         &config.update_signer_public_key_hex,
         &config.policy_authority_public_key_hex,
@@ -892,28 +891,24 @@ async fn main() -> Result<()> {
                     .and_then(|bytes| <[u8; 32]>::try_from(bytes.as_slice()).ok())
             };
             match (parse_key(update_hex), parse_key(policy_hex)) {
-                (Some(update_key), Some(policy_key)) => {
-                    Some(Arc::new(std::sync::Mutex::new(
-                        crate::self_update::SelfUpdateController::new(None)
-                            .with_config_path(path.clone())
-                            .with_update_signer(update_key)
-                            .with_policy_authority(policy_key),
-                    )))
-                }
+                (Some(update_key), Some(policy_key)) => Some(Arc::new(std::sync::Mutex::new(
+                    crate::self_update::SelfUpdateController::new(None)
+                        .with_config_path(path.clone())
+                        .with_update_signer(update_key)
+                        .with_policy_authority(policy_key),
+                ))),
                 _ => {
-                    tracing::warn!(
-                        "self-update disabled: role keys must each be 32-byte hex"
-                    );
+                    tracing::warn!("self-update disabled: role keys must each be 32-byte hex");
                     None
                 }
             }
         }
         _ => None,
     };
- // F-04: provisioning authority. The public key verifies signed
- // provisioning payloads; the seed (when configured) also mints them. Both are
- // optional: without them the provisioning endpoints answer 503 rather than
- // silently accepting unverified payloads.
+    // F-04: provisioning authority. The public key verifies signed
+    // provisioning payloads; the seed (when configured) also mints them. Both are
+    // optional: without them the provisioning endpoints answer 503 rather than
+    // silently accepting unverified payloads.
     let (provisioning, provisioning_authority_public_key) = if config.provisioning_enabled {
         let seed = match config.provisioning_authority_seed_path.as_ref() {
             Some(path) => match std::fs::read_to_string(path) {
@@ -1015,10 +1010,12 @@ async fn main() -> Result<()> {
         allowed_channels: config.ota_allowed_channels.clone(),
         tenant_id: config.ota_tenant_id.clone(),
     });
-    let ota_rollout_state_path = config
-        .ota_rollout_state_path
-        .clone()
-        .or_else(|| config.ota_state_dir.as_ref().map(|d| d.join("rollout.json")));
+    let ota_rollout_state_path = config.ota_rollout_state_path.clone().or_else(|| {
+        config
+            .ota_state_dir
+            .as_ref()
+            .map(|d| d.join("rollout.json"))
+    });
 
     // CC-21: mount the reporting surface when a report signing seed is
     // configured. Without one the endpoints answer 503 rather than signing with
@@ -1031,10 +1028,9 @@ async fn main() -> Result<()> {
                     seed.copy_from_slice(&bytes);
                     let signer = tirbase_gateway::reporting::ReportSigner::from_seed(&seed);
                     zeroize::Zeroize::zeroize(&mut seed);
-                    match tirbase_gateway::reporting::ReportService::open(&primary_db_path, signer) {
-                        Ok(service) => {
-                            Some(std::sync::Arc::new(std::sync::Mutex::new(service)))
-                        }
+                    match tirbase_gateway::reporting::ReportService::open(&primary_db_path, signer)
+                    {
+                        Ok(service) => Some(std::sync::Arc::new(std::sync::Mutex::new(service))),
                         Err(error) => {
                             tracing::warn!(%error, "reporting service unavailable; /admin/reporting will answer 503");
                             None
@@ -1089,11 +1085,11 @@ async fn main() -> Result<()> {
     };
     let admin_state = Some(Arc::new(admin_state));
 
- // (PV-11.5): deny-all until a signed EnvelopeProfile is
- // installed. A command ingress socket is only bound when a profile is
- // installed; otherwise no command socket exists and every attempted command
- // is refused by construction. The administrative/health surfaces remain
- // available so an operator can install a profile and observe the state.
+    // (PV-11.5): deny-all until a signed EnvelopeProfile is
+    // installed. A command ingress socket is only bound when a profile is
+    // installed; otherwise no command socket exists and every attempted command
+    // is refused by construction. The administrative/health surfaces remain
+    // available so an operator can install a profile and observe the state.
     let profile_installed = command_runtime.envelope_profile.is_some();
     if !profile_installed {
         tracing::warn!(
@@ -1113,9 +1109,9 @@ async fn main() -> Result<()> {
         );
     }
 
- // Local-admin command transport. Cloud commands arrive on the
- // outbound-initiated channel started above; mesh commands are received by
- // the core mesh receiver started below when `mesh_command_ingress` is set.
+    // Local-admin command transport. Cloud commands arrive on the
+    // outbound-initiated channel started above; mesh commands are received by
+    // the core mesh receiver started below when `mesh_command_ingress` is set.
     if let Some(command_addr) = config.local_admin_command_addr {
         if !profile_installed {
             tracing::warn!(
@@ -1144,10 +1140,10 @@ async fn main() -> Result<()> {
         }
     }
 
- // CLAIM-35.7: mesh command receiver. The core transport delivers signed
- // commands; this receiver runs each one through the same Stage 0–19 guard
- // pipeline as the other ingress paths (`IngressSource::Mesh`). Opt-in, and
- // never started while no signed EnvelopeProfile is installed (deny-all).
+    // CLAIM-35.7: mesh command receiver. The core transport delivers signed
+    // commands; this receiver runs each one through the same Stage 0–19 guard
+    // pipeline as the other ingress paths (`IngressSource::Mesh`). Opt-in, and
+    // never started while no signed EnvelopeProfile is installed (deny-all).
     if config.mesh_command_ingress {
         if !profile_installed {
             tracing::warn!(
@@ -1176,7 +1172,7 @@ async fn main() -> Result<()> {
         }
     }
 
- // Keep the CoreHandle alive for the process lifetime (installed runtime).
+    // Keep the CoreHandle alive for the process lifetime (installed runtime).
     let _core_handle = core_handle;
 
     if config.admin_enabled {
@@ -1189,10 +1185,10 @@ async fn main() -> Result<()> {
         });
     }
 
- // (PV-11.2): optional remote admin listener, mTLS-only. Config
- // validation already guarantees the four settings are either all present or
- // all absent; a TLS material load failure leaves the listener unbound
- // (fail closed) rather than falling back to plaintext.
+    // (PV-11.2): optional remote admin listener, mTLS-only. Config
+    // validation already guarantees the four settings are either all present or
+    // all absent; a TLS material load failure leaves the listener unbound
+    // (fail closed) rather than falling back to plaintext.
     if let (Some(addr), Some(cert), Some(key), Some(client_ca)) = (
         config.admin_remote_addr,
         config.admin_remote_cert_path.as_ref(),
@@ -1221,7 +1217,7 @@ async fn main() -> Result<()> {
         }
     }
 
- // Health endpoint (CLAIM-35.4)
+    // Health endpoint (CLAIM-35.4)
     let health_addr = config.health_addr;
     tokio::spawn(async move {
         if let Err(error) = tirbase_gateway::health::run_health_server(health_addr).await {
@@ -1229,7 +1225,7 @@ async fn main() -> Result<()> {
         }
     });
 
- // Health loop / watchdog forward progress (CLAIM-13.7)
+    // Health loop / watchdog forward progress (CLAIM-13.7)
     let health_state = tirbase_gateway::health::HealthLoopState::new();
     let watchdog: Arc<dyn tirbase_gateway::health::WatchdogNotifier> =
         Arc::new(tirbase_gateway::health::SdNotifyWatchdogNotifier);
@@ -1345,8 +1341,8 @@ fn start_driver_supervision() {
         }
     };
     let device_fd = transport.as_raw_fd();
- // The guard keeps ownership of the device fd; the child receives a dup via
- // SCM_RIGHTS inside `SupervisedDriver::start`.
+    // The guard keeps ownership of the device fd; the child receives a dup via
+    // SCM_RIGHTS inside `SupervisedDriver::start`.
     if GUARD_DEVICE_TRANSPORT.set(transport).is_err() {
         tracing::error!("device transport already registered; driver child not started");
         return;
@@ -1447,8 +1443,8 @@ fn driver_supervision_loop(mut driver: tirbase_guard::driver_proxy::SupervisedDr
             }
             Ok(None) => {
                 stable_ticks = stable_ticks.saturating_add(1);
- // 60s of uninterrupted uptime (120 x 500ms) clears the crash
- // accounting, so a later isolated crash starts at 1s again.
+                // 60s of uninterrupted uptime (120 x 500ms) clears the crash
+                // accounting, so a later isolated crash starts at 1s again.
                 if stable_ticks >= 120 && driver.consecutive_crashes() > 0 {
                     driver.note_stable();
                     stable_ticks = 0;
@@ -1476,10 +1472,7 @@ struct CommandRuntimeSetup<'a> {
     time_source: Arc<dyn TimeSource>,
 }
 
-fn build_command_runtime(
-    setup: CommandRuntimeSetup<'_>,
-    now_est: i64,
-) -> Result<CommandRuntime> {
+fn build_command_runtime(setup: CommandRuntimeSetup<'_>, now_est: i64) -> Result<CommandRuntime> {
     let CommandRuntimeSetup {
         config,
         primary_db_path,
@@ -1491,10 +1484,10 @@ fn build_command_runtime(
         root_ca_registry,
         time_source,
     } = setup;
- // Stage 16–19 durable store (single atomic SQLite transaction per command).
+    // Stage 16–19 durable store (single atomic SQLite transaction per command).
     let stage16 = Arc::new(SqliteStage16Store::open(primary_db_path).map_err(anyhow::Error::msg)?);
 
- // Explicitly constructed decision-state stores ().
+    // Explicitly constructed decision-state stores ().
     let applied_effects =
         Arc::new(SqliteAppliedEffectsStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
     let anti_replay =
@@ -1510,7 +1503,7 @@ fn build_command_runtime(
     let challenge_store: Arc<dyn ChallengeNonceStore> =
         Arc::new(SqliteChallengeNonceStore::open(primary_db_path).map_err(anyhow::Error::msg)?);
 
- // Envelope profile + policy snapshot for the configured local target.
+    // Envelope profile + policy snapshot for the configured local target.
     let mut envelope_profiles = BTreeMap::new();
     let mut policy_lifecycle = None;
     let mut envelope_profile = None;
@@ -1574,7 +1567,7 @@ fn build_command_runtime(
     pipeline.set_challenge_store(challenge_store.clone());
     guard::hydrate_runtime_state(primary_db_path, &pipeline).map_err(anyhow::Error::msg)?;
 
- // Register the local device at epoch 0 before the guard admits commands.
+    // Register the local device at epoch 0 before the guard admits commands.
     epochs.ensure_enrolled(device_id, now_est)?;
 
     let mut targets = BTreeMap::new();

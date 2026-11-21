@@ -37,8 +37,8 @@ impl SqliteStage16Store {
                 std::fs::create_dir_all(parent).map_err(|e| format!("create {parent:?}: {e}"))?;
             }
         }
- // Use the migration framework on an existing primary.db path when present,
- // but preserve the legacy direct-open behavior for isolated test DBs.
+        // Use the migration framework on an existing primary.db path when present,
+        // but preserve the legacy direct-open behavior for isolated test DBs.
         let conn = Connection::open(path).map_err(|e| format!("open stage16 db: {e}"))?;
         conn.pragma_update(None, "journal_mode", "WAL")
             .map_err(|e| format!("journal_mode: {e}"))?;
@@ -52,9 +52,9 @@ impl SqliteStage16Store {
             crate::db::migrations::primary_migrations(),
         )
         .map_err(|e| e.to_string())?;
- // Keep legacy per-module create helpers for stores still evolving outside
- // migration v1 (decided_outcomes schema differs from design in current
- // Stage 16 implementation; migration creates the design table name).
+        // Keep legacy per-module create helpers for stores still evolving outside
+        // migration v1 (decided_outcomes schema differs from design in current
+        // Stage 16 implementation; migration creates the design table name).
         crate::db::decided_outcomes::SqliteDecidedOutcomesStore::open(path).ok();
         applied_effects_ledger::create_table(&conn)?;
         anti_replay_windows::create_table(&conn)?;
@@ -136,9 +136,9 @@ impl Stage16Store for SqliteStage16Store {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|e| Stage16Error::Store(format!("begin immediate: {e}")))?;
 
- // (b) non-mutating idempotency check first (CLAIM-20.5/PV-5.6): a known
- // (issuer_did,target_id,idempotency_key) returns the stored outcome without
- // a second actuation, even on retry.
+        // (b) non-mutating idempotency check first (CLAIM-20.5/PV-5.6): a known
+        // (issuer_did,target_id,idempotency_key) returns the stored outcome without
+        // a second actuation, even on retry.
         if let Some(existing) = idempotency_keys::lookup_tx(
             &tx,
             cmd.issuer_did.as_str(),
@@ -153,8 +153,8 @@ impl Stage16Store for SqliteStage16Store {
             });
         }
 
- // (a) non-mutating anti-replay check (CLAIM-20.2/PV-5.5): rejected/duplicate
- // sequences must not mutate state; only committed commands advance the window.
+        // (a) non-mutating anti-replay check (CLAIM-20.2/PV-5.5): rejected/duplicate
+        // sequences must not mutate state; only committed commands advance the window.
         let row = anti_replay_windows::load_window_tx(
             &tx,
             cmd.issuer_did.as_str(),
@@ -174,7 +174,7 @@ impl Stage16Store for SqliteStage16Store {
             AntiReplayCheck::Accepted { .. } => {}
         }
 
- // (c) acquire SingleWriterLease inside the same transaction
+        // (c) acquire SingleWriterLease inside the same transaction
         if let Err(e) = crate::db::single_writer_leases::acquire_tx(
             &tx,
             cmd.target_id.as_str(),
@@ -198,7 +198,7 @@ impl Stage16Store for SqliteStage16Store {
             });
         }
 
- // (d) advance anti-replay
+        // (d) advance anti-replay
         let AntiReplayCheck::Accepted {
             new_highest,
             new_bitmap,
@@ -224,7 +224,7 @@ impl Stage16Store for SqliteStage16Store {
         )
         .map_err(Stage16Error::Store)?;
 
- // (e) insert idempotency key
+        // (e) insert idempotency key
         let retention =
             tirbase_guard::commit::clamp_idempotency_retention_secs(req.idempotency_retention_secs);
         idempotency_keys::insert_tx(
@@ -240,7 +240,7 @@ impl Stage16Store for SqliteStage16Store {
         )
         .map_err(Stage16Error::Store)?;
 
- // (f) write Actuating record (first durable state)
+        // (f) write Actuating record (first durable state)
         applied_effects_ledger::insert_actuating_tx(
             &tx,
             &AppliedEffectRow {
@@ -264,7 +264,7 @@ impl Stage16Store for SqliteStage16Store {
         )
         .map_err(Stage16Error::Store)?;
 
- // (g) 21.12: target_state updated atomically with Actuating write.
+        // (g) 21.12: target_state updated atomically with Actuating write.
         let canonical = cmd
             .desired_state
             .with_canonical_exponent(cmd.desired_state.exponent)
@@ -277,11 +277,11 @@ impl Stage16Store for SqliteStage16Store {
             .map_err(Stage16Error::Store)?
             .or_else(|| prev.as_ref().map(|p| p.last_value));
 
- // (g) 21.12: target_state updated atomically with Actuating write.
+        // (g) 21.12: target_state updated atomically with Actuating write.
         target_state::upsert_tx(&tx, cmd.target_id.as_str(), &cmd.param, canonical)
             .map_err(Stage16Error::Store)?;
 
- // (h) 21.13: drift_rate_summary updated atomically with Actuating write.
+        // (h) 21.13: drift_rate_summary updated atomically with Actuating write.
         let value_changed = prev_target
             .map(|p| {
                 p.mantissa != canonical.mantissa
@@ -331,7 +331,7 @@ impl Stage16Store for SqliteStage16Store {
             rusqlite::params![cmd.issuer_did.as_str(), cmd.target_id.as_str(), cmd.sequence_number as i64, cmd.enrollment_epoch as i64, req.original_result_json],
         ).map_err(|e| Stage16Error::Store(format!("decided_outcomes: {e}")))?;
 
- // COMMIT => synchronous=FULL WAL fsync boundary before dispatch (INV-12).
+        // COMMIT => synchronous=FULL WAL fsync boundary before dispatch (INV-12).
         tx.commit()
             .map_err(|e| Stage16Error::Store(format!("commit/fsync: {e}")))
     }
@@ -535,8 +535,8 @@ where
                 )
             });
             metrics.observe_ledger_append(ledger_started.elapsed());
- // The Actuating ledger write happens inside Stage 16. Only a
- // committed row counts; a Stage 16 anti-replay rejection does not.
+            // The Actuating ledger write happens inside Stage 16. Only a
+            // committed row counts; a Stage 16 anti-replay rejection does not.
             if outcome.get("status").and_then(|v| v.as_str()) != Some("rejected") {
                 metrics.inc_effects_ledger_write();
                 metrics.inc_driver_operation("device", "dispatch", "ok");
@@ -573,8 +573,8 @@ where
 }
 
 fn make_entry_id(cmd: &tirbase_types::command::CommandMessage) -> [u8; 16] {
- // Deterministic 16-byte entry id derived from command identity.
- // (Production deployments may use a monotonic allocator; this is stable for tests/wiring.)
+    // Deterministic 16-byte entry id derived from command identity.
+    // (Production deployments may use a monotonic allocator; this is stable for tests/wiring.)
     let mut id = [0u8; 16];
     id[0..8].copy_from_slice(&cmd.sequence_number.to_le_bytes());
     id[8..16].copy_from_slice(&cmd.enrollment_epoch.to_le_bytes());
@@ -600,13 +600,13 @@ pub fn hydrate_runtime_state(
     conn.pragma_update(None, "synchronous", "FULL")
         .map_err(|e| format!("sync: {e}"))?;
 
- // 21.9: AEF Unknown targets block commands (INV-11) until operator clear.
+    // 21.9: AEF Unknown targets block commands (INV-11) until operator clear.
     let unknown = crate::db::applied_effects_ledger::list_unknown_targets(&conn)?;
     for t in &unknown {
         pipeline.mark_target_unknown(t.clone());
     }
 
- // 21.12: hydrate desired_state for Stage 12 cross-constraints.
+    // 21.12: hydrate desired_state for Stage 12 cross-constraints.
     let desired = crate::db::target_state::load_all(&conn)?;
     let desired_count = desired.len();
     for ((target, param), value) in desired {

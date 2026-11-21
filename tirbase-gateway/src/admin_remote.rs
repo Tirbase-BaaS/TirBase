@@ -102,8 +102,8 @@ pub async fn run_remote_admin_listener(
                     }
                 }
                 Err(error) => {
- // Fail closed: without a valid client certificate no request
- // bytes are processed at all.
+                    // Fail closed: without a valid client certificate no request
+                    // bytes are processed at all.
                     tracing::warn!(%peer, %error, "remote admin TLS handshake rejected");
                 }
             }
@@ -207,10 +207,8 @@ async fn serve_remote_admin(
         name.eq_ignore_ascii_case("traceparent")
             .then(|| value.trim().to_string())
     });
-    let mut span = crate::telemetry::Span::from_traceparent(
-        "admin.remote.request",
-        traceparent.as_deref(),
-    );
+    let mut span =
+        crate::telemetry::Span::from_traceparent("admin.remote.request", traceparent.as_deref());
     span.set_attr("http.method", method.clone());
     span.set_attr("http.route", path.clone());
     let caller = AdminCaller::Remote {

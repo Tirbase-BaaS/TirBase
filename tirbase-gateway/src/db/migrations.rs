@@ -21,18 +21,18 @@ use crate::db::sqlite_errors::{apply_hardening_pragmas, DbKind, SqliteErrorActio
 /// A single, idempotent schema migration.
 #[derive(Debug, Clone, Copy)]
 pub struct Migration {
- /// Monotonically increasing version (starts at 1).
+    /// Monotonically increasing version (starts at 1).
     pub version: i64,
- /// Short stable name for diagnostics.
+    /// Short stable name for diagnostics.
     pub name: &'static str,
- /// SQL batch applied inside a transaction. Must be idempotent
- /// (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, additive
- /// `ALTER TABLE ... ADD COLUMN` guards, etc.).
+    /// SQL batch applied inside a transaction. Must be idempotent
+    /// (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, additive
+    /// `ALTER TABLE ... ADD COLUMN` guards, etc.).
     pub sql: &'static str,
- /// SQL batch that reverses this migration, executed by
- /// [`rollback_migrations`]. Destructive by nature; operators select an
- /// explicit target version and the gateway refuses to roll back below a
- /// schema whose data cannot be represented.
+    /// SQL batch that reverses this migration, executed by
+    /// [`rollback_migrations`]. Destructive by nature; operators select an
+    /// explicit target version and the gateway refuses to roll back below a
+    /// schema whose data cannot be represented.
     pub down_sql: &'static str,
 }
 
@@ -177,7 +177,10 @@ pub fn rollback_migrations(
             SqliteErrorAction::from_rusqlite(
                 kind,
                 &e,
-                &format!("roll back migration {} ({})", migration.version, migration.name),
+                &format!(
+                    "roll back migration {} ({})",
+                    migration.version, migration.name
+                ),
             )
         })?;
         tx.execute(
@@ -228,7 +231,7 @@ fn ensure_security_events_checkpoint_hash_column(
         conn.execute_batch("ALTER TABLE security_events ADD COLUMN checkpoint_hash BLOB;")
             .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "add checkpoint_hash"))?;
     }
- // F-06: signed time-confidence evidence sidecar.
+    // F-06: signed time-confidence evidence sidecar.
     let has_evidence_col: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM pragma_table_info('security_events') WHERE name='time_evidence_json'",
@@ -240,15 +243,13 @@ fn ensure_security_events_checkpoint_hash_column(
         })?;
     if has_evidence_col == 0 {
         conn.execute_batch("ALTER TABLE security_events ADD COLUMN time_evidence_json TEXT;")
-            .map_err(|e| {
-                SqliteErrorAction::from_rusqlite(kind, &e, "add time_evidence_json")
-            })?;
+            .map_err(|e| SqliteErrorAction::from_rusqlite(kind, &e, "add time_evidence_json"))?;
     }
     Ok(())
 }
 
 fn now_secs() -> i64 {
- // Best-effort wall hint; migration bookkeeping is not security-critical.
+    // Best-effort wall hint; migration bookkeeping is not security-critical.
     tirbase_core::traits::wall_hint_secs().unwrap_or(0)
 }
 
@@ -285,8 +286,8 @@ fn record_boot_check(kind: DbKind, check: &str) {
 }
 
 fn boot_quick_check(conn: &Connection, kind: DbKind) -> Result<(), SqliteErrorAction> {
- // CLAIM-31.4 wiring mutation guard: test can force the wrong boot check to
- // prove a startup-time test fails when integrity_check runs at boot.
+    // CLAIM-31.4 wiring mutation guard: test can force the wrong boot check to
+    // prove a startup-time test fails when integrity_check runs at boot.
     if std::env::var("TIRBASE_TEST_BOOT_USES_INTEGRITY_CHECK")
         .ok()
         .as_deref()
@@ -361,9 +362,9 @@ pub fn open_primary_with_key(
     })?;
     #[cfg(not(feature = "sqlcipher"))]
     let _ = key_provider;
- // WAL + synchronous=FULL before migrations (CLAIM-18.1). journal_mode is a
- // persistent DB property but we set it explicitly so a fresh or copied DB
- // is always in the required mode.
+    // WAL + synchronous=FULL before migrations (CLAIM-18.1). journal_mode is a
+    // persistent DB property but we set it explicitly so a fresh or copied DB
+    // is always in the required mode.
     conn.pragma_update(None, "journal_mode", "WAL")
         .map_err(|e| {
             SqliteErrorAction::from_rusqlite(DbKind::Primary, &e, "set journal_mode=WAL")

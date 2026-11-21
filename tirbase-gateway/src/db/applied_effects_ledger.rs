@@ -70,11 +70,11 @@ pub struct ActuatingEntry {
 /// Result of a driver read-back used by reconciliation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadBackOutcome {
- /// Driver reports state matches the commanded value.
+    /// Driver reports state matches the commanded value.
     Matches,
- /// Driver reports a different state.
+    /// Driver reports a different state.
     Mismatch { response: Vec<u8> },
- /// Driver did not respond within timeout.
+    /// Driver did not respond within timeout.
     Timeout,
 }
 
@@ -290,7 +290,7 @@ pub fn prune_retention(
         return Err(format!("failpoint {}", "aef_prune"));
     }
     let cutoff = now_est.saturating_sub(max_age_secs);
- // Age-based pruning of terminal Complete/Failed entries.
+    // Age-based pruning of terminal Complete/Failed entries.
     let age_deleted = conn
         .execute(
             &format!(
@@ -300,7 +300,7 @@ pub fn prune_retention(
             params![cutoff],
         )
         .map_err(|e| format!("prune age: {e}"))?;
- // Count-based pruning: keep newest entries overall, removing oldest Complete/Failed first.
+    // Count-based pruning: keep newest entries overall, removing oldest Complete/Failed first.
     let total: i64 = conn
         .query_row(
             &format!("SELECT COUNT(*) FROM {APPLIED_EFFECTS_LEDGER_TABLE}"),

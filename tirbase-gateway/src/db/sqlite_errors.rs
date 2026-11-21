@@ -41,15 +41,15 @@ pub fn apply_hardening_pragmas(conn: &Connection, kind: DbKind) -> Result<(), Sq
 /// Classified SQLite failure and the required gateway response (CLAIM-18.4).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SqliteErrorAction {
- /// `SQLITE_FULL` (ENOSPC): emit High `StorageFull`, continue with reduced logging.
+    /// `SQLITE_FULL` (ENOSPC): emit High `StorageFull`, continue with reduced logging.
     StorageFull { kind: DbKind, detail: String },
- /// `SQLITE_IOERR`: treat as corruption/IO failure; enter `Restricted`.
+    /// `SQLITE_IOERR`: treat as corruption/IO failure; enter `Restricted`.
     EnterRestrictedIo { kind: DbKind, detail: String },
- /// `SQLITE_CORRUPT`: enter `Restricted`; PrimaryLedger unrecoverable → operator intervention.
+    /// `SQLITE_CORRUPT`: enter `Restricted`; PrimaryLedger unrecoverable → operator intervention.
     EnterRestrictedCorrupt { kind: DbKind, detail: String },
- /// Non-mapped DB error (no mode transition by 18.4).
+    /// Non-mapped DB error (no mode transition by 18.4).
     Other { kind: DbKind, detail: String },
- /// Filesystem/open error outside rusqlite code mapping.
+    /// Filesystem/open error outside rusqlite code mapping.
     IoError {
         kind: DbKind,
         context: String,
@@ -78,8 +78,8 @@ impl SqliteErrorAction {
         }
     }
 
- /// Apply the mapping: emit the required SecurityEvent and, for IOERR/CORRUPT,
- /// transition the node to `Restricted` (CLAIM-18.4).
+    /// Apply the mapping: emit the required SecurityEvent and, for IOERR/CORRUPT,
+    /// transition the node to `Restricted` (CLAIM-18.4).
     pub fn apply(&self, node_mode: Option<&NodeModeState>) {
         match self {
             SqliteErrorAction::StorageFull { kind, detail } => {
@@ -92,7 +92,7 @@ impl SqliteErrorAction {
                     .with_target(kind.as_str())
                     .with_detail(detail.clone()),
                 );
- // SQLITE_FULL: continue with reduced logging; no mode transition.
+                // SQLITE_FULL: continue with reduced logging; no mode transition.
             }
             SqliteErrorAction::EnterRestrictedIo { kind, detail } => {
                 emit(
