@@ -148,8 +148,7 @@ fn sign_op<T: SignedOperationPayload + serde::Serialize>(
     role: CommandRole,
     created_est: i64,
 ) -> serde_json::Value {
-    let mut op =
-        SignedOperation::new(payload, created_est, Some(created_est + 3600)).unwrap();
+    let mut op = SignedOperation::new(payload, created_est, Some(created_est + 3600)).unwrap();
     op.sign_with(signer, role).unwrap();
     serde_json::to_value(op).unwrap()
 }
@@ -223,7 +222,7 @@ fn claim_21_9_unknown_target_blocks_then_operator_clear_unblocks_runtime() {
     let report = hydrate_runtime_state(&db, &pipeline).unwrap();
     assert_eq!(report.unknown_targets, vec!["pump-1".to_string()]);
 
- // Rebuild pipeline with a registered root CA so token verification reaches Stage 6.5 TargetBusy.
+    // Rebuild pipeline with a registered root CA so token verification reaches Stage 6.5 TargetBusy.
     let ca = InMemoryKeyProvider::generate().unwrap();
     let issuer = InMemoryKeyProvider::generate().unwrap();
     let reg = Arc::new(RwLock::new(
@@ -302,7 +301,7 @@ fn claim_21_9_unknown_target_blocks_then_operator_clear_unblocks_runtime() {
         } => {}
         other => panic!("expected TargetBusy blocked by AEF Unknown, got {other:?}"),
     }
- // Operator clear via admin path (signed PolicyAuthority) + runtime sync.
+    // Operator clear via admin path (signed PolicyAuthority) + runtime sync.
     let pa = InMemoryKeyProvider::generate().unwrap();
     let rm = InMemoryKeyProvider::generate().unwrap();
     let st = AdminState {
@@ -322,9 +321,12 @@ fn claim_21_9_unknown_target_blocks_then_operator_clear_unblocks_runtime() {
     assert_eq!(v["status"], 200, "{v}");
     let d2 = st.guard.as_ref().unwrap().simulate(&cmd, &ctx);
     if let AdmitDecision::Rejected {
-            category: AdmitRejection::TargetBusy,
-            ..
-        } = d2 { panic!("still blocked after clear") }
+        category: AdmitRejection::TargetBusy,
+        ..
+    } = d2
+    {
+        panic!("still blocked after clear")
+    }
 }
 
 #[test]
@@ -391,7 +393,7 @@ fn claim_21_12_13_hydrate_target_state_and_drift_timing_store() {
     pipeline.set_drift_store(drift.clone());
     let report = hydrate_runtime_state(&db, &pipeline).unwrap();
     assert_eq!(report.desired_state_entries, 1);
- // timing summary available through DriftHistoryStore impl
+    // timing summary available through DriftHistoryStore impl
     let timing =
         tirbase_guard::admit::DriftHistoryStore::timing_summary(drift.as_ref(), "pump-1", "speed")
             .unwrap();

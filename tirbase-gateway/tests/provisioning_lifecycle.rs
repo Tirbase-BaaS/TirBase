@@ -13,10 +13,13 @@ use std::sync::Arc;
 use ed25519_dalek::SigningKey;
 use serde_json::{json, Value};
 use tempfile::TempDir;
-use tirbase_gateway::admin::{dispatch_admin_command_at, dispatch_http_request, AdminCaller, AdminState};
+use tirbase_gateway::admin::{
+    dispatch_admin_command_at, dispatch_http_request, AdminCaller, AdminState,
+};
 use tirbase_gateway::provisioning::ProvisioningService;
 
-const ORG_SITE_TENANT: &str = r#"[{"level":"Organisation","id":"acme"},{"level":"Site","id":"s1"}]"#;
+const ORG_SITE_TENANT: &str =
+    r#"[{"level":"Organisation","id":"acme"},{"level":"Site","id":"s1"}]"#;
 
 struct Fixture {
     _dir: TempDir,
@@ -172,17 +175,26 @@ fn provisioning_lifecycle_over_admin_dispatch_is_durable_and_tenant_scoped() {
             "site": "s9",
         }
     }));
-    assert_eq!(transferred["status"], 200, "transfer response: {transferred}");
+    assert_eq!(
+        transferred["status"], 200,
+        "transfer response: {transferred}"
+    );
     let old_tenant = fixture.cmd(json!({
         "cmd": "provisioning-query",
         "payload": {"tenant": serde_json::from_str::<Value>(ORG_SITE_TENANT).unwrap()}
     }));
-    assert_eq!(old_tenant["count"], 0, "old tenant must not see the device: {old_tenant}");
+    assert_eq!(
+        old_tenant["count"], 0,
+        "old tenant must not see the device: {old_tenant}"
+    );
     let new_tenant = fixture.cmd(json!({
         "cmd": "provisioning-query",
         "payload": {"tenant": [{"level":"Organisation","id":"globex"},{"level":"Site","id":"s9"}]}
     }));
-    assert_eq!(new_tenant["count"], 1, "new tenant must see the device: {new_tenant}");
+    assert_eq!(
+        new_tenant["count"], 1,
+        "new tenant must see the device: {new_tenant}"
+    );
 
     // Durability: a fresh service over the same primary.db retains the device.
     let reopened = ProvisioningService::open(
@@ -205,7 +217,10 @@ fn provisioning_lifecycle_over_admin_dispatch_is_durable_and_tenant_scoped() {
         .trim(),
     )
     .unwrap();
-    assert_eq!(persisted["count"], 1, "registry survives reopen: {persisted}");
+    assert_eq!(
+        persisted["count"], 1,
+        "registry survives reopen: {persisted}"
+    );
 }
 
 #[test]
@@ -226,7 +241,10 @@ fn offline_provisioning_is_idempotent_and_revocation_blocks_reenrolment() {
         "payload": {"actor": "field-tech", "payload": payload}
     }));
     assert_eq!(replay["status"], 200, "offline replay: {replay}");
-    assert_eq!(replay["idempotent_replay"], true, "replay response: {replay}");
+    assert_eq!(
+        replay["idempotent_replay"], true,
+        "replay response: {replay}"
+    );
 
     // Revoke, then a fresh claim+payload for the same identity is refused.
     let revoked = fixture.cmd(json!({
@@ -241,8 +259,14 @@ fn offline_provisioning_is_idempotent_and_revocation_blocks_reenrolment() {
         "cmd": "provisioning-enroll",
         "payload": {"actor": "secops", "payload": payload2}
     }));
-    assert_eq!(blocked["status"], 409, "re-enrolment must be blocked: {blocked}");
-    assert_eq!(blocked["code"], "REENROLMENT_BLOCKED", "blocked response: {blocked}");
+    assert_eq!(
+        blocked["status"], 409,
+        "re-enrolment must be blocked: {blocked}"
+    );
+    assert_eq!(
+        blocked["code"], "REENROLMENT_BLOCKED",
+        "blocked response: {blocked}"
+    );
 
     // Re-issue authorisation is recorded but does not resurrect the old identity.
     let reissue = fixture.cmd(json!({
@@ -254,14 +278,20 @@ fn offline_provisioning_is_idempotent_and_revocation_blocks_reenrolment() {
         "cmd": "provisioning-enroll",
         "payload": {"actor": "secops", "payload": payload2}
     }));
-    assert_eq!(still_blocked["status"], 409, "old identity stays blocked: {still_blocked}");
+    assert_eq!(
+        still_blocked["status"], 409,
+        "old identity stays blocked: {still_blocked}"
+    );
 
     // Decommission also clears tenant-scoped state.
     let decommissioned = fixture.cmd(json!({
         "cmd": "provisioning-decommission",
         "payload": {"device_id": "did:key:zOffline", "actor": "secops"}
     }));
-    assert_eq!(decommissioned["status"], 200, "decommission response: {decommissioned}");
+    assert_eq!(
+        decommissioned["status"], 200,
+        "decommission response: {decommissioned}"
+    );
 
     // Audit trail records the lifecycle.
     let audit = fixture.cmd(json!({"cmd": "provisioning-audit", "payload": {}}));
@@ -279,7 +309,10 @@ fn offline_provisioning_is_idempotent_and_revocation_blocks_reenrolment() {
         "ReissuePrepared",
         "DeviceDecommissioned",
     ] {
-        assert!(kinds.contains(&expected), "missing audit {expected}: {kinds:?}");
+        assert!(
+            kinds.contains(&expected),
+            "missing audit {expected}: {kinds:?}"
+        );
     }
 }
 

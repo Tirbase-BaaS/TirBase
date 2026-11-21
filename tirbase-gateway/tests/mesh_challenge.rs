@@ -78,8 +78,8 @@ async fn challenge_is_issued_by_peer_and_routed_only_to_originating_guard() {
         requested_at_mono: 999,
     };
 
- // B receives the request over the production inbound path; the registered
- // guard-side issuer is invoked.
+    // B receives the request over the production inbound path; the registered
+    // guard-side issuer is invoked.
     b.receive_inbound(GossipMessage::ChallengeRequest(request.clone()))
         .await
         .expect("B handles challenge request");
@@ -88,8 +88,8 @@ async fn challenge_is_issued_by_peer_and_routed_only_to_originating_guard() {
     assert_eq!(seen[0].request_id, request_id);
     assert_eq!(seen[0].command_hash, [9u8; 32]);
 
- // The production handler publishes a ChallengeResponse carrying origin DID;
- // forward it to A to model mesh delivery.
+    // The production handler publishes a ChallengeResponse carrying origin DID;
+    // forward it to A to model mesh delivery.
     let response = MeshChallengeResponse {
         request_id,
         origin_guard_did: origin_did.clone(),
@@ -113,8 +113,8 @@ async fn challenge_is_issued_by_peer_and_routed_only_to_originating_guard() {
     assert_eq!(delivered.request_id, request_id);
     assert_eq!(delivered.nonce, Some([0x5au8; 32]));
 
- // INV-9 routing mutation: a response addressed to a different origin guard
- // must NOT be delivered to this instance.
+    // INV-9 routing mutation: a response addressed to a different origin guard
+    // must NOT be delivered to this instance.
     let foreign = MeshChallengeResponse {
         request_id: [3u8; 32],
         origin_guard_did: "did:key:some-other-guard".into(),

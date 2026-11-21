@@ -93,22 +93,22 @@ async fn two_gateways_exchange_checkpoint_detect_tail_truncation_and_propagate_e
     let core_a = CoreHandle::init(core_config(&dir_a)).await.expect("init a");
     let core_b = CoreHandle::init(core_config(&dir_b)).await.expect("init b");
 
- // Outbound sync transport for instance A: the test forwards the batch to
- // instance B's production receive path.
+    // Outbound sync transport for instance A: the test forwards the batch to
+    // instance B's production receive path.
     let (sync_tx, mut sync_rx) = tokio::sync::mpsc::unbounded_channel();
     wire_security_log_to_mesh(&core_a, &log_a, kp_a.did().to_string(), move |batch| {
         let _ = sync_tx.send(batch);
     });
     wire_security_log_to_mesh(&core_b, &log_b, kp_b.did().to_string(), |_batch| {});
 
- // Instance B checkpoints its own (shorter) chain first.
+    // Instance B checkpoints its own (shorter) chain first.
     for i in 1..=2u64 {
         log_b.append_payload(payload(i, "b-local"));
     }
     let b_checkpoint = log_b.try_checkpoint().unwrap().expect("b checkpoint");
 
- // Instance A appends and checkpoints; this is the checkpoint gossiped on
- // connection by the wired provider.
+    // Instance A appends and checkpoints; this is the checkpoint gossiped on
+    // connection by the wired provider.
     for i in 1..=3u64 {
         log_a.append_payload(payload(i, "a-local"));
     }
@@ -122,8 +122,8 @@ async fn two_gateways_exchange_checkpoint_detect_tail_truncation_and_propagate_e
         "test setup: A must be ahead of B (a_seq={a_seq}, b_seq={b_checkpoint})"
     );
 
- // 26.3: publish through the production checkpoint publisher, then deliver
- // over the production inbound receive path (instead of a live swarm).
+    // 26.3: publish through the production checkpoint publisher, then deliver
+    // over the production inbound receive path (instead of a live swarm).
     core_a
         .publish_checkpoint_hash(a_seq, a_hash, 1_700_000_000)
         .unwrap();
@@ -137,8 +137,8 @@ async fn two_gateways_exchange_checkpoint_detect_tail_truncation_and_propagate_e
         .await
         .expect("receive checkpoint");
 
- // 26.4: the wired observation path compares the peer checkpoint against the
- // local tail and enters Restricted with a TailTruncation event.
+    // 26.4: the wired observation path compares the peer checkpoint against the
+    // local tail and enters Restricted with a TailTruncation event.
     let restricted = wait_for(|| mode_b.get() == NodeMode::Restricted).await;
     assert!(
         restricted,
@@ -160,8 +160,8 @@ async fn two_gateways_exchange_checkpoint_detect_tail_truncation_and_propagate_e
         "26.4/26.5: observed peer checkpoint must be persisted as a witness: {witnesses:?}"
     );
 
- // 28.3: a security event appended on A is published by the wired sync loop
- // and persisted by B's receive-path merge.
+    // 28.3: a security event appended on A is published by the wired sync loop
+    // and persisted by B's receive-path merge.
     log_a.append_payload(payload(9, "propagate-28-3"));
     let batch = tokio::time::timeout(Duration::from_secs(5), async {
         loop {

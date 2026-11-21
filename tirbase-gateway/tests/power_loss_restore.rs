@@ -107,6 +107,6 @@ fn failpoint_on_primary_write_preserves_logical_dump_equivalence_after_recovery(
 
 #[test]
 fn restore_invariant_placeholder_moved_to_tirbase_admin() {
- // S22 restore invariant is verified in tirbase-admin/tests/restore.rs
- // (gateway cannot depend on tirbase-admin without a cycle).
+    // S22 restore invariant is verified in tirbase-admin/tests/restore.rs
+    // (gateway cannot depend on tirbase-admin without a cycle).
 }

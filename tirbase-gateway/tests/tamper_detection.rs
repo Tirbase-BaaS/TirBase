@@ -30,7 +30,10 @@ use tirbase_types::CommandRole;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn tmp(tag: &str) -> PathBuf {
     let u = NEXT.fetch_add(1, Ordering::Relaxed);
-    let d = std::env::temp_dir().join(format!("tirbase-tamper-detection-{tag}-{}-{u}", std::process::id()));
+    let d = std::env::temp_dir().join(format!(
+        "tirbase-tamper-detection-{tag}-{}-{u}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&d).unwrap();
     d
 }
@@ -131,7 +134,7 @@ fn payload(n: u64) -> Payload {
 
 fn inject_chain_break(primary: &Path, break_seq: u64) {
     let conn = Connection::open(primary).unwrap();
- // Mutate an interior field without updating prev_hash links => broken chain.
+    // Mutate an interior field without updating prev_hash links => broken chain.
     conn.execute(
         "UPDATE security_events SET target='TAMPERED' WHERE seq=?1",
         params![break_seq as i64],
@@ -185,7 +188,7 @@ fn claim_26_1_verify_hash_chain_at_startup_enters_restricted_on_broken_link() {
             log.append_payload(payload(i));
         }
     }
- // Inject chain break at interior event 4.
+    // Inject chain break at interior event 4.
     inject_chain_break(&primary, 4);
 
     let mode2 = NodeModeState::new(NodeMode::Starting);
@@ -232,10 +235,10 @@ fn claim_26_1_verify_hash_chain_at_startup_enters_restricted_on_broken_link() {
 fn claim_26_1_gateway_binary_enters_restricted_on_injected_chain_break() {
     let dir = tmp("261gw");
     let config = write_config(&dir, "");
- // boot once to create valid chain
+    // boot once to create valid chain
     let _ = run_until_marker(&config, "security log hash chain verified intact at boot");
     let primary = dir.join("primary.db");
- // add a few events via library so tamper is meaningful, then break
+    // add a few events via library so tamper is meaningful, then break
     {
         let kp = Arc::new(InMemoryKeyProvider::generate().unwrap());
         let mode = NodeModeState::new(NodeMode::Normal);
@@ -245,7 +248,7 @@ fn claim_26_1_gateway_binary_enters_restricted_on_injected_chain_break() {
             log.append_payload(payload(i));
         }
     }
- // break an interior row (not the very last) if present
+    // break an interior row (not the very last) if present
     let conn = Connection::open(&primary).unwrap();
     let max_seq: i64 = conn
         .query_row(
@@ -290,7 +293,7 @@ fn claim_26_2_signed_chain_recovery_exits_restricted_and_requires_signature() {
         SignedOperation::<ChainRecoveryPayload>::new(&payload, 1_000, Some(9_999_999)).unwrap();
     op.sign_with(&kp, CommandRole::PolicyAuthority).unwrap();
 
- // Wiring mutation: unsigned/empty-signature recovery must fail.
+    // Wiring mutation: unsigned/empty-signature recovery must fail.
     let empty =
         SignedOperation::<ChainRecoveryPayload>::new(&payload, 1_000, Some(9_999_999)).unwrap();
     let state = AdminState {
@@ -345,7 +348,7 @@ fn claim_26_4_tail_truncation_discrepancy_enters_restricted() {
     }
     let _ = log.try_checkpoint().unwrap();
 
- // Peer reports a valid checkpoint ahead of local (tail truncation / fork symptom).
+    // Peer reports a valid checkpoint ahead of local (tail truncation / fork symptom).
     let hit = log
         .observe_peer_checkpoint("did:peer:zTest", 999, [0xAA; 32], 1)
         .unwrap();
@@ -375,7 +378,7 @@ fn claim_26_5_peer_checkpoint_witnesses_table_created_and_readable() {
     let witnesses = log.peer_checkpoint_witnesses().unwrap();
     assert_eq!(witnesses.len(), 1);
     assert_eq!(witnesses[0].peer_did, "did:peer:a");
- // direct DB check
+    // direct DB check
     let conn = Connection::open(&primary).unwrap();
     let rows = list_peer_checkpoint_witnesses(&conn).unwrap();
     assert_eq!(
@@ -401,7 +404,7 @@ fn claim_26_7_isolated_device_records_no_witness_available() {
             .any(|e| e.reason_code == ReasonCode::NoWitnessAvailable),
         "26.7: isolated device must record NoWitnessAvailable diagnostic"
     );
- // wiring mutation: if peers/cloud present, must not record
+    // wiring mutation: if peers/cloud present, must not record
     let before = log
         .chained_events()
         .iter()
@@ -441,10 +444,10 @@ async fn claim_26_3_26_4_two_corehandles_exchange_checkpoint_and_detect_tail_tru
     let b = CoreHandle::init(cfg(&b_path)).await.expect("init b");
     let mut obs = b.subscribe_checkpoint_observations();
 
- // 26.3: publish checkpoint hash via CoreHandle production API.
+    // 26.3: publish checkpoint hash via CoreHandle production API.
     a.publish_checkpoint_hash(42, [9u8; 32], 100)
         .expect("publish");
- // Direct receive path proves the exchange/observation pipeline on two real CoreHandles.
+    // Direct receive path proves the exchange/observation pipeline on two real CoreHandles.
     b.receive_inbound(
         tirbase_core::transport::message::GossipMessage::CheckpointHash {
             reporter_did: "did:test:a".to_string(),
@@ -463,7 +466,7 @@ async fn claim_26_3_26_4_two_corehandles_exchange_checkpoint_and_detect_tail_tru
     assert_eq!(got.1, 42, "26.3: checkpoint seq exchanged");
     assert_eq!(got.2, [9u8; 32], "26.3: checkpoint hash exchanged");
 
- // 26.4: tail truncation detection in security log (production caller path).
+    // 26.4: tail truncation detection in security log (production caller path).
     let dir = tmp("264mesh");
     let primary = dir.join("primary.db");
     let _mode = NodeModeState::new(NodeMode::Restricted); // will be set Restricted by detection too
@@ -479,7 +482,7 @@ async fn claim_26_3_26_4_two_corehandles_exchange_checkpoint_and_detect_tail_tru
         log.append_payload(payload(i));
     }
     let _ = log.try_checkpoint();
- // feed peer-observed checkpoint (ahead/hash mismatch) as 26.4 production caller would
+    // feed peer-observed checkpoint (ahead/hash mismatch) as 26.4 production caller would
     let discrepant = log
         .observe_peer_checkpoint(&got.0, got.1, [0xFF; 32], got.3)
         .unwrap();

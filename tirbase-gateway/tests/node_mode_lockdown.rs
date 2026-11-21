@@ -18,8 +18,8 @@ use tirbase_gateway::health::{run_health_loop, HealthLoopState, WatchdogNotifier
 use tirbase_guard::driver_proxy::{DriverProxy, IngressSource};
 use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::lockdown::{
-    apply_crash_decision, apply_lockdown_exit, arm_controller_watchdogs, enter_lockdown, CrashLoopTracker, LockdownEntryReason, LockdownExitPayload, LockdownStore,
-    SafeDefaultBinding,
+    apply_crash_decision, apply_lockdown_exit, arm_controller_watchdogs, enter_lockdown,
+    CrashLoopTracker, LockdownEntryReason, LockdownExitPayload, LockdownStore, SafeDefaultBinding,
 };
 use tirbase_guard::node_mode::{NodeMode, NodeModeState};
 use tirbase_guard::signed_operation::SignedOperation;
@@ -159,7 +159,7 @@ fn lockdown_persists_to_db_and_secondary_file_and_survives_restart_claim_13_2() 
             "LOCKDOWN must persist in primary.db monotonic_counters"
         );
     }
- // restart
+    // restart
     {
         let store = SqliteLockdownStore::new(&db, &marker);
         assert!(
@@ -224,7 +224,7 @@ fn lockdown_exit_requires_m_of_n_distinct_roles_and_full_profile_claim_13_3() {
         envelope_profile_id: profile.profile_id,
     };
 
- // M=1 (single role) must fail
+    // M=1 (single role) must fail
     let mut op1 = SignedOperation::new(&payload, 1_000, None).unwrap();
     op1.sign_with(&pa, CommandRole::PolicyAuthority).unwrap();
     let err = apply_lockdown_exit(&op1, &payload, &tr, Some(&profile), &store, &mode).unwrap_err();
@@ -238,13 +238,13 @@ fn lockdown_exit_requires_m_of_n_distinct_roles_and_full_profile_claim_13_3() {
         "failed exit must not clear lockdown"
     );
 
- // Missing profile must fail
+    // Missing profile must fail
     let mut op2 = SignedOperation::new(&payload, 1_000, None).unwrap();
     op2.sign_with(&pa, CommandRole::PolicyAuthority).unwrap();
     op2.sign_with(&rm, CommandRole::RevocationManager).unwrap();
     assert!(apply_lockdown_exit(&op2, &payload, &tr, None, &store, &mode).is_err());
 
- // Valid 2 distinct roles + profile succeeds
+    // Valid 2 distinct roles + profile succeeds
     let mut op3 = SignedOperation::new(&payload, 1_000, None).unwrap();
     op3.sign_with(&pa, CommandRole::PolicyAuthority).unwrap();
     op3.sign_with(&rm, CommandRole::RevocationManager).unwrap();
@@ -381,7 +381,7 @@ fn n_crashes_within_window_escalates_to_security_lockdown_claim_13_6_s24() {
         Ok(NodeMode::Normal)
     ));
     assert!(!store.is_lockdown().unwrap());
- // 3rd within window -> LOCKDOWN
+    // 3rd within window -> LOCKDOWN
     apply_crash_decision(tracker.record_crash(200), &store, &mode).unwrap();
     assert_eq!(mode.get(), NodeMode::Lockdown);
     assert!(

@@ -131,8 +131,8 @@ impl LedgerReadBack for MapReadBack {
 fn claim_19_1_applied_effects_ledger_table_exists_and_transitions_on_actuation() {
     let _fp = FAILPOINT_LOCK.lock().unwrap();
     clear_failpoints();
- // 19.1: table via migration framework exists in primary.db; verify ledger
- // entry transitions on actuation (Actuating -> Complete/Failed/Unknown).
+    // 19.1: table via migration framework exists in primary.db; verify ledger
+    // entry transitions on actuation (Actuating -> Complete/Failed/Unknown).
     let db = tmpdb("191");
     let _primary = tirbase_gateway::db::open_primary(&db).unwrap();
     let conn = Connection::open(&db).unwrap();
@@ -228,7 +228,7 @@ fn claim_19_2_boot_reconciliation_resolves_actuating_and_emits_events() {
 
     let db = tmpdb("192");
     let conn = open(&db);
- // Simulate injected crash: Actuating entry left behind.
+    // Simulate injected crash: Actuating entry left behind.
     insert(&conn, &sample_row(7, EffectState::Actuating, 100));
     insert(&conn, &sample_row(8, EffectState::Actuating, 100));
 
@@ -275,18 +275,18 @@ fn claim_19_2_boot_reconciliation_resolves_actuating_and_emits_events() {
 fn claim_19_3_pre_actuating_legacy_entry_marked_failed_old_schema_entry_not_actuating() {
     let _fp = FAILPOINT_LOCK.lock().unwrap();
     clear_failpoints();
- // 19.3: pre-Actuating states (e.g. legacy Intent) -> Failed/OLD_SCHEMA_ENTRY.
- // Wiring mutation: treating Intent as Actuating at boot must fail (we assert
- // Actuating rows remain Actuating until reconciliation, and Intent is not
- // counted/resolved as Actuating).
+    // 19.3: pre-Actuating states (e.g. legacy Intent) -> Failed/OLD_SCHEMA_ENTRY.
+    // Wiring mutation: treating Intent as Actuating at boot must fail (we assert
+    // Actuating rows remain Actuating until reconciliation, and Intent is not
+    // counted/resolved as Actuating).
     let _guard = tirbase_gateway::EVENT_SINK_TEST_LOCK.lock().unwrap();
     let sink = Arc::new(RecordingSink::default());
     let prev = tirbase_core::events::install_security_event_sink(sink.clone());
 
     let db = tmpdb("193");
     let conn = open(&db);
- // Legacy pre-Actuating row. (Schema uses state TEXT; we model the legacy case
- // by inserting state='Intent' directly, which is pre-Actuating under 19.3.)
+    // Legacy pre-Actuating row. (Schema uses state TEXT; we model the legacy case
+    // by inserting state='Intent' directly, which is pre-Actuating under 19.3.)
     let mut row = sample_row(9, EffectState::Actuating, 100);
     row.completion_ts = None;
     insert(&conn, &row);
@@ -298,7 +298,7 @@ fn claim_19_3_pre_actuating_legacy_entry_marked_failed_old_schema_entry_not_actu
         params![[9u8; 16].as_slice()],
     )
     .unwrap();
- // A real Actuating row must NOT be marked by the pre-Actuating scan.
+    // A real Actuating row must NOT be marked by the pre-Actuating scan.
     insert(&conn, &sample_row(10, EffectState::Actuating, 100));
 
     let summary = ledger_reconciliation::reconcile_with_readback(
@@ -314,8 +314,8 @@ fn claim_19_3_pre_actuating_legacy_entry_marked_failed_old_schema_entry_not_actu
             .as_deref(),
         Some("Failed")
     );
- // 19.3 wiring/invariant: Intent was NOT treated as Actuating in the scan.
- // Actuating row #10 was resolved by reconciliation (Timeout->Unknown), not by 19.3.
+    // 19.3 wiring/invariant: Intent was NOT treated as Actuating in the scan.
+    // Actuating row #10 was resolved by reconciliation (Timeout->Unknown), not by 19.3.
     assert_eq!(
         applied_effects_ledger::get_state(&conn, &[10; 16])
             .unwrap()
@@ -371,9 +371,9 @@ impl EventBatchBackend for CountingBackend {
 fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
     let _fp = FAILPOINT_LOCK.lock().unwrap();
     clear_failpoints();
- // 19.4: 50ms window; HIGH/CRITICAL bypass batcher and flush immediately.
- // Wiring mutation: batching HIGH events would delay flush and fail the
- // immediate-flush assertion.
+    // 19.4: 50ms window; HIGH/CRITICAL bypass batcher and flush immediately.
+    // Wiring mutation: batching HIGH events would delay flush and fail the
+    // immediate-flush assertion.
     let backend = Arc::new(CountingBackend::new());
     let batcher = GroupCommitBatcher::with_window(backend.clone(), Duration::from_millis(50));
 
@@ -383,7 +383,7 @@ fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
         Severity::Low,
         ReasonCode::LedgerPruned,
     ));
- // Low event should not force an immediate flush.
+    // Low event should not force an immediate flush.
     std::thread::sleep(Duration::from_millis(5));
     let pre_high = backend.calls.load(Ordering::SeqCst);
     let high_t = tirbase_core::traits::monotonic_now();
@@ -392,7 +392,7 @@ fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
         Severity::High,
         ReasonCode::ReconciliationTimeout,
     ));
- // HIGH bypasses: a flush containing the high event must occur promptly.
+    // HIGH bypasses: a flush containing the high event must occur promptly.
     let deadline = tirbase_core::traits::monotonic_now() + 40_000;
     let mut saw_high = false;
     while tirbase_core::traits::monotonic_now() < deadline {
@@ -414,7 +414,7 @@ fn claim_19_4_group_commit_batches_low_and_high_bypasses_immediately() {
         backend.calls.load(Ordering::SeqCst)
     );
 
- // Buffered low event eventually flushes.
+    // Buffered low event eventually flushes.
     std::thread::sleep(Duration::from_millis(90));
     batcher.stop();
     let all: Vec<_> = backend
@@ -441,7 +441,7 @@ fn claim_19_5_ledger_pruning_removes_entries_beyond_retention() {
     let db = tmpdb("195");
     let conn = open(&db);
     let now = 1_000_000i64;
- // Old Complete/Failed should be pruned by age; recent terminal retained.
+    // Old Complete/Failed should be pruned by age; recent terminal retained.
     insert(
         &conn,
         &sample_row(1, EffectState::Complete, now - (95 * 24 * 3600)),
@@ -481,7 +481,7 @@ fn claim_19_5_ledger_pruning_removes_entries_beyond_retention() {
         Some("Complete")
     );
 
- // Count-based retention: keep max entries, prune oldest Complete/Failed first.
+    // Count-based retention: keep max entries, prune oldest Complete/Failed first.
     let db2 = tmpdb("195c");
     let conn2 = open(&db2);
     for i in 0u8..12 {
@@ -504,11 +504,11 @@ fn claim_19_5_ledger_pruning_removes_entries_beyond_retention() {
 fn claim_19_6_failpoint_kill_at_every_step_leaves_handled_ledger_states() {
     let _fp = FAILPOINT_LOCK.lock().unwrap();
     clear_failpoints();
- // 19.6: fail crate kill-at-every-step at every write boundary. Passing means
- // zero unhandled ledger states remain after fault injection. The fail crate
- // activates when `fail::cfg` is called; if not active, we still verify the
- // normal-path handled outcomes (defense-in-depth) and the failpoint names are
- // wired (compile-time + call-site presence). The test asserts handled states.
+    // 19.6: fail crate kill-at-every-step at every write boundary. Passing means
+    // zero unhandled ledger states remain after fault injection. The fail crate
+    // activates when `fail::cfg` is called; if not active, we still verify the
+    // normal-path handled outcomes (defense-in-depth) and the failpoint names are
+    // wired (compile-time + call-site presence). The test asserts handled states.
     let scenarios = [
         "aef_insert_actuating",
         "aef_update_terminal",
@@ -518,7 +518,7 @@ fn claim_19_6_failpoint_kill_at_every_step_leaves_handled_ledger_states() {
         "aef_prune",
         "aef_reconcile_boot",
     ];
- // Best-effort activation (fail crate 0.5 uses global scenario list).
+    // Best-effort activation (fail crate 0.5 uses global scenario list).
     for name in scenarios {
         let _ = tirbase_core::fail_crate::cfg(name, "return");
     }
@@ -527,8 +527,8 @@ fn claim_19_6_failpoint_kill_at_every_step_leaves_handled_ledger_states() {
         let db = tmpdb(&format!("196-{name}"));
         let conn = open(&db);
         insert(&conn, &sample_row(1, EffectState::Actuating, 100));
- // Exercise each boundary; on fault we must observe a handled Err OR the
- // ledger remains in a valid handled state (no partial/unknown corruption).
+        // Exercise each boundary; on fault we must observe a handled Err OR the
+        // ledger remains in a valid handled state (no partial/unknown corruption).
         let _ = applied_effects_ledger::list_actuating(&conn);
         let _ = applied_effects_ledger::mark_pre_actuating_as_old_schema_failed(&conn, 101);
         let _ = applied_effects_ledger::apply_reconciliation_outcome(
@@ -544,7 +544,7 @@ fn claim_19_6_failpoint_kill_at_every_step_leaves_handled_ledger_states() {
             Arc::new(FixedReadBack(ReadBackOutcome::Matches)),
             202,
         );
- // Zero unhandled states: every row is in a known terminal/actuating state.
+        // Zero unhandled states: every row is in a known terminal/actuating state.
         let mut stmt = conn
             .prepare(&format!(
                 "SELECT state FROM {}",

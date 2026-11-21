@@ -135,7 +135,7 @@ fn run_until_marker(config: &Path, env: &[(&str, &str)], needle: &str) -> Vec<St
     });
 
     let mut lines = Vec::new();
- // Use the workspace TimeSource (PV-3.12) rather than a direct clock call.
+    // Use the workspace TimeSource (PV-3.12) rather than a direct clock call.
     let deadline_us = tirbase_core::traits::monotonic_now() + 30_000_000;
     let found = loop {
         if tirbase_core::traits::monotonic_now() >= deadline_us {
@@ -381,7 +381,7 @@ fn gateway_persists_and_reloads_ratchet_across_restarts() {
         "the ratchet must be persisted to primary.db (CLAIM-7.2)"
     );
 
- // Restart without a beacon: the floor must be reloaded and now_est floored at it.
+    // Restart without a beacon: the floor must be reloaded and now_est floored at it.
     let second_config = write_config(&dir, None, None);
     let second_run = run_until_marker(
         &second_config,
@@ -420,7 +420,7 @@ fn gateway_persists_and_reloads_ratchet_across_restarts() {
 fn far_future_beacon_is_rejected() {
     let dir = temp_dir("far-future");
     let base = 1_800_000_000i64;
- // Establish a baseline floor with the required M-of-N quorum.
+    // Establish a baseline floor with the required M-of-N quorum.
     let (bootstrap_beacon, bootstrap_anchors) = write_beacon(&dir, base, 2);
     let bootstrap_config = write_config(&dir, Some(&bootstrap_beacon), Some(&bootstrap_anchors));
     run_until_marker(
@@ -429,7 +429,7 @@ fn far_future_beacon_is_rejected() {
         "Beacon accepted",
     );
 
- // One anchor only for a jump beyond max_forward_jump_secs: below M = 2.
+    // One anchor only for a jump beyond max_forward_jump_secs: below M = 2.
     let far_future = base + 86_401;
     let (beacon, anchors) = write_beacon(&dir, far_future, 1);
     let config = write_config(&dir, Some(&beacon), Some(&anchors));
@@ -496,7 +496,7 @@ fn expired_boot_attestation_is_rejected_after_simulated_time_advance() {
     let wall_time = 1_800_000_000i64;
     let (beacon, anchors) = write_beacon(&dir, wall_time, 2);
 
- // Establish the ratchet floor from a real beacon (M-of-N quorum).
+    // Establish the ratchet floor from a real beacon (M-of-N quorum).
     let first_config = write_config(&dir, Some(&beacon), Some(&anchors));
     run_until_marker(
         &first_config,
@@ -504,10 +504,10 @@ fn expired_boot_attestation_is_rejected_after_simulated_time_advance() {
         "Beacon accepted",
     );
 
- // Restart with a 1,000-second simulated advance: now_est passes the
- // attestation's authenticated-time expiry (floor + 300 s), so the gateway
- // must refuse to attest the boot. This is Stage-9 expiry semantics driven
- // by now_est (CLAIM-7.3, S19).
+    // Restart with a 1,000-second simulated advance: now_est passes the
+    // attestation's authenticated-time expiry (floor + 300 s), so the gateway
+    // must refuse to attest the boot. This is Stage-9 expiry semantics driven
+    // by now_est (CLAIM-7.3, S19).
     let second_config = write_config(&dir, None, None);
     let (success, output) = run_expect_exit(
         &second_config,

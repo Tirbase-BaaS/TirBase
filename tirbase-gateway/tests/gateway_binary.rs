@@ -51,9 +51,7 @@ fn wait_for_listener(port: u16) {
     let deadline = std::time::Instant::now() + Duration::from_secs(10);
     loop {
         if TcpStream::connect_timeout(
-            &format!("127.0.0.1:{port}")
-                .parse()
-                .expect("loopback addr"),
+            &format!("127.0.0.1:{port}").parse().expect("loopback addr"),
             Duration::from_millis(100),
         )
         .is_ok()
@@ -177,7 +175,7 @@ fn claim_35_2_invalid_config_rejected_at_startup_and_unsigned_bundle_rejected() 
         "stderr missing validation error: {stderr}"
     );
 
- // Unsigned/missing trust root for config bundle must be rejected.
+    // Unsigned/missing trust root for config bundle must be rejected.
     let bundle = dir.join("bundle.json");
     let cfg_toml = format!(
         "key_path = {:?}\nadmin_enabled = false\nhealth_addr = \"127.0.0.1:{}\"\nmetrics_addr = \"127.0.0.1:{}\"\n",
@@ -417,7 +415,7 @@ fn claim_35_3_systemd_unit_has_hardening_directives() {
     ] {
         assert!(body.contains(needle), "unit missing {needle}");
     }
- // CI gate script exists and is executable.
+    // CI gate script exists and is executable.
     let script =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../scripts/check-systemd-security.sh");
     assert!(script.exists(), "missing systemd-analyze CI gate script");
@@ -472,7 +470,7 @@ fn claim_35_4_local_admin_signed_command_reaches_guard_and_moves_metrics() {
     let _device =
         FileKeyProvider::load_or_generate(dir.join("device-key.json")).expect("device key");
 
- // Trust root signed by the root CA whose seed also mints the command token.
+    // Trust root signed by the root CA whose seed also mints the command token.
     let ca = InMemoryKeyProvider::generate().expect("root ca");
     let mut trust = TrustRootRecord {
         version: 1,
@@ -494,9 +492,9 @@ fn claim_35_4_local_admin_signed_command_reaches_guard_and_moves_metrics() {
     )
     .expect("write trust root");
 
- // Reuse the shipped cold-room fixture but make the parameter non-critical so
- // the command does not need a challenge nonce (the time ratchet is
- // Unverified without a beacon in this isolated test).
+    // Reuse the shipped cold-room fixture but make the parameter non-critical so
+    // the command does not need a challenge nonce (the time ratchet is
+    // Unverified without a beacon in this isolated test).
     let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../profiles/cold_room.toml");
     let fixture_body = std::fs::read_to_string(&fixture).expect("read cold_room profile");
     let profile_body = fixture_body.replace("critical = true", "critical = false");
@@ -520,8 +518,8 @@ fn claim_35_4_local_admin_signed_command_reaches_guard_and_moves_metrics() {
         &ca.secret_seed(),
     )
     .expect("mint command token");
- // Without a time beacon the ratchet's now_est is the persisted floor (0),
- // so the command TTL must stay within the guard's 3600s maximum.
+    // Without a time beacon the ratchet's now_est is the persisted floor (0),
+    // so the command TTL must stay within the guard's 3600s maximum.
     let mut cmd = CommandMessage {
         issuer_did: Did::new(issuer.did()),
         role: CommandRole::CommandIssuer,

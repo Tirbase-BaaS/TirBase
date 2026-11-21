@@ -23,7 +23,7 @@ fn test_store() -> Arc<Mutex<tirbase_core::store::LocalStore>> {
 
 #[test]
 fn gateway_f32_module_quarantined_before_execution() {
- // 29.2 / S8: module with f32 must be quarantined before execution.
+    // 29.2 / S8: module with f32 must be quarantined before execution.
     let wasm = wat::parse_str(r#"(module (func (export "run") f32.const 1.0 drop))"#).unwrap();
     let result = execute_migration(&wasm, [0x11u8; 32], 30, &test_store()).expect("ok");
     assert!(
@@ -34,7 +34,7 @@ fn gateway_f32_module_quarantined_before_execution() {
 
 #[test]
 fn gateway_mismatched_profile_quarantined_engine_version_mismatch() {
- // 29.3 / S9: mismatched profile_id/fuel_cost_table_hash => ENGINE_VERSION_MISMATCH.
+    // 29.3 / S9: mismatched profile_id/fuel_cost_table_hash => ENGINE_VERSION_MISMATCH.
     let wasm = wat::parse_str(r#"(module (func (export "run")))"#).unwrap();
     let bad = ExecutionProfileVersion {
         profile_id: DETERMINISTIC_PROFILE_ID,
@@ -54,7 +54,7 @@ fn gateway_mismatched_profile_quarantined_engine_version_mismatch() {
 
 #[test]
 fn gateway_memory_limit_exceeded_quarantined() {
- // 29.4: migration exceeding 64 MiB memory limit is quarantined/aborted by StoreLimits.
+    // 29.4: migration exceeding 64 MiB memory limit is quarantined/aborted by StoreLimits.
     let wasm = wat::parse_str(r#"(module (memory (export "memory") 2048) (func (export "run")))"#)
         .unwrap(); // 2048 pages = 128 MiB > 64 MiB limit
     let result = execute_migration(&wasm, [0x33u8; 32], 30, &test_store()).expect("ok");
@@ -66,7 +66,7 @@ fn gateway_memory_limit_exceeded_quarantined() {
 
 #[test]
 fn gateway_deterministic_migration_executes_with_wasmi() {
- // 29.1 smoke: valid deterministic migration executes under wasmi.
+    // 29.1 smoke: valid deterministic migration executes under wasmi.
     let wasm = wat::parse_str(r#"(module (func (export "run")))"#).unwrap();
     let good = ExecutionProfileVersion {
         profile_id: DETERMINISTIC_PROFILE_ID,

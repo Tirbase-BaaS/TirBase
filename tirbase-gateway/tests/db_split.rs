@@ -98,7 +98,7 @@ fn run_until_marker(config: &Path, env: &[(&str, &str)], needle: &str) -> Vec<St
                 }
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
- // drain any exited process output
+                // drain any exited process output
                 if let Ok(Some(_)) = child.try_wait() {
                     while let Ok(line) = rx.try_recv() {
                         let hit = line.contains(needle);
@@ -200,7 +200,7 @@ fn gateway_creates_primary_and_derived_dbs_with_required_pragmas_and_tables() {
     let dir = temp_dir("split");
     let config = write_config(&dir);
 
- // Boot marker: gateway logs DB readiness and later boot attestation.
+    // Boot marker: gateway logs DB readiness and later boot attestation.
     let lines = run_until_marker(&config, &[], "SignedOperation boot record verified");
     assert!(
         lines
@@ -220,10 +220,10 @@ fn gateway_creates_primary_and_derived_dbs_with_required_pragmas_and_tables() {
     assert!(primary.exists(), "primary.db must be created at boot");
     assert!(derived.exists(), "derived.db must be created at boot");
 
- // CLAIM-18.1: primary.db WAL + synchronous=FULL. Mutation-sensitive: removing
- // the synchronous=FULL pragma in migrations/open_primary must fail this.
- // Verified through the production `open_primary` helper so the test catches
- // a wiring mutation in the same code path the gateway uses.
+    // CLAIM-18.1: primary.db WAL + synchronous=FULL. Mutation-sensitive: removing
+    // the synchronous=FULL pragma in migrations/open_primary must fail this.
+    // Verified through the production `open_primary` helper so the test catches
+    // a wiring mutation in the same code path the gateway uses.
     assert_eq!(
         pragma_str_via_open(&primary, true, "journal_mode").to_ascii_lowercase(),
         "wal",
@@ -235,7 +235,7 @@ fn gateway_creates_primary_and_derived_dbs_with_required_pragmas_and_tables() {
         "primary.db must use synchronous=FULL (2) (CLAIM-18.1)"
     );
 
- // CLAIM-18.2: derived.db WAL + synchronous=NORMAL.
+    // CLAIM-18.2: derived.db WAL + synchronous=NORMAL.
     assert_eq!(
         pragma_str_via_open(&derived, false, "journal_mode").to_ascii_lowercase(),
         "wal",
@@ -247,7 +247,7 @@ fn gateway_creates_primary_and_derived_dbs_with_required_pragmas_and_tables() {
         "derived.db must use synchronous=NORMAL (1) (CLAIM-18.2)"
     );
 
- // CLAIM-18.3: hardening pragmas on both DBs (checked through open helpers).
+    // CLAIM-18.3: hardening pragmas on both DBs (checked through open helpers).
     assert_eq!(
         pragma_i64_via_open(&primary, true, "trusted_schema"),
         0,
@@ -279,7 +279,7 @@ fn gateway_creates_primary_and_derived_dbs_with_required_pragmas_and_tables() {
         "derived cache_size=-4096"
     );
 
- // CLAIM-18.1: PrimaryLedger tables created via migration framework.
+    // CLAIM-18.1: PrimaryLedger tables created via migration framework.
     for table in [
         "applied_effects_ledger",
         "anti_replay_windows",
@@ -306,7 +306,7 @@ fn gateway_creates_primary_and_derived_dbs_with_required_pragmas_and_tables() {
         );
     }
 
- // CLAIM-18.2: DerivedLedger tables.
+    // CLAIM-18.2: DerivedLedger tables.
     for table in [
         "automerge_docs",
         "dag_nodes",
@@ -322,7 +322,7 @@ fn gateway_creates_primary_and_derived_dbs_with_required_pragmas_and_tables() {
         );
     }
 
- // CLAIM-32.1: schema version queryable; migrations idempotent across reboot.
+    // CLAIM-32.1: schema version queryable; migrations idempotent across reboot.
     assert!(
         schema_version(&primary) >= 1,
         "primary schema version must be recorded"
@@ -353,9 +353,9 @@ fn injected_sqlite_ioerr_on_primary_open_triggers_restricted_mapping() {
     let dir = temp_dir("ioerr");
     let config = write_config(&dir);
 
- // Injection fires after open_primary succeeds in creating/migrating; the
- // gateway must apply SqliteErrorAction (StorageError + EnteredRestricted,
- // NodeMode=Restricted) and fail the boot (CLAIM-18.4).
+    // Injection fires after open_primary succeeds in creating/migrating; the
+    // gateway must apply SqliteErrorAction (StorageError + EnteredRestricted,
+    // NodeMode=Restricted) and fail the boot (CLAIM-18.4).
     let (status, lines) =
         run_until_exit(&config, &[("TIRBASE_TEST_INJECT_PRIMARY_SQLITE", "IOERR")]);
     assert!(
@@ -363,7 +363,7 @@ fn injected_sqlite_ioerr_on_primary_open_triggers_restricted_mapping() {
         "gateway must fail boot on injected SQLITE_IOERR: {lines:?}"
     );
     let joined = lines.join("\n");
- // Strip ANSI escape codes for robust assertions (tracing may colorize fields).
+    // Strip ANSI escape codes for robust assertions (tracing may colorize fields).
     let plain = {
         let mut out = String::with_capacity(joined.len());
         let mut chars = joined.chars().peekable();

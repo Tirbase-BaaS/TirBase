@@ -147,8 +147,8 @@ fn security_event_log_persists_chained_records_and_checkpoint_to_primary_db() {
     let kp = Arc::new(InMemoryKeyProvider::generate().expect("keypair"));
     let log = SecurityEventLog::new_persistent(&primary, Some(kp), false);
 
- // Emit one security decision (plus checkpoint is forced at 100-event/60s policy
- // by try_checkpoint; we force it to make the test deterministic).
+    // Emit one security decision (plus checkpoint is forced at 100-event/60s policy
+    // by try_checkpoint; we force it to make the test deterministic).
     let rec = log.append_payload(payload(1));
     assert_eq!(rec.seq, 1);
     assert!(
@@ -173,14 +173,14 @@ fn security_event_log_persists_chained_records_and_checkpoint_to_primary_db() {
     let checkpoint_row = rows.iter().find(|r| r.2 == 1).unwrap();
     assert!(checkpoint_row.3.is_some(), "25.3: checkpoint_hash stored");
 
- // Segment table exists and has bootstrap/chain segment (25.5).
+    // Segment table exists and has bootstrap/chain segment (25.5).
     let segments = read_security_event_segments(&conn).expect("segments");
     assert!(
         !segments.is_empty(),
         "25.5: security_event_segments populated"
     );
 
- // Table schema includes segment_id/checkpoint_hash (25.4).
+    // Table schema includes segment_id/checkpoint_hash (25.4).
     let has_segment_col: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM pragma_table_info('security_events') WHERE name='segment_id'",
@@ -214,7 +214,7 @@ fn checkpoint_written_after_100_events_or_60_seconds() {
     for i in 0..105u64 {
         log.append_payload(payload(i));
     }
- // Allow the synchronous checkpoint path triggered at cadence to persist.
+    // Allow the synchronous checkpoint path triggered at cadence to persist.
     let conn = rusqlite::Connection::open(&primary).expect("open primary");
     let rows = read_security_events(&conn).expect("read security_events");
     assert!(
@@ -223,12 +223,12 @@ fn checkpoint_written_after_100_events_or_60_seconds() {
         rows.len()
     );
 
- // 60-second path is exercised via try_checkpoint (deterministic) and the
- // background loop is production caller in gateway main.
+    // 60-second path is exercised via try_checkpoint (deterministic) and the
+    // background loop is production caller in gateway main.
     let log2 = SecurityEventLog::new_memory();
     let _ = log2.append_payload(payload(999));
- // No key provider => no signed checkpoint persisted, but interval logic is
- // wired; signed path covered above.
+    // No key provider => no signed checkpoint persisted, but interval logic is
+    // wired; signed path covered above.
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -238,9 +238,9 @@ fn ring_overflow_retains_anchor_and_recent_events() {
     for i in 0..10_050u64 {
         log.append_payload(payload(i));
         if i > 0 && i % 100 == 0 {
- // Force anchor-like density by creating a checkpoint-like payload
- // (signed checkpoint requires key; this exercises ring retention shape
- // via category/reason anchors and recent retention).
+            // Force anchor-like density by creating a checkpoint-like payload
+            // (signed checkpoint requires key; this exercises ring retention shape
+            // via category/reason anchors and recent retention).
             let _ = log.append_payload(SecurityEventPayload::new(
                 SecurityEventCategory::SecurityLog,
                 Severity::Low,
@@ -290,7 +290,7 @@ fn security_event_segments_table_tracks_chain_segments() {
 fn gateway_binary_emits_security_events_for_decisions() {
     let dir = temp_dir("gateway");
     let config = write_config(&dir);
- // Wait past sink install and boot-complete emit.
+    // Wait past sink install and boot-complete emit.
     let lines = run_until_marker(&config, "tirbase-gateway started");
     assert!(
         lines
@@ -303,7 +303,7 @@ fn gateway_binary_emits_security_events_for_decisions() {
     assert!(primary.exists(), "25.4: primary.db should exist");
     let conn = rusqlite::Connection::open(&primary).expect("open primary");
     let rows = read_security_events(&conn).unwrap_or_default();
- // Boot path emits startup/security decisions through the installed sink.
+    // Boot path emits startup/security decisions through the installed sink.
     assert!(
         !rows.is_empty(),
         "25.1: gateway should persist security decision events to security_events table"

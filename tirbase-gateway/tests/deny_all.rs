@@ -119,14 +119,14 @@ fn no_profile_means_no_command_socket_and_a_deny_all_boot_event() {
         "boot must report deny-all without a profile:\n{text}"
     );
 
- // 36.5 wiring mutation: no command ingress socket may be opened.
+    // 36.5 wiring mutation: no command ingress socket may be opened.
     let refused = TcpStream::connect(("127.0.0.1", command_port)).is_err();
     assert!(
         refused,
         "command ingress socket must not exist without an installed profile"
     );
 
- // The admin API stays available and reports the unconfigured state.
+    // The admin API stays available and reports the unconfigured state.
     let mut stream = UnixStream::connect(&socket).expect("admin socket");
     stream
         .write_all(b"{\"cmd\":\"simulate\",\"payload\":{\"command\":{}}}\n")

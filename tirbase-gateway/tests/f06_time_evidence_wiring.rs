@@ -6,9 +6,7 @@
 use std::sync::Arc;
 
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
-use tirbase_core::timesync::{
-    DriftBound, SignedTimeEvidence, TimeConfidence, TimeEvidence,
-};
+use tirbase_core::timesync::{DriftBound, SignedTimeEvidence, TimeConfidence, TimeEvidence};
 use tirbase_core::traits::{time_source, KeyProvider};
 use tirbase_gateway::security_log::{AuditTimeEvidenceSource, SecurityEventLog};
 use tirbase_gateway::security_log_export::{export_evidence_bundle, export_log, ExportedLog};
@@ -150,8 +148,7 @@ fn f06_export_bundle_exposes_standalone_time_evidence() {
         }
         let name = &bytes[pos..pos + name_len];
         pos += name_len;
-        let data_len =
-            u64::from_le_bytes(bytes[pos..pos + 8].try_into().unwrap()) as usize;
+        let data_len = u64::from_le_bytes(bytes[pos..pos + 8].try_into().unwrap()) as usize;
         pos += 8;
         if name == marker {
             evidence = Some(

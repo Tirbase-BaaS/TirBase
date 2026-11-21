@@ -26,8 +26,8 @@ fn claim_34_5_profiles_dir_cold_room_toml_parses_and_validates() {
     let trust = pa_trust_root(pa.did(), pa.public_key_bytes());
     let model = cold_room_device_model();
     let toml = std::fs::read_to_string(&path).unwrap();
- // install_profile_toml parses+validates via 10.6 path; signature in file is placeholder,
- // so use signed parsed form via install path components.
+    // install_profile_toml parses+validates via 10.6 path; signature in file is placeholder,
+    // so use signed parsed form via install path components.
     tirbase_guard::envelope::install_profile(&signed, &model, &trust)
         .expect("signed cold_room profile must install");
     let _ = toml;

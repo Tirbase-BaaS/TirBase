@@ -14,11 +14,11 @@ use std::time::Duration;
 
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
-use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
-use tirbase_guard::{sign_command, single_target_guard};
 use tirbase_gateway::command_ingress::mesh::run_mesh_command_receiver_with;
 use tirbase_gateway::guard::SqliteStage16Store;
 use tirbase_gateway::metrics::global_metrics;
+use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
+use tirbase_guard::{sign_command, single_target_guard};
 use tirbase_types::command::CommandMessage;
 use tirbase_types::{CommandRole, DeviceSignature, Did, FixedPointValue, TargetId, UNIT_PERCENT};
 
@@ -56,7 +56,9 @@ fn tmpdb(name: &str) -> std::path::PathBuf {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn mesh_command_receiver_runs_every_command_through_admission() {
     let metrics = global_metrics();
-    let decisions_before = metrics.guard_decisions_total.load(std::sync::atomic::Ordering::Relaxed);
+    let decisions_before = metrics
+        .guard_decisions_total
+        .load(std::sync::atomic::Ordering::Relaxed);
     let ledger_before = metrics
         .effects_ledger_writes_total
         .load(std::sync::atomic::Ordering::Relaxed);
@@ -81,11 +83,15 @@ async fn mesh_command_receiver_runs_every_command_through_admission() {
     ));
 
     sender.send(signed_command(&issuer, 1)).expect("send first");
-    sender.send(signed_command(&issuer, 2)).expect("send second");
+    sender
+        .send(signed_command(&issuer, 2))
+        .expect("send second");
 
     let mut observed = decisions_before;
     for _ in 0..100 {
-        observed = metrics.guard_decisions_total.load(std::sync::atomic::Ordering::Relaxed);
+        observed = metrics
+            .guard_decisions_total
+            .load(std::sync::atomic::Ordering::Relaxed);
         if observed >= decisions_before + 2 {
             break;
         }

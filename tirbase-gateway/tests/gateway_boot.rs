@@ -82,7 +82,7 @@ fn run_until_marker(config: &Path, env: &[(&str, &str)], needle: &str) -> Vec<St
     });
 
     let mut lines = Vec::new();
- // Use the workspace TimeSource (PV-3.12) rather than a direct clock call.
+    // Use the workspace TimeSource (PV-3.12) rather than a direct clock call.
     let deadline_us = tirbase_core::traits::monotonic_now() + 30_000_000;
     let found = loop {
         if tirbase_core::traits::monotonic_now() >= deadline_us {
@@ -167,9 +167,9 @@ fn simulated_hardware_counter_ahead_of_software_enters_lockdown() {
     let dir = temp_dir("rollback");
     let config = write_config(&dir);
 
- // Hardware NV counter is at 900 while the freshly-created software DB has
- // never recorded a hardware write (sw_counter_at_last_hw_write = 0):
- // this is the snapshot-restore attack of scenario S22.
+    // Hardware NV counter is at 900 while the freshly-created software DB has
+    // never recorded a hardware write (sw_counter_at_last_hw_write = 0):
+    // this is the snapshot-restore attack of scenario S22.
     let lines = run_until_marker(
         &config,
         &[("TIRBASE_SIMULATED_HW_COUNTER", "900")],

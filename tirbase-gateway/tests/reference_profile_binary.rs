@@ -109,7 +109,11 @@ fn claim_34_5_gateway_binary_installs_valid_profile_and_rejects_invalid() {
 }
 
 fn tempfile_path(name: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("tirbase-reference-profile-{}-{}", std::process::id(), name))
+    std::env::temp_dir().join(format!(
+        "tirbase-reference-profile-{}-{}",
+        std::process::id(),
+        name
+    ))
 }
 
 #[test]

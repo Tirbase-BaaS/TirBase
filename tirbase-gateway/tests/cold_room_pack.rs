@@ -21,15 +21,13 @@ use tirbase_core::auth::root_ca::RootCaRegistry;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::{KeyProvider, TimeSource};
 use tirbase_demo::{load_pack, AdversaryClass, Pack, StepDisposition};
-use tirbase_gateway::guard::{
-    open_drift_timing_store, SqliteStage16Store, Stage16Request,
-};
+use tirbase_gateway::guard::{open_drift_timing_store, SqliteStage16Store, Stage16Request};
 use tirbase_guard::admit::{
     admit_stages_0_to_15, AdmitContext, AdmitDecision, AdmitRejection, PendingApprovalQuorum,
 };
 use tirbase_guard::driver_proxy::IngressSource;
-use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::envelope::install_profile;
+use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::node_mode::{NodeMode, NodeModeState};
 use tirbase_guard::time::{TimeRatchet, TimeRatchetConfig, TimeRatchetStore};
 use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootRecord};
@@ -270,8 +268,11 @@ fn harness() -> Harness {
 
     let clock = Arc::new(MutableClock(AtomicU64::new(1_000_000_000)));
     let ratchet = Arc::new(Mutex::new(
-        TimeRatchet::open(Arc::new(RatchetStore::default()), TimeRatchetConfig::default())
-            .expect("time ratchet"),
+        TimeRatchet::open(
+            Arc::new(RatchetStore::default()),
+            TimeRatchetConfig::default(),
+        )
+        .expect("time ratchet"),
     ));
     let root_ca = Arc::new(RwLock::new(RootCaRegistry::new(vec![ca
         .public_key_bytes()
@@ -401,11 +402,10 @@ fn run_scenario(pack: &Pack, scenario_id: &str) -> ScenarioRun {
         // Critical parameters need a single-use challenge nonce, issued against
         // the same clock the pipeline reads.
         let challenge = if h.critical_params.contains(&step.param) {
-            Some(h.pipeline.issue_challenge_nonce(
-                h.issuer.did(),
-                h.target.as_str(),
-                &step.param,
-            ))
+            Some(
+                h.pipeline
+                    .issue_challenge_nonce(h.issuer.did(), h.target.as_str(), &step.param),
+            )
         } else {
             None
         };
@@ -474,7 +474,9 @@ fn run_scenario(pack: &Pack, scenario_id: &str) -> ScenarioRun {
                     mechanism: None,
                 });
             }
-            AdmitDecision::Rejected { category, detail, .. } => {
+            AdmitDecision::Rejected {
+                category, detail, ..
+            } => {
                 results.push(StepResult {
                     disposition: StepDisposition::Rejected,
                     mechanism: Some(mechanism_for(category)),
@@ -490,7 +492,10 @@ fn run_scenario(pack: &Pack, scenario_id: &str) -> ScenarioRun {
         expected.steps.len(),
         "scenario '{scenario_id}' step count"
     );
-    ScenarioRun { steps: results, actuations }
+    ScenarioRun {
+        steps: results,
+        actuations,
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -13,11 +13,7 @@ use tirbase_gateway::self_update::{
     SelfUpdateController, SignedConfigRollback, SignedFirmwareManifest,
 };
 
-fn configured_state(
-    dir: &std::path::Path,
-    update: &SigningKey,
-    policy: &SigningKey,
-) -> AdminState {
+fn configured_state(dir: &std::path::Path, update: &SigningKey, policy: &SigningKey) -> AdminState {
     let config_path = dir.join("gateway.toml");
     std::fs::write(&config_path, "key_path = \"live\"\n").expect("seed config");
     AdminState {
@@ -129,7 +125,10 @@ fn self_update_rollback_requires_policy_authority_signature() {
         signature_hex: String::new(),
     };
     rollback.signature_hex = hex::encode(attacker.sign(&rollback.canonical_bytes()).to_bytes());
-    let (status, body) = call(Some(&state), json!({"action": "rollback", "rollback": rollback}));
+    let (status, body) = call(
+        Some(&state),
+        json!({"action": "rollback", "rollback": rollback}),
+    );
     assert_eq!(status, 422, "{body}");
     assert_eq!(body["code"], "ROLLBACK_REJECTED");
 
@@ -139,7 +138,10 @@ fn self_update_rollback_requires_policy_authority_signature() {
         signature_hex: String::new(),
     };
     rollback.signature_hex = hex::encode(policy.sign(&rollback.canonical_bytes()).to_bytes());
-    let (status, body) = call(Some(&state), json!({"action": "rollback", "rollback": rollback}));
+    let (status, body) = call(
+        Some(&state),
+        json!({"action": "rollback", "rollback": rollback}),
+    );
     assert_eq!(status, 200, "{body}");
     assert_eq!(body["restored_version"], "1");
 }

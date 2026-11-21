@@ -30,8 +30,8 @@ use tirbase_guard::admit::{
     PendingApprovalQuorum,
 };
 use tirbase_guard::driver_proxy::IngressSource;
-use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::envelope::install_profile;
+use tirbase_guard::epoch::{EpochRegistry, InMemoryEpochStore};
 use tirbase_guard::node_mode::{NodeMode, NodeModeState};
 use tirbase_guard::time::{TimeRatchet, TimeRatchetConfig, TimeRatchetStore};
 use tirbase_guard::trust_root::{AuthorizedRoleSigner, RolePolicy, TrustRootRecord};
@@ -255,8 +255,11 @@ fn harness_at(db: &Path) -> Harness {
 
     let clock = Arc::new(MutableClock(AtomicU64::new(1_000_000_000)));
     let ratchet = Arc::new(Mutex::new(
-        TimeRatchet::open(Arc::new(RatchetStore::default()), TimeRatchetConfig::default())
-            .expect("time ratchet"),
+        TimeRatchet::open(
+            Arc::new(RatchetStore::default()),
+            TimeRatchetConfig::default(),
+        )
+        .expect("time ratchet"),
     ));
     let root_ca = Arc::new(RwLock::new(RootCaRegistry::new(vec![ca
         .public_key_bytes()

@@ -29,11 +29,11 @@ fn open_db(path: &Path) -> Connection {
 
 #[test]
 fn gdpr_commitment_in_chain_plaintext_in_separate_table() {
- // CLAIM-27.1, PV-7.7, RD-3. Integration: emit personal-field event; commitment in
- // hash chain, plaintext stored in security_event_personal_fields table.
+    // CLAIM-27.1, PV-7.7, RD-3. Integration: emit personal-field event; commitment in
+    // hash chain, plaintext stored in security_event_personal_fields table.
     let dir = unique_temp_dir("gdpr_commit");
     let db_path = dir.join("primary.db");
- // Production caller path: SecurityEventLog::emit() for personal-field events.
+    // Production caller path: SecurityEventLog::emit() for personal-field events.
     let log = tirbase_gateway::security_log::SecurityEventLog::new_persistent(
         db_path.clone(),
         None,
@@ -82,7 +82,7 @@ fn gdpr_commitment_in_chain_plaintext_in_separate_table() {
         "chain must remain verifiable (commitment in chain): {:?}",
         report.broken_ranges
     );
- // verify export includes commitment
+    // verify export includes commitment
     let conn2 = open_db(&db_path);
     let pfs = tirbase_gateway::security_log::read_personal_fields_for_seq(&conn2, 1).expect("read");
     assert!(!pfs.is_empty());
@@ -91,7 +91,7 @@ fn gdpr_commitment_in_chain_plaintext_in_separate_table() {
     assert_eq!(String::from_utf8_lossy(plain), "alice@example.test");
     let expected =
         tirbase_gateway::security_log::gdpr_salted_commitment(salt, "alice@example.test");
- // commitment reconstructed by verifier matches; and was used in chain (report.ok proves it).
+    // commitment reconstructed by verifier matches; and was used in chain (report.ok proves it).
     assert_eq!(expected.len(), 32);
     let report =
         tirbase_gateway::security_log_export::verify_log_at_path(&db_path).expect("verify");
@@ -105,9 +105,9 @@ fn gdpr_commitment_in_chain_plaintext_in_separate_table() {
 
 #[test]
 fn gdpr_mutation_plaintext_in_hash_chain_must_fail() {
- // Mutation check (CLAIM-27.1): storing plaintext in the hash chain must fail.
- // The chained hash must incorporate the salted commitment; substituting plaintext
- // (or omitting commitment) produces a different hash and cannot match the chain.
+    // Mutation check (CLAIM-27.1): storing plaintext in the hash chain must fail.
+    // The chained hash must incorporate the salted commitment; substituting plaintext
+    // (or omitting commitment) produces a different hash and cannot match the chain.
     let dir = unique_temp_dir("gdpr_mut");
     let db_path = dir.join("primary.db");
     let log = tirbase_gateway::security_log::SecurityEventLog::new_persistent(
@@ -127,9 +127,9 @@ fn gdpr_mutation_plaintext_in_hash_chain_must_fail() {
         "commitment must be present in chained record"
     );
     let real_hash = tirbase_gateway::security_log::event_hash(&rec, false);
- // Mutation: plaintext placed in hash-chain input instead of salted commitment must differ.
+    // Mutation: plaintext placed in hash-chain input instead of salted commitment must differ.
     let mut mutated = rec.clone();
- // represent the bad design: commitment bytes derived directly from plaintext (no random salt)
+    // represent the bad design: commitment bytes derived directly from plaintext (no random salt)
     let mut bad = [0u8; 32];
     let digest = <sha2::Sha256 as sha2::Digest>::digest(b"bob@example.test");
     bad.copy_from_slice(&digest);
@@ -139,7 +139,7 @@ fn gdpr_mutation_plaintext_in_hash_chain_must_fail() {
         real_hash, mutated_hash,
         "plaintext-derived/unsalted commitment must not produce the same chain hash"
     );
- // Omitting commitment (plaintext-only model with no commitment) must also differ.
+    // Omitting commitment (plaintext-only model with no commitment) must also differ.
     let mut omitted = rec.clone();
     omitted.personal_commitments.clear();
     let omitted_hash = tirbase_gateway::security_log::event_hash(&omitted, false);
@@ -161,7 +161,7 @@ fn test_key() -> tirbase_core::identity::file_key_provider::FileKeyProvider {
 
 #[test]
 fn log_export_cbor_json_signed_and_pseudonymized_disclaimer() {
- // CLAIM-27.2, PV-7.7, PV-7.8.
+    // CLAIM-27.2, PV-7.7, PV-7.8.
     let dir = unique_temp_dir("export");
     let db_path = dir.join("primary.db");
     let log = tirbase_gateway::security_log::SecurityEventLog::new_persistent(
@@ -209,7 +209,7 @@ fn log_export_cbor_json_signed_and_pseudonymized_disclaimer() {
 
 #[test]
 fn export_evidence_bundle_contains_required_parts_and_signed() {
- // CLAIM-27.3, PV-7.10.
+    // CLAIM-27.3, PV-7.10.
     let dir = unique_temp_dir("bundle");
     let db_path = dir.join("primary.db");
     let log = tirbase_gateway::security_log::SecurityEventLog::new_persistent(
@@ -249,7 +249,7 @@ fn export_evidence_bundle_contains_required_parts_and_signed() {
 
 #[test]
 fn verify_log_reports_intact_and_broken_chain() {
- // CLAIM-27.4, PV-7.5, INV-4.
+    // CLAIM-27.4, PV-7.5, INV-4.
     let dir = unique_temp_dir("verify");
     let db_path = dir.join("primary.db");
     let log = tirbase_gateway::security_log::SecurityEventLog::new_persistent(
@@ -267,7 +267,7 @@ fn verify_log_reports_intact_and_broken_chain() {
     let ok = tirbase_gateway::security_log_export::verify_log_at_path(&db_path).expect("verify");
     assert!(ok.ok, "intact chain must verify: {ok:?}");
     assert!(ok.broken_ranges.is_empty());
- // Break chain in DB.
+    // Break chain in DB.
     let conn = open_db(&db_path);
     conn.execute(
         "UPDATE security_events SET prev_hash = X'00010203' WHERE seq=2",
@@ -285,8 +285,8 @@ fn verify_log_reports_intact_and_broken_chain() {
 
 #[test]
 fn verify_log_mutation_exiting_zero_on_broken_chain_must_fail() {
- // Mutation check (CLAIM-27.4): a verify implementation that exits/reports ok on
- // a broken chain must fail this test.
+    // Mutation check (CLAIM-27.4): a verify implementation that exits/reports ok on
+    // a broken chain must fail this test.
     let dir = unique_temp_dir("verify_mut");
     let db_path = dir.join("primary.db");
     let log = tirbase_gateway::security_log::SecurityEventLog::new_persistent(

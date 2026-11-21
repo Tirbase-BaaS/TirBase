@@ -83,7 +83,7 @@ fn build_pki() -> TestPki {
         .signed_by(&client_key, &ca_cert, &ca_key)
         .unwrap();
 
- // A second, untrusted CA for the negative case.
+    // A second, untrusted CA for the negative case.
     let other_ca_key = KeyPair::generate().unwrap();
     let mut other_ca_params = CertificateParams::new(vec!["tirbase-other-ca".to_string()]).unwrap();
     other_ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
@@ -317,8 +317,8 @@ fn http_request(
         match tls.read(&mut chunk) {
             Ok(0) => break,
             Ok(n) => body.extend_from_slice(&chunk[..n]),
- // The server sends `Connection: close` and drops the TCP socket
- // without a TLS close_notify; a received response is still valid.
+            // The server sends `Connection: close` and drops the TCP socket
+            // without a TLS close_notify; a received response is still valid.
             Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => break,
             Err(error) => {
                 if body.is_empty() {
@@ -343,7 +343,7 @@ fn remote_admin_requires_mtls_and_privileged_status_credential() {
     let gateway = Gateway::start("mtls");
     let auditor_token = gateway.mint("did:key:remote-auditor", "Auditor");
 
- // Valid client certificate + Bearer credential.
+    // Valid client certificate + Bearer credential.
     let config = client_config(
         gateway.pki.ca_der.clone(),
         Some((
@@ -365,7 +365,7 @@ fn remote_admin_requires_mtls_and_privileged_status_credential() {
     );
     assert!(response.contains("\"mode\":\"Normal\""), "{response}");
 
- // No client certificate: handshake must fail before a request is served.
+    // No client certificate: handshake must fail before a request is served.
     let no_cert = client_config(gateway.pki.ca_der.clone(), None);
     let result = http_request(
         &gateway,
@@ -377,7 +377,7 @@ fn remote_admin_requires_mtls_and_privileged_status_credential() {
         "connection without a client certificate must be rejected: {result:?}"
     );
 
- // Client certificate from an untrusted CA: handshake must fail.
+    // Client certificate from an untrusted CA: handshake must fail.
     let wrong_ca = client_config(
         gateway.pki.ca_der.clone(),
         Some((
@@ -395,7 +395,7 @@ fn remote_admin_requires_mtls_and_privileged_status_credential() {
         "untrusted client certificate must be rejected: {result:?}"
     );
 
- // Valid certificate but no Bearer credential: 401.
+    // Valid certificate but no Bearer credential: 401.
     let response = http_request(
         &gateway,
         config.clone(),
@@ -407,8 +407,8 @@ fn remote_admin_requires_mtls_and_privileged_status_credential() {
         "missing credential: {response}"
     );
 
- // Cross-issuer Guard status requires Auditor/PolicyAuthority. A
- // CommandIssuer token asking about another issuer is refused.
+    // Cross-issuer Guard status requires Auditor/PolicyAuthority. A
+    // CommandIssuer token asking about another issuer is refused.
     let issuer_token = gateway.mint("did:key:remote-issuer", "CommandIssuer");
     let response = http_request(
         &gateway,
@@ -427,7 +427,7 @@ fn remote_admin_requires_mtls_and_privileged_status_credential() {
         "{response}"
     );
 
- // The issuer may query its own state freely.
+    // The issuer may query its own state freely.
     let response = http_request(
         &gateway,
         config,

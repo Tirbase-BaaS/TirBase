@@ -192,7 +192,7 @@ fn boot_installs_trust_root_and_runs_root_ca_self_test() {
     let trust_path = dir.join("trust-root.json");
     std::fs::write(&trust_path, serde_json::to_string_pretty(&record).unwrap()).unwrap();
 
- // A token minted by the root key proves the registry registration path.
+    // A token minted by the root key proves the registry registration path.
     let token = biscuit::create_token(
         "did:key:zSelfTest",
         "CommandIssuer",
@@ -259,7 +259,7 @@ fn trust_root_version_rollback_is_rejected_at_boot() {
         Some(2)
     );
 
- // Restore an older root record, as an attacker with filesystem access would.
+    // Restore an older root record, as an attacker with filesystem access would.
     let v1 = trust_root(1, &root_key, BTreeMap::new());
     std::fs::write(&trust_path, serde_json::to_string(&v1).unwrap()).unwrap();
 
@@ -311,7 +311,7 @@ fn signed_epoch_bump_is_applied_and_persisted() {
     let trust_path = dir.join("trust-root.json");
     std::fs::write(&trust_path, serde_json::to_string(&record).unwrap()).unwrap();
 
- // Simulate an already-enrolled device with an epoch-0 row.
+    // Simulate an already-enrolled device with an epoch-0 row.
     let db = dir.join("primary.db");
     {
         let conn = rusqlite::Connection::open(&db).unwrap();

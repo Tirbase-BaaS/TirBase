@@ -194,7 +194,7 @@ fn claim_16_3_admin_challenge_issues_only_for_unverified_critical_param() {
     let nonce = v["nonce_hex"].as_str().unwrap();
     assert_eq!(nonce.len(), 64);
 
- // Non-critical parameter must be rejected.
+    // Non-critical parameter must be rejected.
     let (guard_nc, _, _, _reg) = mk_guard(false);
     let st_nc = AdminState {
         guard: Some(Arc::new(guard_nc)),
@@ -274,7 +274,7 @@ fn claim_16_1_stage9_accepts_issued_nonce_and_consumes_once() {
     let issuer = InMemoryKeyProvider::generate().unwrap();
     let (guard, pipeline, _ts, reg) = mk_guard(true);
     *reg.write().unwrap() = RootCaRegistry::new(vec![ca.public_key_bytes().try_into().unwrap()]);
- // Issue via pipeline (device binding dev1/pump-1/speed).
+    // Issue via pipeline (device binding dev1/pump-1/speed).
     let issued = pipeline
         .issue_challenge_nonce_for_device("dev1", issuer.did(), "pump-1", "speed")
         .unwrap();
@@ -297,9 +297,9 @@ fn claim_16_1_stage9_accepts_issued_nonce_and_consumes_once() {
     };
     let mut out = Vec::new();
     let mut proxy = DriverProxy::new(Cursor::new(&mut out));
- // In Unverified+critical state, Stage 9 requires challenge; guard has no beacon so TimeRatchet is Unverified.
+    // In Unverified+critical state, Stage 9 requires challenge; guard has no beacon so TimeRatchet is Unverified.
     let d = guard.admit_with_context(&mk_cmd(&issuer, Some(issued.nonce)), &ctx, &mut proxy, b"f");
- // Depending on other stages (sequence/envelope), we only assert challenge is no longer the rejection cause.
+    // Depending on other stages (sequence/envelope), we only assert challenge is no longer the rejection cause.
     if let Err(e) = d {
         let msg = format!("{e:?}");
         assert!(
@@ -312,7 +312,7 @@ fn claim_16_1_stage9_accepts_issued_nonce_and_consumes_once() {
         );
     }
 
- // Second use of the same nonce in a new command must be rejected at Stage 9.
+    // Second use of the same nonce in a new command must be rejected at Stage 9.
     let mut out2 = Vec::new();
     let mut proxy2 = DriverProxy::new(Cursor::new(&mut out2));
     let cmd2 = mk_cmd(&issuer, Some(issued.nonce));
@@ -326,7 +326,7 @@ fn claim_16_1_stage9_accepts_issued_nonce_and_consumes_once() {
             || msg2.contains("Pipeline"),
         "reused nonce should fail: {msg2}"
     );
- // Stronger: if pipeline error, ensure it is challenge-related when possible.
+    // Stronger: if pipeline error, ensure it is challenge-related when possible.
 }
 
 #[test]
@@ -345,7 +345,7 @@ fn claim_16_2_sqlite_store_persists_and_bootstraps_required_fields() {
         };
         ChallengeNonceStore::insert(&store, &nonce).unwrap();
     }
- // Reopen (boot/read path)
+    // Reopen (boot/read path)
     {
         let store = SqliteChallengeNonceStore::open(&db).unwrap();
         assert!(ChallengeNonceStore::consume_if_valid(

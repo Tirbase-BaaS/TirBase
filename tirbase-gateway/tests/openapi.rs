@@ -9,7 +9,9 @@ use std::path::{Path, PathBuf};
 use tirbase_gateway::vertical_api::{VerticalApi, VERTICAL_ROUTE_TEMPLATES};
 
 fn repo_path(relative: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join(relative)
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join(relative)
 }
 
 fn spec() -> String {
@@ -57,18 +59,33 @@ fn gateway_admin_openapi_defines_every_admin_endpoint() {
         );
     }
     assert!(doc.starts_with("openapi: 3.1."), "OpenAPI 3.1 required");
-    assert!(doc.contains("LocalPeerCredential"), "local auth scheme missing");
-    assert!(doc.contains("type: mutualTLS"), "remote admin must be mTLS-only");
+    assert!(
+        doc.contains("LocalPeerCredential"),
+        "local auth scheme missing"
+    );
+    assert!(
+        doc.contains("type: mutualTLS"),
+        "remote admin must be mTLS-only"
+    );
     assert!(
         doc.contains("Authorization Bearer") || doc.contains("Bearer <hex>"),
         "remote bearer requirement missing"
     );
     assert!(doc.contains("maximum: 86400"), "mint max lifetime missing");
-    assert!(doc.contains("idempotency_key"), "idempotency contract missing");
+    assert!(
+        doc.contains("idempotency_key"),
+        "idempotency contract missing"
+    );
     assert!(doc.contains("next_cursor"), "pagination contract missing");
     assert!(doc.contains("webhooks:"), "webhook contract missing");
-    assert!(doc.contains("X-TirBase-Signature"), "webhook signature missing");
-    assert!(!doc.contains("/admin/not-implemented"), "stub endpoint documented");
+    assert!(
+        doc.contains("X-TirBase-Signature"),
+        "webhook signature missing"
+    );
+    assert!(
+        !doc.contains("/admin/not-implemented"),
+        "stub endpoint documented"
+    );
 }
 
 #[test]
@@ -135,8 +152,12 @@ fn every_documented_vertical_operation_is_routed() {
     let api = VerticalApi::open(dir.join("primary.db")).unwrap();
     for (path, method) in operations {
         let probe = path.replace("{id}", "contract-probe");
-        let (status, body) = api.dispatch(method.to_uppercase().as_str(), &probe, Some("{}"), 1_000);
-        assert_ne!(status, 405, "{method} {path} is documented but not routed: {body}");
+        let (status, body) =
+            api.dispatch(method.to_uppercase().as_str(), &probe, Some("{}"), 1_000);
+        assert_ne!(
+            status, 405,
+            "{method} {path} is documented but not routed: {body}"
+        );
         assert!(
             !body.contains("VERTICAL_ROUTE_NOT_FOUND"),
             "{method} {path} is documented but not routed: {body}"

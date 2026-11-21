@@ -33,12 +33,8 @@ fn run_power_cut_case(case: &str) -> String {
              Smart PDU and lab harness must be provisioned."
         )
     });
-    stream
-        .set_read_timeout(Some(Duration::from_secs(120)))
-        .ok();
-    stream
-        .set_write_timeout(Some(Duration::from_secs(10)))
-        .ok();
+    stream.set_read_timeout(Some(Duration::from_secs(120))).ok();
+    stream.set_write_timeout(Some(Duration::from_secs(10))).ok();
 
     let req = format!("CASE {case}\nPDU {pdu}\nEND\n");
     stream

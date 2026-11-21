@@ -18,9 +18,7 @@ use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 
 use tirbase_core::traits::MonotonicCounterTrait;
-use tirbase_gateway::monotonic_counter::{
-    provision_tpm2_counter_index, Tpm2MonotonicCounter,
-};
+use tirbase_gateway::monotonic_counter::{provision_tpm2_counter_index, Tpm2MonotonicCounter};
 
 const NV_INDEX: u32 = 0x0150_0002;
 
@@ -77,9 +75,9 @@ fn start_swtpm() -> Option<Swtpm> {
         .spawn()
         .ok()?;
 
- // swtpm serves a single TCTI client connection, so probing the port with a
- // throwaway TcpStream can steal it and make the TCTI fail to instantiate.
- // Give the daemon a moment instead, then confirm it is still running.
+    // swtpm serves a single TCTI client connection, so probing the port with a
+    // throwaway TcpStream can steal it and make the TCTI fail to instantiate.
+    // Give the daemon a moment instead, then confirm it is still running.
     let mut child = child;
     std::thread::sleep(Duration::from_millis(600));
     if child.try_wait().ok().flatten().is_some() {
@@ -110,7 +108,7 @@ fn swtpm_nv_counter_is_monotonic_and_never_written_backwards() {
     assert_eq!(counter.read().expect("read after increment"), 1);
     assert_eq!(counter.increment().expect("second increment"), 2);
 
- // set_if_greater only ever raises the counter.
+    // set_if_greater only ever raises the counter.
     assert_eq!(
         counter.set_if_greater(10).expect("raise to 10"),
         10,
@@ -123,8 +121,8 @@ fn swtpm_nv_counter_is_monotonic_and_never_written_backwards() {
     );
     assert_eq!(counter.read().expect("final read"), 10);
 
- // The value survives a fresh TCTI connection (it lives in TPM NV, not in
- // process memory) — this is what rollback detection relies on.
+    // The value survives a fresh TCTI connection (it lives in TPM NV, not in
+    // process memory) — this is what rollback detection relies on.
     let reopened = Tpm2MonotonicCounter::new(NV_INDEX);
     assert_eq!(reopened.read().expect("read from new connection"), 10);
 

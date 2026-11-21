@@ -16,7 +16,10 @@ use tirbase_gateway::security_log::{SecurityEventLog, SecurityLogRetentionConfig
 static NEXT: AtomicU64 = AtomicU64::new(0);
 fn tmp(tag: &str) -> PathBuf {
     let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    let d = std::env::temp_dir().join(format!("tirbase-log-flood-sync-{tag}-{}-{n}", std::process::id()));
+    let d = std::env::temp_dir().join(format!(
+        "tirbase-log-flood-sync-{tag}-{}-{n}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
     d
@@ -117,9 +120,9 @@ fn claim_28_2_rotation_archives_oldest_signed_segment_when_size_limit_reached() 
 
 #[test]
 fn claim_28_1_gateway_binary_flood_triggers_suppression_summary() {
- // Gateway installs rate-limited persistent security log in production path.
- // This integration test drives the log API the gateway installs and also
- // validates a spawned gateway persists suppression behavior.
+    // Gateway installs rate-limited persistent security log in production path.
+    // This integration test drives the log API the gateway installs and also
+    // validates a spawned gateway persists suppression behavior.
     let dir = tmp("281bin");
     let config = dir.join("gateway.toml");
     std::fs::write(
@@ -178,8 +181,8 @@ fn claim_28_1_gateway_binary_flood_triggers_suppression_summary() {
             Err(_) => break,
         }
     }
- // Simulate flood through a production-configured persistent log at same DB path
- // (gateway process owns DB; open separate handle after gateway startup for assertion).
+    // Simulate flood through a production-configured persistent log at same DB path
+    // (gateway process owns DB; open separate handle after gateway startup for assertion).
     drop(child.kill());
     let _ = child.wait();
     assert!(seen, "28.1: gateway binary should boot");

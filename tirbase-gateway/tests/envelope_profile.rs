@@ -90,7 +90,7 @@ fn gateway_profile_install_accepts_policy_authority_and_rejects_non_pa() {
 
     assert_eq!(install_profile(&profile, &model, &trust).unwrap(), pa.did());
 
- // Non-PolicyAuthority trust context rejects install (CLAIM-10.4 wiring check).
+    // Non-PolicyAuthority trust context rejects install (CLAIM-10.4 wiring check).
     let rm = InMemoryKeyProvider::generate().unwrap();
     let mut rm_roles = BTreeMap::new();
     rm_roles.insert(

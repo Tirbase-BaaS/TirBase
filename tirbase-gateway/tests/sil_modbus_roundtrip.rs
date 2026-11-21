@@ -129,12 +129,7 @@ fn client(slave: &Slave) -> ModbusTcpClient<TcpStream> {
     stream
         .set_read_timeout(Some(Duration::from_secs(2)))
         .expect("read timeout");
-    ModbusTcpClient::new(
-        stream,
-        1,
-        Duration::from_secs(2),
-        Arc::new(|| 0u64),
-    )
+    ModbusTcpClient::new(stream, 1, Duration::from_secs(2), Arc::new(|| 0u64))
 }
 
 #[test]
@@ -160,7 +155,7 @@ fn sil_modbus_fc03_fc04_fc06_fc16_round_trips() {
         vec![11, 22, 33]
     );
 
- // The slave really holds the values (not just an echo).
+    // The slave really holds the values (not just an echo).
     assert_eq!(slave.registers.lock().unwrap()[5], 1234);
     assert_eq!(&slave.registers.lock().unwrap()[7..10], &[11, 22, 33]);
 }

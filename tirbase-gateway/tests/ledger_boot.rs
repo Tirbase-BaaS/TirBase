@@ -69,7 +69,7 @@ fn run_gateway(config: &PathBuf, extra_env: &[(&str, &str)]) -> (bool, String) {
             s.push_str(&String::from_utf8_lossy(&out.stderr));
             return (status.success(), s);
         }
- // gateway may keep running; look for boot marker by waiting a bit then killing
+        // gateway may keep running; look for boot marker by waiting a bit then killing
         std::thread::sleep(Duration::from_millis(150));
         if tirbase_core::traits::monotonic_now().saturating_sub(start) > 2_200_000 {
             let _ = child.kill();
@@ -113,12 +113,12 @@ fn claim_31_4_wiring_mutation_integrity_check_at_boot_fails_startup_test() {
     let dir = tmp("31-4-mut");
     let config = write_config(&dir);
     let record = dir.join("boot-checks-mut.log");
- // First boot creates healthy DBs
+    // First boot creates healthy DBs
     let (ok, out) = run_gateway(&config, &[]);
     assert!(ok, "initial boot should succeed: {out}");
- // With mutation flag, boot path uses integrity_check (recorded). Wiring mutation
- // is proven because this test asserts integrity_check would run at boot when forced;
- // removing quick_check in favor of integrity_check is detectable by this guard.
+    // With mutation flag, boot path uses integrity_check (recorded). Wiring mutation
+    // is proven because this test asserts integrity_check would run at boot when forced;
+    // removing quick_check in favor of integrity_check is detectable by this guard.
     let (ok2, out2) = run_gateway(
         &config,
         &[
@@ -131,8 +131,8 @@ fn claim_31_4_wiring_mutation_integrity_check_at_boot_fails_startup_test() {
         rec.contains("integrity_check"),
         "mutation flag must force integrity_check at boot: {rec}"
     );
- // healthy DB still boots, but the fact it ran integrity_check at boot is the
- // wiring mutation this test guards against (31.4 requires quick_check at boot).
+    // healthy DB still boots, but the fact it ran integrity_check at boot is the
+    // wiring mutation this test guards against (31.4 requires quick_check at boot).
     assert!(
         ok2 || out2.contains("integrity_check"),
         "mutation probe executed: {out2}\n{rec}"
@@ -142,7 +142,7 @@ fn claim_31_4_wiring_mutation_integrity_check_at_boot_fails_startup_test() {
 
 #[test]
 fn claim_31_5_primary_rebuild_from_delta_log_is_rejected() {
- // Wiring mutation check: rebuilding Primary ledger from delta log must fail.
+    // Wiring mutation check: rebuilding Primary ledger from delta log must fail.
     let _guard = REBUILD_PROBE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     let r = std::panic::catch_unwind(|| {
         std::env::set_var("TIRBASE_TEST_REBUILD_PRIMARY_FROM_DELTA_LOG", "1");
@@ -165,7 +165,7 @@ fn claim_31_5_primary_rebuild_from_delta_log_is_rejected() {
 
 #[test]
 fn claim_31_5_primary_corruption_sets_restricted_and_never_rebuilds() {
- // Ensure wiring-mutation env from other tests/calls does not leak.
+    // Ensure wiring-mutation env from other tests/calls does not leak.
     let _guard = REBUILD_PROBE_LOCK.lock().unwrap_or_else(|p| p.into_inner());
     std::env::remove_var("TIRBASE_TEST_REBUILD_PRIMARY_FROM_DELTA_LOG");
     let mode =
@@ -261,7 +261,15 @@ fn seed_derived_schema_quarantine(conn: &rusqlite::Connection) {
     .expect("seed derived schema quarantine");
 }
 
-type SidecarRow = (Vec<u8>, Vec<u8>, String, Vec<u8>, i64, Option<String>, Option<String>);
+type SidecarRow = (
+    Vec<u8>,
+    Vec<u8>,
+    String,
+    Vec<u8>,
+    i64,
+    Option<String>,
+    Option<String>,
+);
 type DerivedSchemaQuarantineRow = (Vec<u8>, String, Vec<u8>, String, i64, Option<Vec<u8>>);
 
 fn read_sidecar_ledger(conn: &rusqlite::Connection) -> Vec<SidecarRow> {
@@ -287,9 +295,7 @@ fn read_sidecar_ledger(conn: &rusqlite::Connection) -> Vec<SidecarRow> {
     .expect("read sidecar")
 }
 
-fn read_derived_schema_quarantine(
-    conn: &rusqlite::Connection,
-) -> Vec<DerivedSchemaQuarantineRow> {
+fn read_derived_schema_quarantine(conn: &rusqlite::Connection) -> Vec<DerivedSchemaQuarantineRow> {
     let mut stmt = conn
         .prepare(
             "SELECT id, sender_did, raw_bytes, reason, received_at, migration_id \
@@ -364,7 +370,7 @@ fn claim_31_5_derived_rebuild_restores_pre_corruption_contents() {
     let derived_path = dir.join("derived.db");
     let core_path = dir.join("core.db");
 
- // The real signed delta log source: the core storage DB written by CoreHandle.
+    // The real signed delta log source: the core storage DB written by CoreHandle.
     {
         let core = rusqlite::Connection::open(&core_path).expect("core");
         seed_signed_delta_log(&core);
@@ -373,7 +379,7 @@ fn claim_31_5_derived_rebuild_restores_pre_corruption_contents() {
         seed_rate_quarantine_summary(&core);
     }
 
- // Build a healthy derived DB with the same content, then snapshot it.
+    // Build a healthy derived DB with the same content, then snapshot it.
     let (before_nodes, before_edges, before_sidecar, before_quarantine, before_rate) = {
         let derived = tirbase_gateway::db::open_derived(&derived_path).expect("derived");
         seed_signed_delta_log(&derived);
@@ -410,7 +416,7 @@ fn claim_31_5_derived_rebuild_restores_pre_corruption_contents() {
         "rate summary snapshot must be complete"
     );
 
- // Corrupt derived.db (the signed log stays intact in core.db).
+    // Corrupt derived.db (the signed log stays intact in core.db).
     std::fs::write(&derived_path, b"not a sqlite database").expect("corrupt");
 
     let mode =

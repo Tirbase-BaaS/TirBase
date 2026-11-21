@@ -234,11 +234,7 @@ fn time_weighted_mkt_matches_documented_reference() {
 fn mkt_rejects_bad_series() {
     let parameters = MktParameters::default();
     assert!(mean_kinetic_temperature_c(&parameters, &[]).is_err());
-    assert!(mean_kinetic_temperature_c(
-        &parameters,
-        &[FixedPointValue::new(50, -1, 6)]
-    )
-    .is_err());
+    assert!(mean_kinetic_temperature_c(&parameters, &[FixedPointValue::new(50, -1, 6)]).is_err());
 }
 
 // ---------------------------------------------------------------------------
@@ -328,7 +324,9 @@ fn detect_and_quarantine(
         .expect("detect");
     assert_eq!(record.state, ExcursionState::Detected);
 
-    let quarantined = wf.open_quarantine(record_id, now_est + 1).expect("quarantine");
+    let quarantined = wf
+        .open_quarantine(record_id, now_est + 1)
+        .expect("quarantine");
     assert_eq!(quarantined.state, ExcursionState::Quarantined);
 
     let report = wf
@@ -423,8 +421,8 @@ fn detect_to_signed_resolution_completes_end_to_end() {
             lot_id: Some("LOT-2026-1115-0042".to_string()),
         }
     );
-    let mut signed = SignedResolution::new(&resolution_payload, 1_770_000_200, None)
-        .expect("build resolution");
+    let mut signed =
+        SignedResolution::new(&resolution_payload, 1_770_000_200, None).expect("build resolution");
     signed
         .sign_with(&operator, CommandRole::CommandIssuer)
         .expect("sign resolution");
@@ -472,9 +470,13 @@ fn quarantine_survives_restart() {
     }
 
     let wf = workflow(&db);
-    let view = wf.quarantine_view("exc-restart").expect("view after restart");
+    let view = wf
+        .quarantine_view("exc-restart")
+        .expect("view after restart");
     assert_eq!(view.state, ExcursionState::Notified);
-    assert!(view.reasons().contains(&ExcursionReason::TemperatureOutOfBand));
+    assert!(view
+        .reasons()
+        .contains(&ExcursionReason::TemperatureOutOfBand));
     assert_eq!(view.lot_id.as_deref(), Some("LOT-2026-1115-0042"));
     assert_eq!(view.version, 3, "detected + quarantined + notified");
 
@@ -506,7 +508,8 @@ fn crash_recovery_retries_notifications_without_duplicates_and_keeps_disposition
             1_770_000_000,
         )
         .expect("detect");
-        wf.open_quarantine("exc-crash", 1_770_000_001).expect("quarantine");
+        wf.open_quarantine("exc-crash", 1_770_000_001)
+            .expect("quarantine");
         pager.fail_record("exc-crash");
         let report = wf
             .notify(
@@ -517,10 +520,15 @@ fn crash_recovery_retries_notifications_without_duplicates_and_keeps_disposition
             )
             .expect("notify attempt");
         assert_eq!(report.still_pending, 1);
-        assert_eq!(wf.get("exc-crash").expect("load").state, ExcursionState::Quarantined);
+        assert_eq!(
+            wf.get("exc-crash").expect("load").state,
+            ExcursionState::Quarantined
+        );
 
         // Recovery while the channel is still down: still quarantined, still pending.
-        let down = wf.recover(&dispatcher, 1_770_000_003).expect("recover while down");
+        let down = wf
+            .recover(&dispatcher, 1_770_000_003)
+            .expect("recover while down");
         assert_eq!(down.awaiting_notification, 1);
         assert_eq!(down.undelivered_notifications, 1);
         assert_eq!(pager.delivered_ids().len(), 0);
@@ -583,7 +591,9 @@ fn crash_recovery_retries_notifications_without_duplicates_and_keeps_disposition
     assert_eq!(pager.delivered_ids().len(), 1);
 
     // A second recovery pass must not duplicate it again.
-    let again = wf.recover(&dispatcher, 1_770_000_200).expect("recover again");
+    let again = wf
+        .recover(&dispatcher, 1_770_000_200)
+        .expect("recover again");
     assert_eq!(again.pending_notifications, 0);
     assert_eq!(pager.delivered_ids().len(), 1);
 }
@@ -601,14 +611,21 @@ fn quarantine_is_visible_across_sync() {
 
     // A peer that never ran detection sees the quarantine through the view.
     assert_eq!(
-        remote.apply_remote_quarantine(&view, 1_770_000_050).expect("sync"),
+        remote
+            .apply_remote_quarantine(&view, 1_770_000_050)
+            .expect("sync"),
         SyncOutcome::Inserted
     );
     let peer = remote.get("exc-sync").expect("peer record");
     assert_eq!(peer.state, ExcursionState::Quarantined);
-    assert!(peer.reasons().contains(&ExcursionReason::TemperatureOutOfBand));
+    assert!(peer
+        .reasons()
+        .contains(&ExcursionReason::TemperatureOutOfBand));
     assert_eq!(
-        remote.quarantine_view("exc-sync").expect("peer view").version,
+        remote
+            .quarantine_view("exc-sync")
+            .expect("peer view")
+            .version,
         view.version
     );
 
@@ -676,7 +693,10 @@ fn quarantine_is_visible_across_sync() {
             .expect("peer cannot release"),
         SyncOutcome::RefusedDispositioned
     );
-    assert_eq!(local.get("exc-sync").unwrap().state, ExcursionState::Dispositioned);
+    assert_eq!(
+        local.get("exc-sync").unwrap().state,
+        ExcursionState::Dispositioned
+    );
 }
 
 #[test]
@@ -689,7 +709,8 @@ fn receiver_deduplication_turns_retries_into_one_alert() {
     let detection = hot_detection(1_770_000_000);
     wf.detect("exc-dup", "t", "s", "d", None, detection, 1_770_000_000)
         .expect("detect");
-    wf.open_quarantine("exc-dup", 1_770_000_001).expect("quarantine");
+    wf.open_quarantine("exc-dup", 1_770_000_001)
+        .expect("quarantine");
 
     // Simulate a crash between "accepted" and "outbox marked": the channel
     // records the delivery, but the workflow never marks it.
@@ -827,9 +848,7 @@ fn state_strategy() -> impl Strategy<Value = ExcursionState> {
 fn legal_targets(from: ExcursionState) -> &'static [ExcursionState] {
     match from {
         ExcursionState::Detected => &[ExcursionState::Quarantined],
-        ExcursionState::Quarantined => {
-            &[ExcursionState::Notified, ExcursionState::Dispositioned]
-        }
+        ExcursionState::Quarantined => &[ExcursionState::Notified, ExcursionState::Dispositioned],
         ExcursionState::Notified => &[ExcursionState::Dispositioned],
         ExcursionState::Dispositioned => &[ExcursionState::Resolved],
         ExcursionState::Resolved => &[ExcursionState::Closed],

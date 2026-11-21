@@ -109,12 +109,7 @@ fn f08_full_vertical_journey_is_tenant_scoped_and_paginated() {
     assert!(page["next_cursor"].is_string());
 
     // Cross-tenant reads/writes are invisible.
-    let (status, text) = api.dispatch(
-        "GET",
-        "/admin/cold-chain/sites?tenant=other",
-        None,
-        1_000,
-    );
+    let (status, text) = api.dispatch("GET", "/admin/cold-chain/sites?tenant=other", None, 1_000);
     assert_eq!(status, 200);
     assert_eq!(json_body(&text)["total"], 0);
     let (status, _) = api.dispatch(
@@ -180,8 +175,7 @@ impl WebhookTransport for RecordingTransport {
 #[test]
 fn f08_webhooks_are_signed_retried_and_replay_protected() {
     let dir = temp_dir("webhook");
-    let dispatcher =
-        Arc::new(WebhookDispatcher::open(dir.join("primary.db")).unwrap());
+    let dispatcher = Arc::new(WebhookDispatcher::open(dir.join("primary.db")).unwrap());
     dispatcher
         .add_endpoint("ep-1", "https://sink.example/hook", "0123456789abcdef", 100)
         .unwrap();

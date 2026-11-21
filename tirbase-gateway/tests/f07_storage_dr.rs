@@ -19,10 +19,7 @@ use tirbase_gateway::storage_budget::{self, StorageBudget};
 fn temp_dir(tag: &str) -> std::path::PathBuf {
     static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let n = N.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!(
-        "tirbase-f07-{tag}-{}-{n}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("tirbase-f07-{tag}-{}-{n}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -65,9 +62,13 @@ fn f07_forward_and_backward_migrations_round_trip() {
         5
     );
 
-    let report =
-        migrations::rollback_migrations(&conn, DbKind::Primary, migrations::primary_migrations(), 3)
-            .expect("rollback");
+    let report = migrations::rollback_migrations(
+        &conn,
+        DbKind::Primary,
+        migrations::primary_migrations(),
+        3,
+    )
+    .expect("rollback");
     assert_eq!(report.from_version, 5);
     assert_eq!(report.to_version, 3);
     assert!(report.applied.contains(&5));
@@ -110,7 +111,10 @@ fn f07_failed_migration_preserves_previous_schema() {
     });
     let err = migrations::apply_migrations(&conn, DbKind::Primary, &list)
         .expect_err("broken migration must fail");
-    assert!(format!("{err:?}").contains("broken_schema") || format!("{err:?}").contains("missing_table"));
+    assert!(
+        format!("{err:?}").contains("broken_schema")
+            || format!("{err:?}").contains("missing_table")
+    );
     // Version did not advance and the previous schema still accepts writes.
     assert_eq!(
         migrations::schema_version(&conn, DbKind::Primary).unwrap(),
@@ -179,8 +183,7 @@ fn f07_retention_blocks_legal_hold_and_audits_purge() {
     // The purge is auditable in the hash chain.
     let audit = log.chained_events();
     assert!(audit.iter().any(|e| {
-        e.reason_code == ReasonCode::LogRotated
-            && e.target.as_deref() == Some("operational")
+        e.reason_code == ReasonCode::LogRotated && e.target.as_deref() == Some("operational")
     }));
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -213,14 +216,13 @@ fn f07_audit_retention_cannot_delete_held_records() {
     .unwrap();
     let rotated = log.rotate_retention_if_needed().unwrap();
     assert_eq!(rotated, 0);
- // The blocked-retention notice is itself an audit record; no historical
- // records may be removed.
+    // The blocked-retention notice is itself an audit record; no historical
+    // records may be removed.
     assert_eq!(audit_event_count(&db), before + 1, "held audit rows stay");
     assert!(log
         .chained_events()
         .iter()
-        .any(|e| e.reason_code == ReasonCode::LogRotated
-            && e.target.as_deref() == Some("audit")));
+        .any(|e| e.reason_code == ReasonCode::LogRotated && e.target.as_deref() == Some("audit")));
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -232,8 +234,7 @@ fn f07_restore_reproduces_ledger_root_and_pitr_drill_passes() {
     let log = SecurityEventLog::new_persistent(&db, Some(Arc::new(key())), false);
     append(&log, 4);
     let backup_dir = dir.join("backup");
-    let manifest =
-        backup::create_backup(&db, &backup_dir, &key(), 1_000).expect("create backup");
+    let manifest = backup::create_backup(&db, &backup_dir, &key(), 1_000).expect("create backup");
     let after_backup_seq = manifest.max_security_event_seq;
     assert_eq!(manifest.ledger_root_hash.len(), 64);
 
@@ -255,8 +256,7 @@ fn f07_restore_reproduces_ledger_root_and_pitr_drill_passes() {
     assert_eq!(pitr.ledger_root_hash, live_root);
     assert!(pitr.delta_records_applied >= 3);
 
-    let drill =
-        backup::dr_drill(&db, &dir.join("drill"), &key(), 2_000, &delta).expect("drill");
+    let drill = backup::dr_drill(&db, &dir.join("drill"), &key(), 2_000, &delta).expect("drill");
     assert!(drill.passed);
     assert_eq!(drill.live_root_hash.as_deref(), Some(live_root.as_str()));
 
@@ -291,7 +291,10 @@ fn f07_encrypted_exports_authenticate_and_reject_tamper() {
 
     let out = std::env::temp_dir().join(format!("tirbase-f07-sealed-{}.json", std::process::id()));
     backup::write_encrypted_export(&key, plaintext, b"aad", &out).unwrap();
-    assert_eq!(backup::read_encrypted_export(&key, &out, b"aad").unwrap(), plaintext);
+    assert_eq!(
+        backup::read_encrypted_export(&key, &out, b"aad").unwrap(),
+        plaintext
+    );
     let _ = std::fs::remove_file(out);
 }
 
@@ -415,13 +418,9 @@ fn f07_vertical_schema_migrations_advance_and_roll_back() {
     )
     .unwrap();
 
-    let rolled = verticals::rollback_vertical_migrations(
-        &conn,
-        "cold-chain",
-        &VERTICAL_MIGRATIONS,
-        1,
-    )
-    .expect("rollback vertical");
+    let rolled =
+        verticals::rollback_vertical_migrations(&conn, "cold-chain", &VERTICAL_MIGRATIONS, 1)
+            .expect("rollback vertical");
     assert_eq!(rolled, 1);
     let index_gone: i64 = conn
         .query_row(
@@ -437,9 +436,8 @@ fn f07_vertical_schema_migrations_advance_and_roll_back() {
         .unwrap();
     assert_eq!(count, 1);
 
-    let reapplied =
-        verticals::apply_vertical_migrations(&conn, "cold-chain", &VERTICAL_MIGRATIONS)
-            .expect("reapply vertical");
+    let reapplied = verticals::apply_vertical_migrations(&conn, "cold-chain", &VERTICAL_MIGRATIONS)
+        .expect("reapply vertical");
     assert_eq!(reapplied, 2);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -455,8 +453,12 @@ fn f07_vertical_migration_failure_keeps_previous_version() {
         sql: "CREATE TABLE broken_gate_events (id INTEGER); INSERT INTO no_such_table VALUES (1);",
         down_sql: "DROP TABLE IF EXISTS broken_gate_events;",
     };
-    assert!(verticals::apply_vertical_migrations(&conn, "venue", &[VERTICAL_MIGRATIONS[0], broken])
-        .is_err());
+    assert!(verticals::apply_vertical_migrations(
+        &conn,
+        "venue",
+        &[VERTICAL_MIGRATIONS[0], broken]
+    )
+    .is_err());
     assert_eq!(verticals::vertical_version(&conn, "venue").unwrap(), 1);
     let broken_table: i64 = conn
         .query_row(

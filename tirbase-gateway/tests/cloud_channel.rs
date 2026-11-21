@@ -270,8 +270,8 @@ fn serve_connection(stream: TcpStream, config: Arc<rustls::ServerConfig>, state:
 
         if hello_seen && !scripted && index == 0 {
             scripted = true;
- // 36.8e: challenge request for a critical parameter while the
- // gateway has no authenticated time beacon (Unverified freshness).
+            // 36.8e: challenge request for a critical parameter while the
+            // gateway has no authenticated time beacon (Unverified freshness).
             let _ = writeln!(
                 tls,
                 "{}",
@@ -285,8 +285,8 @@ fn serve_connection(stream: TcpStream, config: Arc<rustls::ServerConfig>, state:
                 })
             );
             let _ = tls.flush();
- // 36.8d: a command that cannot be authorized produces coarse
- // rejection feedback.
+            // 36.8d: a command that cannot be authorized produces coarse
+            // rejection feedback.
             let _ = writeln!(
                 tls,
                 "{}",
@@ -311,7 +311,7 @@ fn serve_connection(stream: TcpStream, config: Arc<rustls::ServerConfig>, state:
                 })
             );
             let _ = tls.flush();
- // 36.8f: flood beyond the configured 3 messages/second.
+            // 36.8f: flood beyond the configured 3 messages/second.
             for i in 0..10 {
                 let _ = writeln!(
                     tls,
@@ -340,7 +340,7 @@ fn serve_connection(stream: TcpStream, config: Arc<rustls::ServerConfig>, state:
             let _ = tls.flush();
         }
 
- // Connection 0 is deliberately short-lived so the gateway reconnects.
+        // Connection 0 is deliberately short-lived so the gateway reconnects.
         if index == 0 && tirbase_core::traits::monotonic_now().saturating_sub(started) > 2_000_000 {
             break;
         }
@@ -380,7 +380,6 @@ struct Gateway {
     child: Child,
     dir: PathBuf,
     logs: Arc<Mutex<Vec<String>>>,
-
 }
 
 impl Gateway {
@@ -476,11 +475,7 @@ impl Gateway {
             }
             thread::sleep(Duration::from_millis(50));
         }
-        Gateway {
-            child,
-            dir,
-            logs,
-        }
+        Gateway { child, dir, logs }
     }
 
     fn log_text(&self) -> String {
@@ -498,7 +493,8 @@ impl Drop for Gateway {
 
 fn wait_until(deadline: Duration, mut check: impl FnMut() -> bool) -> bool {
     let start = tirbase_core::traits::monotonic_now();
-    while tirbase_core::traits::monotonic_now().saturating_sub(start) < deadline.as_micros() as u64 {
+    while tirbase_core::traits::monotonic_now().saturating_sub(start) < deadline.as_micros() as u64
+    {
         if check() {
             return true;
         }
@@ -517,12 +513,12 @@ fn cloud_channel_is_outbound_tls_only_with_queue_reconnect_feedback_and_rate_lim
     let addr: std::net::SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
     let config = server_config(&pki);
 
- // The endpoint is deliberately down while the gateway boots, so the boot
- // notification must be retained by the offline queue.
+    // The endpoint is deliberately down while the gateway boots, so the boot
+    // notification must be retained by the offline queue.
     let gateway = Gateway::start("outbound", &pki, port, false);
 
- // No inbound cloud listener: the gateway never binds the cloud port, so the
- // port stays free for the cloud endpoint to bind.
+    // No inbound cloud listener: the gateway never binds the cloud port, so the
+    // port stays free for the cloud endpoint to bind.
     assert!(
         TcpListener::bind(addr).is_ok(),
         "36.6: gateway must not open an inbound listener on the cloud port"
@@ -593,7 +589,7 @@ fn cloud_channel_is_outbound_tls_only_with_queue_reconnect_feedback_and_rate_lim
         server.messages()
     );
 
- // 36.8a: the mock closes connection 0; the gateway must reconnect.
+    // 36.8a: the mock closes connection 0; the gateway must reconnect.
     let reconnected = wait_until(Duration::from_secs(20), || server.connection_count() >= 2);
     assert!(
         reconnected,
@@ -602,9 +598,9 @@ fn cloud_channel_is_outbound_tls_only_with_queue_reconnect_feedback_and_rate_lim
         gateway.log_text()
     );
 
- // 36.8f: certificate files are re-read on reconnect. Rotate while the
- // connection used it, then force another reconnect and verify the peer
- // certificate changed without the gateway process restarting.
+    // 36.8f: certificate files are re-read on reconnect. Rotate while the
+    // connection used it, then force another reconnect and verify the peer
+    // certificate changed without the gateway process restarting.
     std::fs::write(gateway.dir.join("device.pem"), &pki.client_cert2_pem).unwrap();
     std::fs::write(gateway.dir.join("device.key"), &pki.client_key2_pem).unwrap();
     let rotated = wait_until(Duration::from_secs(25), || {
@@ -634,8 +630,8 @@ fn cloud_channel_rejects_untrusted_device_certificate() {
     let config = server_config(&pki);
     let server = MockCloud::start(addr, config);
 
- // Device certificate signed by an unrelated CA: the cloud endpoint must
- // reject the TLS session and never receive a device hello.
+    // Device certificate signed by an unrelated CA: the cloud endpoint must
+    // reject the TLS session and never receive a device hello.
     let _gateway = Gateway::start("untrusted", &pki, port, true);
     thread::sleep(Duration::from_secs(4));
     let messages = server.messages();
