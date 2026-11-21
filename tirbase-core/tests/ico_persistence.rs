@@ -51,7 +51,7 @@ async fn claim_31_3_open_icos_survive_simulated_crash() {
     let (pre_ico, pre_comp_count, pre_rows) = {
         let handle = CoreHandle::init(make_config(&path)).await.expect("init");
 
- // Establish a real delta/node in the DAG so the ICO references are concrete.
+        // Establish a real delta/node in the DAG so the ICO references are concrete.
         let first = handle
             .write("events", "evt-1", json!({"status": "initial"}))
             .await
@@ -86,8 +86,8 @@ async fn claim_31_3_open_icos_survive_simulated_crash() {
             ico_id
         };
 
- // Create projection row so a production tag path can populate affected rows/index if needed.
- // (best-effort; primary assertion is ICO field fidelity)
+        // Create projection row so a production tag path can populate affected rows/index if needed.
+        // (best-effort; primary assertion is ICO field fidelity)
         let _ = handle
             .write("events", "evt-1b", json!({"status": "extra"}))
             .await;
@@ -106,7 +106,7 @@ async fn claim_31_3_open_icos_survive_simulated_crash() {
         let rows = cce.is_row_contaminated("events", "evt-1");
         (ico, comp_count, rows)
     };
- // `handle` dropped here — simulated crash boundary.
+    // `handle` dropped here — simulated crash boundary.
 
     let handle2 = CoreHandle::init(make_config(&path)).await.expect("reopen");
     {
@@ -152,8 +152,8 @@ async fn claim_31_3_open_icos_survive_simulated_crash() {
             pre_comp_count,
             "composite classification stable"
         );
- // contaminated_rows index may include injected row only if persisted; ICO fidelity is the
- // primary PV-9.1/31.3 contract proven here.
+        // contaminated_rows index may include injected row only if persisted; ICO fidelity is the
+        // primary PV-9.1/31.3 contract proven here.
         let _ = (post, pre_rows);
     }
 

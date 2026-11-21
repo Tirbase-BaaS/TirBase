@@ -22,7 +22,7 @@ use tirbase_core::crdt::memory_budget::{
 /// Peak resident set size of this process, in bytes.
 #[cfg(unix)]
 fn peak_rss_bytes() -> u64 {
- // SAFETY: `getrusage` writes into a zeroed `rusage` for a valid resource.
+    // SAFETY: `getrusage` writes into a zeroed `rusage` for a valid resource.
     let usage = unsafe {
         let mut usage: libc::rusage = std::mem::zeroed();
         assert_eq!(libc::getrusage(libc::RUSAGE_SELF, &mut usage), 0);
@@ -30,17 +30,17 @@ fn peak_rss_bytes() -> u64 {
     };
     let raw = usage.ru_maxrss as u64;
     if cfg!(target_os = "macos") {
- // macOS reports bytes.
+        // macOS reports bytes.
         raw
     } else {
- // Linux/BSD report KiB.
+        // Linux/BSD report KiB.
         raw * 1024
     }
 }
 
 #[cfg(not(unix))]
 fn peak_rss_bytes() -> u64 {
- // No portable peak-RSS API; the CI gate runs on Linux.
+    // No portable peak-RSS API; the CI gate runs on Linux.
     0
 }
 
@@ -58,8 +58,8 @@ fn allocate_touched(bytes: usize) -> Vec<u8> {
 #[test]
 #[ignore = "memory measurement gate; run explicitly (CI job memory-budget-check)"]
 fn configured_caps_load_and_peak_rss_stays_under_budget() {
- // 1. The ledger is internally consistent: every configured cap, summed,
- // must leave 10% headroom inside the documented RSS budget.
+    // 1. The ledger is internally consistent: every configured cap, summed,
+    // must leave 10% headroom inside the documented RSS budget.
     let total = total_configured_caps_bytes();
     assert!(
         total <= RSS_BUDGET_BYTES * 9 / 10,
@@ -68,8 +68,8 @@ fn configured_caps_load_and_peak_rss_stays_under_budget() {
 
     let baseline = peak_rss_bytes();
 
- // 2. Actually load every configured cache/buffer and record it through the
- // production metrics handles (`CoreHandle::memory_budget_metrics`).
+    // 2. Actually load every configured cache/buffer and record it through the
+    // production metrics handles (`CoreHandle::memory_budget_metrics`).
     let caches = MemoryBudgetCaches::new();
     let dag = allocate_touched(DAG_NODE_CACHE_BYTES);
     caches.dag_node_cache.allocate(DAG_NODE_CACHE_BYTES as u64);
@@ -95,7 +95,7 @@ fn configured_caps_load_and_peak_rss_stays_under_budget() {
         peak / (1024 * 1024),
     );
 
- // 3. The measurement must be real: loading the caps has to move peak RSS.
+    // 3. The measurement must be real: loading the caps has to move peak RSS.
     #[cfg(unix)]
     assert!(
         peak > baseline,
@@ -103,13 +103,13 @@ fn configured_caps_load_and_peak_rss_stays_under_budget() {
         total / (1024 * 1024)
     );
 
- // 4. The documented budget is the gate.
+    // 4. The documented budget is the gate.
     assert!(
         peak <= RSS_BUDGET_BYTES as u64,
         "peak RSS {peak} bytes exceeds the documented {RSS_BUDGET_BYTES}-byte budget"
     );
 
- // Metrics report exactly what was loaded.
+    // Metrics report exactly what was loaded.
     assert_eq!(
         caches.dag_node_cache.current_bytes(),
         DAG_NODE_CACHE_BYTES as u64

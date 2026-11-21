@@ -73,7 +73,7 @@ async fn fleet_provisioning_payload_is_capped_at_64_kib() {
     let dir = temp_dir("cap");
     let handle = CoreHandle::init(config(&dir)).await.expect("init");
 
- // One byte over the 64 KiB budget once the record is serialised.
+    // One byte over the 64 KiB budget once the record is serialised.
     let oversized = provisioning("did:key:zOversized", MAX_PROVISIONING_PAYLOAD_BYTES);
     assert!(
         oversized.payload_len().unwrap() > MAX_PROVISIONING_PAYLOAD_BYTES,
@@ -92,7 +92,7 @@ async fn fleet_provisioning_payload_is_capped_at_64_kib() {
         "a rejected payload must not enter the inventory"
     );
 
- // A payload that fits is accepted and joins the CRDT collection.
+    // A payload that fits is accepted and joins the CRDT collection.
     let fits = provisioning("did:key:zFits", 32 * 1024);
     assert!(fits.payload_len().unwrap() <= MAX_PROVISIONING_PAYLOAD_BYTES);
     let entry = handle
@@ -112,7 +112,7 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
     let a = CoreHandle::init(config(&dir_a)).await.expect("init a");
     let b = CoreHandle::init(config(&dir_b)).await.expect("init b");
 
- // A device that will be provisioned, then revoked.
+    // A device that will be provisioned, then revoked.
     let device = IdentityManager::init_in_memory().expect("device identity");
     let device_did = device.did().to_string();
 
@@ -123,7 +123,7 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
         "test setup: B must not know the device before propagation"
     );
 
- // Subscribe before revoking so the emitted gossip delta cannot be missed.
+    // Subscribe before revoking so the emitted gossip delta cannot be missed.
     let mut updates = a.subscribe_fleet_updates();
     let started = tirbase_core::traits::monotonic_now();
     assert!(
@@ -132,8 +132,8 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
         "first revocation must change the inventory"
     );
 
- // The production path must publish the revocation for gossip. This is the
- // wiring assertion: with propagation removed, the wait times out.
+    // The production path must publish the revocation for gossip. This is the
+    // wiring assertion: with propagation removed, the wait times out.
     let update = tokio::time::timeout(Duration::from_secs(60), updates.recv())
         .await
         .expect("revocation delta must be published within the 60 s budget")
@@ -147,7 +147,7 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
         "published delta must carry the revoked entry: {update:?}"
     );
 
- // Deliver over the production inbound path (real CoreHandle instance B).
+    // Deliver over the production inbound path (real CoreHandle instance B).
     b.receive_inbound(GossipMessage::FleetInventoryUpdate(update))
         .await
         .expect("B merges fleet update");
@@ -167,9 +167,9 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
         "both replicas must converge on the same inventory snapshot hash"
     );
 
- // B's merge gate must now reject Deltas authored by the revoked device
- // (Req 8.6). The gate discards them without merging; an unrevoked author's
- // Delta is still accepted, so this is not a blanket rejection.
+    // B's merge gate must now reject Deltas authored by the revoked device
+    // (Req 8.6). The gate discards them without merging; an unrevoked author's
+    // Delta is still accepted, so this is not a blanket rejection.
     b.receive_inbound(GossipMessage::InboundDelta(signed_delta_from(&device)))
         .await
         .expect("B processes a revoked-author delta without erroring");
@@ -178,8 +178,8 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
         .await
         .expect("B processes an unrevoked author's delta");
 
- // A peer that re-announces a provisioned record for the revoked DID must
- // not resurrect it: revocation dominates in the CRDT.
+    // A peer that re-announces a provisioned record for the revoked DID must
+    // not resurrect it: revocation dominates in the CRDT.
     let mut resurrect = a.subscribe_fleet_updates();
     assert!(
         a.fleet_provision_device(provisioning(&device_did, 8))
@@ -188,7 +188,7 @@ async fn fleet_revocation_propagates_to_connected_peer_within_60_seconds() {
     );
     assert!(resurrect.try_recv().is_err());
 
- // Idempotent: revoking again is a no-op and does not re-broadcast.
+    // Idempotent: revoking again is a no-op and does not re-broadcast.
     assert!(
         !a.fleet_revoke_device(&device_did, "decommissioned")
             .expect("second revoke"),

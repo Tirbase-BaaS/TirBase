@@ -44,7 +44,7 @@ fn injected_time_source_is_used_by_free_functions() {
     });
     install_time_source(fixed);
 
- // These free functions are what every core subsystem calls (PV-3.8).
+    // These free functions are what every core subsystem calls (PV-3.8).
     assert_eq!(monotonic_now(), 123_456);
     assert_eq!(wall_hint(), Some(1_700_000_000_000_000));
     assert_eq!(wall_hint_secs(), Some(1_700_000_000));

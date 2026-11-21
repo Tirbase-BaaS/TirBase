@@ -218,7 +218,10 @@ fn f03_role_matrix_tests_pass_for_every_vertical() {
                             | OperatorPermission::AuditRead
                     ),
                     OperatorRole::Auditor => {
-                        matches!(permission, OperatorPermission::Read | OperatorPermission::AuditRead)
+                        matches!(
+                            permission,
+                            OperatorPermission::Read | OperatorPermission::AuditRead
+                        )
                     }
                     OperatorRole::Admin => matches!(
                         permission,
@@ -302,14 +305,10 @@ fn f03_delegation_cannot_widen_authority() {
             0,
             "cap-child",
         );
-        assert!(delegate_capability_token(
-            &parent_token,
-            &narrowed,
-            &privk,
-            &pubk,
-            &verification
-        )
-        .is_ok());
+        assert!(
+            delegate_capability_token(&parent_token, &narrowed, &privk, &pubk, &verification)
+                .is_ok()
+        );
 
         let widened_tenant = cap(
             base_principal("op-b", wider_tenant.clone()),
@@ -342,8 +341,10 @@ fn f03_delegation_cannot_widen_authority() {
             0,
             "cap-cross-org",
         );
-        assert!(delegate_capability_token(&parent_token, &crossed, &privk, &pubk, &verification)
-            .is_err());
+        assert!(
+            delegate_capability_token(&parent_token, &crossed, &privk, &pubk, &verification)
+                .is_err()
+        );
 
         let more_perms = cap(
             base_principal("op-b", tenant.clone()),

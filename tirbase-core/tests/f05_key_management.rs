@@ -187,8 +187,14 @@ fn f05_compromised_key_revoked_without_rekeying_the_fleet() {
         .expect("device credential keeps working across the revocation");
 
     // No other domain was rotated or re-issued: no fleet re-key happened.
-    assert_eq!(fleet_registry.records_in(KeyDomain::DeviceIdentity).len(), 1);
-    assert_eq!(fleet_registry.records_in(KeyDomain::TenantWrapping).len(), 1);
+    assert_eq!(
+        fleet_registry.records_in(KeyDomain::DeviceIdentity).len(),
+        1
+    );
+    assert_eq!(
+        fleet_registry.records_in(KeyDomain::TenantWrapping).len(),
+        1
+    );
     assert_eq!(
         fleet_registry.records_in(KeyDomain::UpdateSigner).len(),
         1,
@@ -246,7 +252,10 @@ fn f05_no_private_key_material_in_debug_or_test_output() {
     // Sanity check: the record is still rendered, so the assertions above are
     // not passing because the output is empty.
     assert!(rendered[1].contains("root-1"));
-    assert_eq!(custodian.public_key("root-1").expect("public key").len(), 32);
+    assert_eq!(
+        custodian.public_key("root-1").expect("public key").len(),
+        32
+    );
 
     // The key cannot be exported through the custodian interface, and after
     // zeroization it cannot sign.

@@ -69,7 +69,7 @@ async fn claim_28_3_two_corehandles_sync_security_events_append_only() {
     seqs.sort_unstable();
     assert_eq!(seqs, vec![1, 2], "28.3: events must sync across nodes");
 
- // append-only/compaction=none dedupe: replay same seq must not re-emit
+    // append-only/compaction=none dedupe: replay same seq must not re-emit
     let dup = SecurityEventSyncBatch {
         sender_did: "did:test:node-a".to_string(),
         records: vec![rec("did:test:origin", 1)],
