@@ -175,7 +175,9 @@ impl FromStr for TenantLevel {
 }
 
 /// One segment of a tenant path.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct TenantSegment {
     /// Hierarchy level of this segment.
     pub level: TenantLevel,
@@ -198,7 +200,16 @@ impl TenantSegment {
 /// The path is ordered root-first. A capability scoped to a path authorizes the
 /// named tenant and all of its descendants, but never ancestors or siblings.
 #[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, serde::Serialize, serde::Deserialize,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 pub struct TenantPath {
     /// Ordered root-first segments.
@@ -557,7 +568,9 @@ pub struct OperatorCapability {
 }
 
 /// Identifier of a revocable capability or principal binding.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct RevocationId(pub String);
 
 impl RevocationId {

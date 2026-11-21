@@ -111,10 +111,7 @@ pub fn certify(
 
     let first = sample("conformance-alert-1", "conformance-dedup-1", tenant);
     let first_result = transport.deliver(&first, target);
-    let first_id = first_result
-        .as_ref()
-        .ok()
-        .and_then(receipt_id);
+    let first_id = first_result.as_ref().ok().and_then(receipt_id);
     checks.push(NotifierCheck {
         name: "delivery".to_string(),
         passed: first_result.is_ok(),
@@ -225,9 +222,6 @@ mod tests {
         };
         let report = certify(&fake, &target(), "conformance", 1_000);
         assert!(!report.certified);
-        assert!(report
-            .failures()
-            .iter()
-            .any(|check| check.name == "replay"));
+        assert!(report.failures().iter().any(|check| check.name == "replay"));
     }
 }

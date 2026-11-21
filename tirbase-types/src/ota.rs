@@ -52,7 +52,9 @@ pub enum ReleaseChannel {
     Production,
     /// Tenant-pinned channel: only devices/clients bound to `tenant_id` may
     /// consume this bundle.
-    TenantPinned { tenant_id: String },
+    TenantPinned {
+        tenant_id: String,
+    },
 }
 
 impl ReleaseChannel {
@@ -300,8 +302,14 @@ mod tests {
         assert_eq!(parse_version("1.2.3").unwrap(), (1, 2, 3));
         assert_eq!(parse_version("2.0").unwrap(), (2, 0, 0));
         assert_eq!(parse_version("3").unwrap(), (3, 0, 0));
-        assert_eq!(compare_versions("1.2.3", "1.2.4").unwrap(), core::cmp::Ordering::Less);
-        assert_eq!(compare_versions("2.0.0", "1.9.9").unwrap(), core::cmp::Ordering::Greater);
+        assert_eq!(
+            compare_versions("1.2.3", "1.2.4").unwrap(),
+            core::cmp::Ordering::Less
+        );
+        assert_eq!(
+            compare_versions("2.0.0", "1.9.9").unwrap(),
+            core::cmp::Ordering::Greater
+        );
     }
 
     #[test]
@@ -336,6 +344,11 @@ mod tests {
             ..Default::default()
         };
         let err = check_version_skew(&peer, &compat).unwrap_err();
-        assert_eq!(err, VersionSkewError::MissingVersion { component: OtaComponent::Driver });
+        assert_eq!(
+            err,
+            VersionSkewError::MissingVersion {
+                component: OtaComponent::Driver
+            }
+        );
     }
 }
