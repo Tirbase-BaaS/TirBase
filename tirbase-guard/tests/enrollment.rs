@@ -87,7 +87,7 @@ async fn enrolled_token_verifies_on_two_real_core_handles() {
         3_600,
     );
 
- // First-boot identity generation happens on the device.
+    // First-boot identity generation happens on the device.
     let device = DeviceIdentity::generate().unwrap();
     let request = device
         .bootstrap([42u8; 32], CommandRole::CommandIssuer)
@@ -97,7 +97,7 @@ async fn enrolled_token_verifies_on_two_real_core_handles() {
     assert_eq!(enrolled.device_id, device.device_id());
     assert_eq!(epochs.current_epoch(&device.device_id()).unwrap(), 0);
 
- // Replaying the bootstrap nonce is rejected (replay-safe bootstrap).
+    // Replaying the bootstrap nonce is rejected (replay-safe bootstrap).
     assert_eq!(
         service.enroll(&request, now_secs()),
         Err(EpochError::NonceReused)
@@ -105,7 +105,7 @@ async fn enrolled_token_verifies_on_two_real_core_handles() {
 
     let token_hex = hex::encode(&enrolled.token);
 
- // Two real, independent CoreHandle instances verify the scoped token.
+    // Two real, independent CoreHandle instances verify the scoped token.
     let dir_a = temp_dir("a");
     let dir_b = temp_dir("b");
     let handle_a = CoreHandle::init(config(&dir_a.join("a.db"), root_public))

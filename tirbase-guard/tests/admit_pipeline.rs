@@ -286,7 +286,7 @@ fn claim_14_15_drift_exceeded() {
     let h = Harness::new(false);
     h.pipeline.set_issuer_rps(1000);
     let _tok = h.token();
- // make a restrictive drift profile
+    // make a restrictive drift profile
     let mut p = profile(false);
     p.parameters[0].drift_window_secs = 3600;
     p.parameters[0].max_delta_in_window = fpv(10);
@@ -354,7 +354,7 @@ fn claim_14_15_drift_exceeded() {
         now_est_secs: Some(1_000),
         simulate: false,
     };
- // seed history
+    // seed history
     let mut cmd1 = CommandMessage {
         issuer_did: Did::new(issuer.did()),
         role: CommandRole::CommandIssuer,

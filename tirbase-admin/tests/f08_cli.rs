@@ -89,7 +89,10 @@ fn cli_vertical_journey_and_webhook_management() {
     })
     .unwrap();
     assert!(added.contains("\"endpoint_id\":\"ep-1\""));
-    assert!(!added.contains("0123456789abcdef"), "secret must not be printed");
+    assert!(
+        !added.contains("0123456789abcdef"),
+        "secret must not be printed"
+    );
 
     let listed = cmd::webhook::run(&cmd::webhook::WebhookArgs {
         db_path: db,

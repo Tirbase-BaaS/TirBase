@@ -129,7 +129,7 @@ fn epoch_starts_at_zero_and_prior_epoch_commands_are_rejected_after_bump() {
     next.enrollment_epoch = 1;
     guard.admit(&next).expect("new-epoch command admitted");
 
- // The durable row carries the committed epoch, not an in-memory guess.
+    // The durable row carries the committed epoch, not an in-memory guess.
     let row: DeviceEpoch = store.load("did:key:zDevice").unwrap().unwrap();
     assert_eq!(row.epoch, 1);
 }

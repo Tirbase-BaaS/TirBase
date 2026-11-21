@@ -98,16 +98,16 @@ fn claim_34_2_real_tls_broker_qos0_qos1_and_plaintext_server_rejected() {
         .expect("qos1");
     assert!(pid > 0);
 
- // Wiring/negative: connecting to a plaintext TCP server via MQTT TLS client must fail.
+    // Wiring/negative: connecting to a plaintext TCP server via MQTT TLS client must fail.
     let plain_listener = TcpListener::bind("127.0.0.1:0").expect("plain bind");
     let plain_addr = plain_listener.local_addr().unwrap();
     thread::spawn(move || {
         let (mut tcp, _) = plain_listener.accept().expect("accept plain");
- // Speak a little plaintext to ensure handshake cannot be confused.
+        // Speak a little plaintext to ensure handshake cannot be confused.
         let _ = tcp.write_all(b"plain\n");
     });
     let client_cfg2 = client_config_with_roots([], false).unwrap_or_else(|_| {
- // no roots is fine; handshake should fail before trust matters on plaintext peer
+        // no roots is fine; handshake should fail before trust matters on plaintext peer
         client_config_with_roots([], true).expect("webpki")
     });
     let err = MqttTlsClient::connect_mqtts(
@@ -125,7 +125,7 @@ fn claim_34_2_real_tls_broker_qos0_qos1_and_plaintext_server_rejected() {
 
 #[test]
 fn claim_34_2_no_public_plaintext_connect_path() {
- // Compile-time/public-API assertion by construction: only mqtts URIs parse.
+    // Compile-time/public-API assertion by construction: only mqtts URIs parse.
     assert!(matches!(
         tirbase_drivers::parse_mqtts_uri("mqtt://127.0.0.1:1883"),
         Err(MqttError::PlainTextRejected { .. })

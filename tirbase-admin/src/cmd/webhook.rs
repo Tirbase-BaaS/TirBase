@@ -15,7 +15,7 @@ use tirbase_gateway::webhooks::{ReqwestTransport, WebhookDispatcher};
 #[derive(Debug, Clone)]
 pub struct WebhookArgs {
     pub db_path: PathBuf,
- /// `add|list|enable|disable|drain`
+    /// `add|list|enable|disable|drain`
     pub action: String,
     pub endpoint_id: Option<String>,
     pub url: Option<String>,

@@ -200,15 +200,15 @@ fn invariant_violation_halts_the_scenario() {
     assert_eq!(err.seed(), 0xABCD);
     assert!(err.to_string().contains("seed=43981"));
     assert!(sim.halted().is_some());
- // The scenario does not resume after a halt.
+    // The scenario does not resume after a halt.
     assert!(sim.run(5).is_err());
     assert_eq!(sim.state().tick, 1);
 }
 
 #[test]
 fn failing_scenario_prints_the_seed_before_exit() {
- // Drive a real failing scenario through the public harness and capture its
- // report. The seed line must be written before the error is returned.
+    // Drive a real failing scenario through the public harness and capture its
+    // report. The seed line must be written before the error is returned.
     let mut sim = TirBaseSim::new(0x5EED_5EED);
     sim.state_mut().hash_chain_intact = false;
     let mut captured = Vec::new();
@@ -229,10 +229,10 @@ fn failing_scenario_prints_the_seed_before_exit() {
 
 #[test]
 fn guard_and_sim_sources_do_not_use_hash_map() {
- // / CLAIM-38.7: HashMap iteration order is non-deterministic, so
- // it is banned in those two crates. Clippy enforces this via
- // `#![deny(clippy::disallowed_types)]`; this source scan is a second,
- // tool-independent guard so the claim has an explicit test identifier.
+    // / CLAIM-38.7: HashMap iteration order is non-deterministic, so
+    // it is banned in those two crates. Clippy enforces this via
+    // `#![deny(clippy::disallowed_types)]`; this source scan is a second,
+    // tool-independent guard so the claim has an explicit test identifier.
     fn scan(dir: &std::path::Path, offenders: &mut Vec<String>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;

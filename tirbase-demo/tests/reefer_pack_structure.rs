@@ -155,7 +155,9 @@ fn pack_contains_no_executable_code() {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let mode = std::fs::metadata(path).expect("launcher metadata").permissions();
+                let mode = std::fs::metadata(path)
+                    .expect("launcher metadata")
+                    .permissions();
                 assert!(
                     mode.mode() & 0o111 != 0,
                     "run.sh must be executable so the pack can be launched"
@@ -176,7 +178,9 @@ fn pack_contains_no_executable_code() {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(path).expect("pack file metadata").permissions();
+            let mode = std::fs::metadata(path)
+                .expect("pack file metadata")
+                .permissions();
             assert_eq!(
                 mode.mode() & 0o111,
                 0,
@@ -224,7 +228,10 @@ fn profile_declares_the_six_transport_parameters() {
     assert_eq!(ambient["kind"]["min"]["mantissa"].as_integer(), Some(-450));
     assert_eq!(ambient["kind"]["max"]["mantissa"].as_integer(), Some(500));
     // 5.0 degC/s with a 10.0 degC / 300 s drift budget.
-    assert_eq!(ambient["max_rate_per_sec"]["mantissa"].as_integer(), Some(50));
+    assert_eq!(
+        ambient["max_rate_per_sec"]["mantissa"].as_integer(),
+        Some(50)
+    );
     assert_eq!(ambient["drift_window_secs"].as_integer(), Some(300));
     assert_eq!(
         ambient["max_delta_in_window"]["mantissa"].as_integer(),
@@ -259,9 +266,7 @@ fn profile_declares_the_six_transport_parameters() {
 #[test]
 fn profile_document_carries_the_fields_install_needs() {
     let document = document("profiles/reefer.toml");
-    let profile_id = document["profile_id"]
-        .as_str()
-        .expect("profile_id string");
+    let profile_id = document["profile_id"].as_str().expect("profile_id string");
     assert_eq!(profile_id.len(), 36, "profile_id must be a hyphenated UUID");
     assert_eq!(profile_id.matches('-').count(), 4);
     assert_eq!(document["version"].as_integer(), Some(1));
@@ -282,7 +287,10 @@ fn profile_document_carries_the_fields_install_needs() {
     assert_eq!(document["policy_loosen_n"].as_integer(), Some(3));
 
     for parameter in document["parameters"].as_array().expect("parameters") {
-        assert!(parameter["safe_default"].is_table(), "safe_default required");
+        assert!(
+            parameter["safe_default"].is_table(),
+            "safe_default required"
+        );
         assert!(
             parameter["tightening_floor"].is_table(),
             "tightening_floor required"
@@ -317,15 +325,12 @@ fn trip_document_carries_container_location_and_trip_metadata() {
         4,
         "container_id must carry a 4-letter owner code"
     );
-    assert_eq!(
-        document["container_class"].as_str(),
-        Some("reefer_40ft")
-    );
-    assert!(!document["trailer_id"].as_str().unwrap_or_default().is_empty());
-    assert_eq!(
-        document["trip_id"].as_str(),
-        Some("TRIP-2026-1115-0042")
-    );
+    assert_eq!(document["container_class"].as_str(), Some("reefer_40ft"));
+    assert!(!document["trailer_id"]
+        .as_str()
+        .unwrap_or_default()
+        .is_empty());
+    assert_eq!(document["trip_id"].as_str(), Some("TRIP-2026-1115-0042"));
     assert!(!document["origin"].as_str().unwrap_or_default().is_empty());
     assert!(!document["destination"]
         .as_str()
@@ -387,8 +392,11 @@ fn framework_rejects_an_expected_trip_that_contradicts_the_scenario() {
     let directory = temp_pack_copy("trip-mismatch");
     let path = directory.join("expected/outcomes.toml");
     let text = std::fs::read_to_string(&path).expect("read expected output");
-    std::fs::write(&path, text.replace("door_open_secs = 300", "door_open_secs = 90"))
-        .expect("write expected output");
+    std::fs::write(
+        &path,
+        text.replace("door_open_secs = 300", "door_open_secs = 90"),
+    )
+    .expect("write expected output");
 
     match load_pack(&directory) {
         Err(PackError::Validation(message)) => assert!(
@@ -505,7 +513,10 @@ fn register_maps_pin_names_and_units_to_the_profile() {
             .iter()
             .find(|register| register.name == "container_temp_c")
             .unwrap_or_else(|| panic!("{relative} has no container_temp_c reading"));
-        assert!(!temperature.writable, "{relative} temperature must be read-only");
+        assert!(
+            !temperature.writable,
+            "{relative} temperature must be read-only"
+        );
         assert_eq!(temperature.unit_id, 1);
         assert_eq!(temperature.scale_exponent, -1);
     }
@@ -514,11 +525,7 @@ fn register_maps_pin_names_and_units_to_the_profile() {
 #[test]
 fn register_maps_use_documented_units() {
     let units = read("docs/register-maps.md");
-    for name in PARAMETERS
-        .iter()
-        .copied()
-        .chain(["container_temp_c"])
-    {
+    for name in PARAMETERS.iter().copied().chain(["container_temp_c"]) {
         assert!(
             units.contains(name),
             "docs/register-maps.md must document register '{name}'"
@@ -587,10 +594,7 @@ fn expected_outcomes_are_defended_and_machine_readable() {
 
         let steps: Vec<StepDisposition> = scenario.steps.iter().map(|step| step.expect).collect();
         assert_eq!(outcome.steps, steps);
-        assert_eq!(
-            outcome.disposition,
-            ScenarioDisposition::from_steps(&steps)
-        );
+        assert_eq!(outcome.disposition, ScenarioDisposition::from_steps(&steps));
         assert_eq!(
             outcome.actuations,
             steps
@@ -618,9 +622,12 @@ fn scenario_mechanisms_match_the_rejections_they_expect() {
         ("S2_sensor_dropout", "drift+min_off"),
     ]);
     for scenario in &pack.scenarios {
-        let outcome = pack.expected_outcome(&scenario.id).expect("expected output");
+        let outcome = pack
+            .expected_outcome(&scenario.id)
+            .expect("expected output");
         assert_eq!(
-            outcome.mechanism, expected_mechanisms[scenario.id.as_str()],
+            outcome.mechanism,
+            expected_mechanisms[scenario.id.as_str()],
             "scenario '{}' defense changed; update docs/README.md",
             scenario.id
         );
@@ -673,7 +680,9 @@ fn sim_config_models_thermal_mass_and_ambient_variation() {
     );
 
     let thermal = &config["thermal"];
-    let mass = thermal["container_mass_kg"].as_float().expect("container mass");
+    let mass = thermal["container_mass_kg"]
+        .as_float()
+        .expect("container mass");
     let cargo = thermal["cargo_mass_kg"].as_float().expect("cargo mass");
     let heat = thermal["specific_heat_j_per_kgk"]
         .as_float()
@@ -741,7 +750,11 @@ fn readme_documents_intended_use_assumptions_and_non_goals() {
         "pack README must document the trip quarantine disposition"
     );
     for scenario in reefer_pack().scenarios {
-        assert!(readme.contains(&scenario.id), "README omits {}", scenario.id);
+        assert!(
+            readme.contains(&scenario.id),
+            "README omits {}",
+            scenario.id
+        );
     }
 }
 
@@ -753,10 +766,7 @@ fn framework_rejects_a_pack_that_declares_a_missing_file() {
     match load_pack(&directory) {
         Err(error) => {
             let message = error.to_string();
-            assert!(
-                message.contains("trip.toml"),
-                "unexpected error: {message}"
-            );
+            assert!(message.contains("trip.toml"), "unexpected error: {message}");
         }
         Ok(_) => panic!("expected a missing-file rejection"),
     }
@@ -768,7 +778,10 @@ fn framework_rejects_a_pack_that_declares_a_missing_file() {
 /// compares the id against the directory name, so the copy keeps `reefer`.
 fn temp_pack_copy(label: &str) -> PathBuf {
     let directory = std::env::temp_dir()
-        .join(format!("tirbase-reefer-pack-{label}-{}", std::process::id()))
+        .join(format!(
+            "tirbase-reefer-pack-{label}-{}",
+            std::process::id()
+        ))
         .join("reefer");
     std::fs::remove_dir_all(&directory).ok();
     copy_tree(&pack_root(), &directory);

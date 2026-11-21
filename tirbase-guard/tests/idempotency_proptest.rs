@@ -12,8 +12,9 @@ use std::io::Cursor;
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::traits::KeyProvider;
 use tirbase_guard::commit::{
-    clamp_idempotency_retention_secs, FinalizeContext, commit_dispatch_finalize, EffectTerminalState, Stage16Error,
-    Stage16Request, Stage16Store, DEFAULT_IDEMPOTENCY_RETENTION_SECS,
+    clamp_idempotency_retention_secs, commit_dispatch_finalize, EffectTerminalState,
+    FinalizeContext, Stage16Error, Stage16Request, Stage16Store,
+    DEFAULT_IDEMPOTENCY_RETENTION_SECS,
 };
 use tirbase_guard::{sign_command, DriverProxy};
 use tirbase_types::command::CommandMessage;
@@ -28,9 +29,9 @@ type ReplayMap = Mutex<BTreeMap<(String, String, u64), (u64, u64)>>;
 
 #[derive(Debug, Default)]
 struct MemStore {
- // (issuer,target,key) -> original_result
+    // (issuer,target,key) -> original_result
     idem: IdemMap,
- // (issuer,target,epoch) -> (highest, bitmap)
+    // (issuer,target,epoch) -> (highest, bitmap)
     replay: ReplayMap,
     leases: Mutex<BTreeMap<String, String>>,
     effects: Mutex<HashSet<[u8; 16]>>,
@@ -44,7 +45,7 @@ impl Stage16Store for MemStore {
             cmd.target_id.as_str().to_string(),
             cmd.idempotency_key,
         );
- // (b) idempotency first
+        // (b) idempotency first
         if let Some((orig, exp)) = self.idem.lock().unwrap().get(&ik).cloned() {
             if exp >= req.now_est {
                 return Err(Stage16Error::IdempotencyHit {
@@ -52,7 +53,7 @@ impl Stage16Store for MemStore {
                 });
             }
         }
- // (a) anti-replay
+        // (a) anti-replay
         let rk = (
             cmd.issuer_did.as_str().to_string(),
             cmd.target_id.as_str().to_string(),
@@ -78,7 +79,7 @@ impl Stage16Store for MemStore {
             _ => return Err(Stage16Error::AntiReplay),
         }
         drop(replay);
- // (c) lease (simple)
+        // (c) lease (simple)
         let mut leases = self.leases.lock().unwrap();
         if let Some(h) = leases.get(cmd.target_id.as_str()) {
             if h != cmd.issuer_did.as_str() {
@@ -89,7 +90,7 @@ impl Stage16Store for MemStore {
             cmd.target_id.as_str().to_string(),
             cmd.issuer_did.as_str().to_string(),
         );
- // (e,f)
+        // (e,f)
         let ret = clamp_idempotency_retention_secs(req.idempotency_retention_secs);
         self.idem.lock().unwrap().insert(
             ik,

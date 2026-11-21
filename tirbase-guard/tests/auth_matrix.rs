@@ -9,8 +9,8 @@
 
 use proptest::prelude::*;
 use tirbase_guard::auth_matrix::{
-    check_role_authorization, denied_cells, role_index, AUTHORIZATION_MATRIX, MATRIX_ROLES,
-    MatrixAuthorizationError, MatrixCell,
+    check_role_authorization, denied_cells, role_index, MatrixAuthorizationError, MatrixCell,
+    AUTHORIZATION_MATRIX, MATRIX_ROLES,
 };
 
 #[test]
@@ -38,7 +38,7 @@ fn denied_cells_count_matches_matrix() {
 
 #[test]
 fn auto_generated_negative_tests_for_every_denied_cell() {
- // Table-driven: every `—` cell must reject with a typed authorization error.
+    // Table-driven: every `—` cell must reject with a typed authorization error.
     let mut failures: Vec<String> = Vec::new();
     for row in AUTHORIZATION_MATRIX {
         for (idx, role) in MATRIX_ROLES.iter().enumerate() {
@@ -90,7 +90,7 @@ fn allowed_cells_are_not_denied() {
 }
 
 fn denied_pairs() -> Vec<(usize, usize)> {
- // (operation index, role index) for denied cells
+    // (operation index, role index) for denied cells
     let mut v = Vec::new();
     for (op_i, row) in AUTHORIZATION_MATRIX.iter().enumerate() {
         for (role_i, cell) in row.cells.iter().enumerate() {

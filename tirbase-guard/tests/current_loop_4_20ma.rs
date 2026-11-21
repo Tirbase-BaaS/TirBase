@@ -174,7 +174,9 @@ fn calibration_survives_restart_and_is_reused_by_the_sensor() {
 fn persisted_baseline_detects_calibration_drift() {
     let path = temp_path("drift");
     let store = ReexportedStore::new(&path);
-    store.save(&calibration(FaultThresholds::default())).unwrap();
+    store
+        .save(&calibration(FaultThresholds::default()))
+        .unwrap();
 
     let shifted = CurrentLoopCalibration::new(
         vec![
@@ -195,10 +197,12 @@ fn persisted_baseline_detects_calibration_drift() {
     let report = store.detect_drift(&shifted, 50).unwrap().expect("baseline");
     assert!(report.drifted);
     assert_eq!(report.max_abs_delta_ua, 60);
-    assert!(!store
-        .detect_drift(&shifted, 60)
-        .unwrap()
-        .expect("baseline")
-        .drifted);
+    assert!(
+        !store
+            .detect_drift(&shifted, 60)
+            .unwrap()
+            .expect("baseline")
+            .drifted
+    );
     let _ = std::fs::remove_file(path);
 }

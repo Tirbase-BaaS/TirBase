@@ -16,27 +16,27 @@ use tirbase_core::traits::KeyProvider;
 /// Arguments for `tirbase-admin rotate`.
 #[derive(Debug, Clone)]
 pub struct RotateArgs {
- /// Path to the device identity JSON file to rotate.
+    /// Path to the device identity JSON file to rotate.
     pub key_path: PathBuf,
- /// Where to write a backup of the previous key file. Defaults to
- /// `<key_path>.bak`.
+    /// Where to write a backup of the previous key file. Defaults to
+    /// `<key_path>.bak`.
     pub backup_path: Option<PathBuf>,
 }
 
 /// Result of a key rotation.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct RotateResult {
- /// DID of the previous identity, if the key file existed.
+    /// DID of the previous identity, if the key file existed.
     pub old_did: Option<String>,
- /// Public key (hex) of the previous identity, if present.
+    /// Public key (hex) of the previous identity, if present.
     pub old_public_key_hex: Option<String>,
- /// DID of the new identity.
+    /// DID of the new identity.
     pub new_did: String,
- /// Public key (hex) of the new identity.
+    /// Public key (hex) of the new identity.
     pub new_public_key_hex: String,
- /// Path where the new identity was written.
+    /// Path where the new identity was written.
     pub key_path: String,
- /// Path where the previous identity was backed up, if any.
+    /// Path where the previous identity was backed up, if any.
     pub backup_path: Option<String>,
 }
 

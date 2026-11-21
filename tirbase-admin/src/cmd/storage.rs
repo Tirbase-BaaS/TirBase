@@ -52,7 +52,7 @@ pub struct PitrArgs {
     pub backup_dir: PathBuf,
     pub delta_log: PathBuf,
     pub target_db: PathBuf,
- /// Live root hash the recovered database must reproduce.
+    /// Live root hash the recovered database must reproduce.
     pub expected_root: Option<String>,
 }
 
@@ -176,8 +176,8 @@ pub struct EncryptExportArgs {
 
 pub fn encrypt_export(args: &EncryptExportArgs) -> Result<gw_backup::EncryptedExport> {
     let key = load_key(&args.key_path)?;
-    let plaintext = std::fs::read(&args.input)
-        .with_context(|| format!("read {}", args.input.display()))?;
+    let plaintext =
+        std::fs::read(&args.input).with_context(|| format!("read {}", args.input.display()))?;
     gw_backup::write_encrypted_export(&key, &plaintext, args.aad.as_bytes(), &args.output)
         .map_err(|e| anyhow::anyhow!(e))
 }

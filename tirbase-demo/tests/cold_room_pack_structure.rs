@@ -140,7 +140,9 @@ fn pack_contains_no_executable_code() {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let mode = std::fs::metadata(path).expect("launcher metadata").permissions();
+                let mode = std::fs::metadata(path)
+                    .expect("launcher metadata")
+                    .permissions();
                 assert!(
                     mode.mode() & 0o111 != 0,
                     "run.sh must be executable so the pack can be launched"
@@ -161,7 +163,9 @@ fn pack_contains_no_executable_code() {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mode = std::fs::metadata(path).expect("pack file metadata").permissions();
+            let mode = std::fs::metadata(path)
+                .expect("pack file metadata")
+                .permissions();
             assert_eq!(
                 mode.mode() & 0o111,
                 0,
@@ -217,8 +221,14 @@ fn profile_declares_the_six_protective_parameters() {
     let setpoint = by_name["temperature_setpoint_c"];
     assert_eq!(setpoint["unit_id"].as_integer(), Some(1));
     // Rate-of-change: 0.5 degC/s.
-    assert_eq!(setpoint["max_rate_per_sec"]["mantissa"].as_integer(), Some(5));
-    assert_eq!(setpoint["max_rate_per_sec"]["exponent"].as_integer(), Some(-1));
+    assert_eq!(
+        setpoint["max_rate_per_sec"]["mantissa"].as_integer(),
+        Some(5)
+    );
+    assert_eq!(
+        setpoint["max_rate_per_sec"]["exponent"].as_integer(),
+        Some(-1)
+    );
     // Cumulative drift: 2.0 degC per 300 s.
     assert_eq!(setpoint["drift_window_secs"].as_integer(), Some(300));
     assert_eq!(
@@ -252,9 +262,7 @@ fn profile_document_carries_the_fields_install_needs() {
 
     // install-time validation parses the profile_id as a 16-byte UUID and the
     // signature as 64 ed25519 bytes.
-    let profile_id = document["profile_id"]
-        .as_str()
-        .expect("profile_id string");
+    let profile_id = document["profile_id"].as_str().expect("profile_id string");
     assert_eq!(profile_id.len(), 36, "profile_id must be a hyphenated UUID");
     assert_eq!(profile_id.matches('-').count(), 4);
     assert_eq!(document["version"].as_integer(), Some(1));
@@ -272,7 +280,10 @@ fn profile_document_carries_the_fields_install_needs() {
     assert_eq!(document["policy_loosen_n"].as_integer(), Some(3));
 
     for parameter in document["parameters"].as_array().expect("parameters") {
-        assert!(parameter["safe_default"].is_table(), "safe_default required");
+        assert!(
+            parameter["safe_default"].is_table(),
+            "safe_default required"
+        );
         assert!(
             parameter["tightening_floor"].is_table(),
             "tightening_floor required"
@@ -364,8 +375,7 @@ fn register_maps_pin_names_and_units_to_the_profile() {
         // Every commandable profile parameter is addressable on every controller.
         let profile_params: BTreeSet<&str> = profile_units.keys().copied().collect();
         assert_eq!(
-            writable,
-            profile_params,
+            writable, profile_params,
             "{relative} must expose exactly the profile's commandable parameters"
         );
 
@@ -375,7 +385,10 @@ fn register_maps_pin_names_and_units_to_the_profile() {
             .iter()
             .find(|register| register.name == "temperature_c")
             .unwrap_or_else(|| panic!("{relative} has no temperature_c reading"));
-        assert!(!temperature.writable, "{relative} temperature must be read-only");
+        assert!(
+            !temperature.writable,
+            "{relative} temperature must be read-only"
+        );
         assert_eq!(temperature.unit_id, 1);
         assert_eq!(temperature.scale_exponent, -1);
     }
@@ -463,10 +476,7 @@ fn expected_outcomes_are_defended_and_machine_readable() {
 
         let steps: Vec<StepDisposition> = scenario.steps.iter().map(|step| step.expect).collect();
         assert_eq!(outcome.steps, steps);
-        assert_eq!(
-            outcome.disposition,
-            ScenarioDisposition::from_steps(&steps)
-        );
+        assert_eq!(outcome.disposition, ScenarioDisposition::from_steps(&steps));
         assert_eq!(
             outcome.actuations,
             steps
@@ -496,7 +506,9 @@ fn scenario_mechanisms_match_the_rejections_they_expect() {
         ("S3_replay", "idempotency"),
     ]);
     for scenario in &pack.scenarios {
-        let outcome = pack.expected_outcome(&scenario.id).expect("expected output");
+        let outcome = pack
+            .expected_outcome(&scenario.id)
+            .expect("expected output");
         assert_eq!(
             outcome.mechanism,
             expected_mechanisms[scenario.id.as_str()],
@@ -561,7 +573,11 @@ fn readme_documents_intended_use_assumptions_and_non_goals() {
     );
     // Every scenario id and its mechanism appear in the defended-output table.
     for scenario in cold_room_pack().scenarios {
-        assert!(readme.contains(&scenario.id), "README omits {}", scenario.id);
+        assert!(
+            readme.contains(&scenario.id),
+            "README omits {}",
+            scenario.id
+        );
     }
 }
 

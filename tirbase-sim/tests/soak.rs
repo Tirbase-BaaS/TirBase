@@ -8,9 +8,7 @@
 
 use std::time::Duration;
 
-use tirbase_sim::soak::{
-    run_ci_72h_soak, run_soak, SoakConfig, SOAK_DURATION_SECS,
-};
+use tirbase_sim::soak::{run_ci_72h_soak, run_soak, SoakConfig, SOAK_DURATION_SECS};
 
 #[test]
 fn soak_api_covers_required_duration() {

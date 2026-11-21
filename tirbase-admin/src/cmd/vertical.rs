@@ -14,11 +14,11 @@ use tirbase_gateway::vertical_api::VerticalApi;
 #[derive(Debug, Clone)]
 pub struct VerticalArgs {
     pub db_path: PathBuf,
- /// `list|get|create|patch|delete`
+    /// `list|get|create|patch|delete`
     pub action: String,
- /// `cold-chain|pos|venues`
+    /// `cold-chain|pos|venues`
     pub vertical: String,
- /// `sites|readings|orders|lines|venues|gates`
+    /// `sites|readings|orders|lines|venues|gates`
     pub kind: String,
     pub id: Option<String>,
     pub parent_id: Option<String>,
@@ -84,12 +84,7 @@ pub fn run(args: &VerticalArgs) -> Result<VerticalResult> {
                 .ok_or_else(|| anyhow::anyhow!("--id is required for {}", args.action))?;
             let path = format!("{collection}/{id}{query}");
             let body = if args.action == "patch" {
-                Some(
-                    args.data_json
-                        .as_deref()
-                        .unwrap_or("{}")
-                        .to_string(),
-                )
+                Some(args.data_json.as_deref().unwrap_or("{}").to_string())
             } else {
                 None
             };
@@ -118,7 +113,7 @@ pub fn run(args: &VerticalArgs) -> Result<VerticalResult> {
 }
 
 impl VerticalArgs {
- /// Parent collection for a child resource (`readings` live under `sites`).
+    /// Parent collection for a child resource (`readings` live under `sites`).
     fn parent_kind(&self) -> &str {
         match self.kind.as_str() {
             "readings" => "sites",

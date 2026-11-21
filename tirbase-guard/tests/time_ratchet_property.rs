@@ -43,7 +43,7 @@ impl FakeTimeSource {
         *mono = mono.saturating_add(secs.saturating_mul(MICROS_PER_SEC));
     }
 
- /// A reboot always changes the boot id and restarts the monotonic domain.
+    /// A reboot always changes the boot id and restarts the monotonic domain.
     fn reboot(&self) {
         let mut boot = self.boot.lock().unwrap();
         *boot += 1;

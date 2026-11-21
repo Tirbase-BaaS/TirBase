@@ -10,9 +10,7 @@
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tirbase_core::provisioning::{
-    DeviceQuery, ProvisioningPayload, ReportedVersions, VersionSet,
-};
+use tirbase_core::provisioning::{DeviceQuery, ProvisioningPayload, ReportedVersions, VersionSet};
 use tirbase_gateway::provisioning::{
     parse_device_state, parse_public_key_hex, parse_signing_key_hex, parse_tenant_path_string,
     ProvisioningService,
@@ -66,7 +64,9 @@ fn open_service(args: &ProvisioningArgs) -> Result<ProvisioningService> {
         None => None,
     };
     let public = match (&args.authority_public_key_hex, &signer) {
-        (Some(hex_key), _) => parse_public_key_hex(hex_key).map_err(|error| anyhow::anyhow!("{error}"))?,
+        (Some(hex_key), _) => {
+            parse_public_key_hex(hex_key).map_err(|error| anyhow::anyhow!("{error}"))?
+        }
         (None, Some(signer)) => signer.verifying_key().to_bytes(),
         (None, None) => bail!("--authority-public-key-hex or --signer-seed-hex is required"),
     };
@@ -78,12 +78,15 @@ fn read_payload(args: &ProvisioningArgs) -> Result<ProvisioningPayload> {
         .payload_file
         .as_ref()
         .context("missing required --payload-file")?;
-    let body =
-        std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    let body = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
     serde_json::from_str(&body).context("parse provisioning payload JSON")
 }
 
-fn build_payload(args: &ProvisioningArgs, service: &ProvisioningService, now: i64) -> Result<ProvisioningPayload> {
+fn build_payload(
+    args: &ProvisioningArgs,
+    service: &ProvisioningService,
+    now: i64,
+) -> Result<ProvisioningPayload> {
     let tenant = args
         .tenant
         .as_deref()
@@ -100,7 +103,8 @@ fn build_payload(args: &ProvisioningArgs, service: &ProvisioningService, now: i6
         .device_type
         .as_deref()
         .context("missing required --device-type")?;
-    let device_public_key = parse_public_key_hex(public_hex).map_err(|error| anyhow::anyhow!("{error}"))?;
+    let device_public_key =
+        parse_public_key_hex(public_hex).map_err(|error| anyhow::anyhow!("{error}"))?;
     let ttl = args.ttl_secs.unwrap_or(3600);
     let versions = VersionSet {
         firmware_version: args.firmware_version.clone(),

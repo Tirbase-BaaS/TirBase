@@ -256,9 +256,7 @@ fn main() -> Result<()> {
                 secret_file: one(&flags, "secret-file").map(Into::into),
                 now_est: one(&flags, "now-est")
                     .and_then(|s| s.parse().ok())
-                    .unwrap_or_else(|| {
-                        tirbase_core::traits::wall_hint_secs().unwrap_or(0)
-                    }),
+                    .unwrap_or_else(|| tirbase_core::traits::wall_hint_secs().unwrap_or(0)),
             })?;
             println!("{body}");
         }

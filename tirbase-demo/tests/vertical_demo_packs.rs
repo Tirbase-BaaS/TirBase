@@ -60,8 +60,7 @@ fn run_pack_script(pack: &str, expected_scenarios: &[&str]) {
     let _serialized = RUN_SH_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    let script = workspace_root()
-        .join(format!("tirbase-demo/{pack}/run.sh"));
+    let script = workspace_root().join(format!("tirbase-demo/{pack}/run.sh"));
     assert!(script.exists(), "run.sh must exist for pack {pack}");
     let start = tirbase_core::traits::monotonic_now();
     let output = Command::new("bash")
@@ -333,7 +332,9 @@ fn defense_logistics_readme_documents_non_goals() {
 #[test]
 fn defense_logistics_s3_replay_defended() {
     scenario_s3_replay_duplicate_idempotency_no_second_actuation();
-    println!("S3 (defense-logistics M-of-N movement orders replay): DEDUPLICATED - no second actuation");
+    println!(
+        "S3 (defense-logistics M-of-N movement orders replay): DEDUPLICATED - no second actuation"
+    );
 }
 
 #[test]

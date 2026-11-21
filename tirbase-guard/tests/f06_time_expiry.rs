@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use tirbase_core::identity::file_key_provider::InMemoryKeyProvider;
 use tirbase_core::timesync::{
-    ApprovalRejection, ApprovalExpiry, DriftBound, SignedTimeEvidence, TimeEvidence,
+    ApprovalExpiry, ApprovalRejection, DriftBound, SignedTimeEvidence, TimeEvidence,
 };
 use tirbase_core::traits::{KeyProvider, TimeSource};
 use tirbase_guard::signed_operation::SignedOperation;
@@ -257,9 +257,7 @@ fn f06_reboot_invalidates_pre_reboot_approvals() {
         ),
         "a pre-reboot approval must be re-issued, not silently revived"
     );
-    assert!(ratchet
-        .freshness(&ts)
-        .requires_challenge(true));
+    assert!(ratchet.freshness(&ts).requires_challenge(true));
 }
 
 /// A record captured offline carries a signed, verifiable confidence marker.

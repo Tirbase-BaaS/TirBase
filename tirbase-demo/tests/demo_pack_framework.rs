@@ -17,7 +17,10 @@ fn cold_chain_pack_matches_demo_pack_format() {
         tirbase_demo::COLD_CHAIN_PACK_FORMAT
     );
     for rel in tirbase_demo::DEMO_PACK_FORMAT {
-        assert!(pack.join(rel).exists(), "missing demo-pack format entry: {rel}");
+        assert!(
+            pack.join(rel).exists(),
+            "missing demo-pack format entry: {rel}"
+        );
     }
 }
 

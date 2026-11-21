@@ -126,7 +126,10 @@ fn shuttle_anti_replay_window_rejects_concurrent_duplicate_commit() {
                 .iter()
                 .filter(|d| matches!(d, AntiReplayDecision::Replay))
                 .count();
-            assert_eq!(accepted, 1, "sequence must commit exactly once: {results:?}");
+            assert_eq!(
+                accepted, 1,
+                "sequence must commit exactly once: {results:?}"
+            );
             assert_eq!(replays, 1, "the duplicate must be rejected: {results:?}");
         },
         SCHEDULES,

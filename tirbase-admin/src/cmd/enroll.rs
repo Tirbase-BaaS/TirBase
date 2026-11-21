@@ -22,17 +22,17 @@ use tirbase_types::CommandRole;
 /// Arguments for `tirbase-admin enroll`.
 #[derive(Debug, Clone)]
 pub struct EnrollArgs {
- /// Hex-encoded 32-byte Ed25519 root CA private seed used to mint the
- /// scoped Biscuit token. Never logged.
+    /// Hex-encoded 32-byte Ed25519 root CA private seed used to mint the
+    /// scoped Biscuit token. Never logged.
     pub root_ca_seed_hex: String,
- /// Role carried by the scoped token.
+    /// Role carried by the scoped token.
     pub role: String,
- /// Token TTL in seconds (clamped to the Biscuit window by the service).
+    /// Token TTL in seconds (clamped to the Biscuit window by the service).
     pub ttl_secs: u64,
- /// Optional path to persist the device identity. When omitted the
- /// identity is ephemeral and only the enrollment result is printed.
+    /// Optional path to persist the device identity. When omitted the
+    /// identity is ephemeral and only the enrollment result is printed.
     pub device_key_path: Option<PathBuf>,
- /// Optional 64-character hex nonce. When omitted a random nonce is used.
+    /// Optional 64-character hex nonce. When omitted a random nonce is used.
     pub nonce_hex: Option<String>,
 }
 
@@ -79,7 +79,7 @@ pub fn run(args: &EnrollArgs) -> Result<EnrolledDevice> {
         .enroll(&request, now_est)
         .context("enrollment rejected")?;
 
- // Sanity-check the issued token before reporting success.
+    // Sanity-check the issued token before reporting success.
     let _claims = biscuit::verify_token(&enrolled.token, &root_public, 0)
         .context("issued token failed post-enrollment verification")?;
 

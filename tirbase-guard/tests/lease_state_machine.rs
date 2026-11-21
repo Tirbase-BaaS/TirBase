@@ -24,7 +24,7 @@ fn claim_21_1_single_active_holder_modeled() {
         cooldown_until_mono_secs: None,
     };
     assert!(!a.is_expired(99) && !b.is_expired(99));
- // exclusivity is enforced by the store; type carries single-holder state.
+    // exclusivity is enforced by the store; type carries single-holder state.
     assert_ne!(a.issuer_did, b.issuer_did);
 }
 
