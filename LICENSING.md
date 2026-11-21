@@ -74,6 +74,27 @@ vendor SDK or credential in the open repository and that its documentation and
 crates are present; `scripts/package-closed-connectors.py` refuses to package
 unless that gate passes.
 
+The Stripe Terminal, Adyen and SumUp POS terminal connectors (POS-16) are a
+**separate proprietary product** and are not present in this repository at all.
+They are developed in a git-ignored `closed/pos-terminals/` tree, link only the
+Apache-2.0 `tirbase-integrations` POS contract, and are delivered to licensees
+under the proprietary notice in that tree. `scripts/check-pos-terminals.py`
+proves the closed POS tree is untracked, free of processor SDKs, credentials and
+card-number-shaped fixtures, documents its PCI scope, and passes its closed
+contract and conformance suites before a release archive is built.
+
+The DATEV, Xero and QuickBooks accounting connectors (POS-17) are the same kind
+of **separate proprietary product** and are not present in this repository. They
+are developed in a git-ignored `closed/pos-accounting/` tree, link only the
+Apache-2.0 `tirbase-integrations` POS contract, and export journals, invoices,
+payments, refunds and payouts through an explicit chart-of-accounts and
+tax-code mapping with stable external ids and idempotent re-export. Unmapped
+accounts are refused with a clear error and queued for operator attention rather
+than guessed. `scripts/check-pos-accounting.py` proves the closed accounting
+tree is untracked, free of vendor SDKs and credential or card-number-shaped
+fixtures, and passes its closed contract and conformance suites before a
+release archive is built.
+
 The Slack, Microsoft Teams, PagerDuty and SMS alert connectors are the same kind
 of **separate proprietary product** and are not in this repository. They are
 developed in a git-ignored `closed/alerts/` tree, link only the Apache-2.0
