@@ -124,14 +124,14 @@ pub struct IdbStore {
 }
 
 impl IdbStore {
- /// Open (or create) the IndexedDB database for `db_name`, creating all
- /// object stores (`kv`, `compaction_snapshots`, `quarantine_ledger`,
- /// `sidecar_ledger`) during the schema-version upgrade.
- ///
- /// The returned handle stays live for the lifetime of the
- /// [`LocalStore`](super::LocalStore) and may be cloned to share the
- /// underlying database connection across the store, CRDT engine, and
- /// migration engine.
+    /// Open (or create) the IndexedDB database for `db_name`, creating all
+    /// object stores (`kv`, `compaction_snapshots`, `quarantine_ledger`,
+    /// `sidecar_ledger`) during the schema-version upgrade.
+    ///
+    /// The returned handle stays live for the lifetime of the
+    /// [`LocalStore`](super::LocalStore) and may be cloned to share the
+    /// underlying database connection across the store, CRDT engine, and
+    /// migration engine.
     pub(crate) async fn open(db_name: &str) -> Result<Self, TirBaseError> {
         let name = database_name(db_name);
         let store_name = KV_STORE.to_string();
@@ -143,8 +143,8 @@ impl IdbStore {
         let store_name_for_upgrade = store_name.clone();
         open_req.on_upgrade_needed(move |event| {
             let database = event.database().expect("on_upgrade_needed: no database");
- // Create each store if it doesn't exist yet (idempotent across
- // version bumps — only newly-required stores need creating).
+            // Create each store if it doesn't exist yet (idempotent across
+            // version bumps — only newly-required stores need creating).
             let stores: &[(&str, bool)] = &[
                 (KV_STORE, false),
                 (COMPACTION_STORE, false),
@@ -160,15 +160,14 @@ impl IdbStore {
                         });
                 }
             }
- // Ensure the kv store is still present.
+            // Ensure the kv store is still present.
             let _ = &store_name_for_upgrade;
         });
 
-        let db = std::rc::Rc::new(DatabaseHandle(
-            open_req
-                .await
-                .map_err(|e| js_error(format!("open IndexedDB database {name} failed: {e:?}")))?,
-        ));
+        let db =
+            std::rc::Rc::new(DatabaseHandle(open_req.await.map_err(|e| {
+                js_error(format!("open IndexedDB database {name} failed: {e:?}"))
+            })?));
 
         Ok(IdbStore {
             db_name: name,
@@ -177,12 +176,12 @@ impl IdbStore {
         })
     }
 
- /// Write one row through to IndexedDB, awaiting the transaction's
- /// completion.
- ///
- /// Returns only after the `readwrite` transaction has fully committed, so a
- /// successful `LocalStore::write` is durable — the WASM store no longer
- /// acknowledges writes that vanish on reload (Req 3.2 parity).
+    /// Write one row through to IndexedDB, awaiting the transaction's
+    /// completion.
+    ///
+    /// Returns only after the `readwrite` transaction has fully committed, so a
+    /// successful `LocalStore::write` is durable — the WASM store no longer
+    /// acknowledges writes that vanish on reload (Req 3.2 parity).
     pub(crate) async fn write(
         &self,
         table: &str,
@@ -218,7 +217,7 @@ impl IdbStore {
         Ok(())
     }
 
- /// Read a single row by table and key from IndexedDB.
+    /// Read a single row by table and key from IndexedDB.
     pub(crate) async fn read(
         &self,
         table: &str,
@@ -263,7 +262,7 @@ impl IdbStore {
         }
     }
 
- /// Scan all rows in a table from IndexedDB, returning `(key, value)` pairs.
+    /// Scan all rows in a table from IndexedDB, returning `(key, value)` pairs.
     pub(crate) async fn query(&self, table: &str) -> Result<Vec<(String, Vec<u8>)>, TirBaseError> {
         let prefix = format!("{table}{KEY_SEP}");
         let mut results: Vec<(String, Vec<u8>)> = Vec::new();
@@ -277,8 +276,8 @@ impl IdbStore {
             .object_store(&self.store_name)
             .map_err(|e| js_error(format!("object_store({}) failed: {e:?}", self.store_name)))?;
 
- // Use a key range to scan only rows whose composite key starts with
- // the `{table}\u{1f}` prefix.
+        // Use a key range to scan only rows whose composite key starts with
+        // the `{table}\u{1f}` prefix.
         let lower = JsValue::from_str(&format!("{prefix}\u{0000}"));
         let upper = JsValue::from_str(&format!("{prefix}\u{ffff}"));
         let range = idb::KeyRange::bound(&lower, &upper, Some(false), Some(false))
@@ -291,9 +290,9 @@ impl IdbStore {
             .await
             .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?;
 
- // An empty object store hands back no cursor at all — that is an
- // empty result set, not a failure (a fresh IndexedDB database is a
- // legitimate state, e.g. the first `LocalStore::open` of a session).
+        // An empty object store hands back no cursor at all — that is an
+        // empty result set, not a failure (a fresh IndexedDB database is a
+        // legitimate state, e.g. the first `LocalStore::open` of a session).
         let Some(cursor) = cursor else {
             return Ok(Vec::new());
         };
@@ -340,10 +339,10 @@ impl IdbStore {
         Ok(results)
     }
 
- /// Eagerly load every row in the store into an in-memory map, keyed by
- /// `(table, key)`. Called by `LocalStore::open` so that `read()` and
- /// `query()` can stay synchronous (serving from the in-memory snapshot,
- /// the WASM analogue of native SQLite projection tables).
+    /// Eagerly load every row in the store into an in-memory map, keyed by
+    /// `(table, key)`. Called by `LocalStore::open` so that `read()` and
+    /// `query()` can stay synchronous (serving from the in-memory snapshot,
+    /// the WASM analogue of native SQLite projection tables).
     pub(crate) async fn load_all(
         &self,
     ) -> Result<BTreeMap<String, BTreeMap<String, Value>>, TirBaseError> {
@@ -364,9 +363,9 @@ impl IdbStore {
             .await
             .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?;
 
- // An empty object store hands back no cursor at all — that is an
- // empty result set, not a failure (a fresh IndexedDB database is a
- // legitimate state, e.g. the first `LocalStore::open` of a session).
+        // An empty object store hands back no cursor at all — that is an
+        // empty result set, not a failure (a fresh IndexedDB database is a
+        // legitimate state, e.g. the first `LocalStore::open` of a session).
         let Some(cursor) = cursor else {
             return Ok(BTreeMap::new());
         };
@@ -413,18 +412,17 @@ impl IdbStore {
         Ok(tables)
     }
 
- /// Returns the database name (for diagnostics / test reset).
+    /// Returns the database name (for diagnostics / test reset).
     pub(crate) fn db_name(&self) -> &str {
         &self.db_name
     }
 
- /// Access the underlying `idb::Database` for creating store-specific
- /// transactions. Used by the compaction, quarantine, and side-car modules
- /// to operate on their dedicated object stores within the same database.
+    /// Access the underlying `idb::Database` for creating store-specific
+    /// transactions. Used by the compaction, quarantine, and side-car modules
+    /// to operate on their dedicated object stores within the same database.
     pub(crate) fn raw_db(&self) -> &idb::Database {
         &self.db
     }
-
 }
 
 impl Clone for IdbStore {
@@ -443,18 +441,18 @@ impl Clone for IdbStore {
 /// store.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CompactionSnapshot {
- /// Snapshot bytes (compacted Automerge doc.save()).
+    /// Snapshot bytes (compacted Automerge doc.save()).
     pub snapshot_bytes: Vec<u8>,
- /// UTC timestamp (microseconds) when the snapshot was stored.
+    /// UTC timestamp (microseconds) when the snapshot was stored.
     pub compacted_at: i64,
 }
 
 impl IdbStore {
- /// Store a compaction snapshot for `table` (Req 3.4/3.5, WASM).
- ///
- /// Writes to the `compaction_snapshots` object store keyed by the table
- /// name (string). Awaiting the transaction commit makes the snapshot
- /// durable before returning.
+    /// Store a compaction snapshot for `table` (Req 3.4/3.5, WASM).
+    ///
+    /// Writes to the `compaction_snapshots` object store keyed by the table
+    /// name (string). Awaiting the transaction commit makes the snapshot
+    /// durable before returning.
     pub(crate) async fn put_compaction_snapshot(
         &self,
         table: &str,
@@ -492,7 +490,7 @@ impl IdbStore {
         Ok(())
     }
 
- /// Load a compaction snapshot for `table` (Req 3.4/3.5, WASM).
+    /// Load a compaction snapshot for `table` (Req 3.4/3.5, WASM).
     pub(crate) async fn get_compaction_snapshot(
         &self,
         table: &str,
@@ -536,8 +534,8 @@ impl IdbStore {
         }
     }
 
- /// Delete all compaction snapshots for a table (used when the snapshot is
- /// reloaded and a re-compaction is needed).
+    /// Delete all compaction snapshots for a table (used when the snapshot is
+    /// reloaded and a re-compaction is needed).
     pub(crate) async fn delete_compaction_snapshot(&self, table: &str) -> Result<(), TirBaseError> {
         let key_js = JsValue::from_str(table);
 
@@ -572,12 +570,12 @@ impl IdbStore {
 // ─── Quarantine ledger persistence (Req 17.5, WASM) ───────────────────────────
 
 impl IdbStore {
- /// Store a quarantined `QuarantineEntry` in the `quarantine_ledger` object
- /// store (Req 17.5).
- ///
- /// The entry is keyed by `id` hex so it can be fetched or checked for
- /// existence quickly. Awaiting the transaction commit makes the entry
- /// durable before returning.
+    /// Store a quarantined `QuarantineEntry` in the `quarantine_ledger` object
+    /// store (Req 17.5).
+    ///
+    /// The entry is keyed by `id` hex so it can be fetched or checked for
+    /// existence quickly. Awaiting the transaction commit makes the entry
+    /// durable before returning.
     pub(crate) async fn put_quarantine_entry(
         &self,
         entry: &crate::migration::quarantine::QuarantineEntry,
@@ -611,7 +609,7 @@ impl IdbStore {
         Ok(())
     }
 
- /// Scan every entry in the `quarantine_ledger` object store.
+    /// Scan every entry in the `quarantine_ledger` object store.
     pub(crate) async fn scan_quarantine_entries(
         &self,
     ) -> Result<Vec<crate::migration::quarantine::QuarantineEntry>, TirBaseError> {
@@ -632,9 +630,9 @@ impl IdbStore {
             .await
             .map_err(|e| js_error(format!("open_cursor await for quarantine failed: {e:?}")))?;
 
- // An empty object store hands back no cursor at all — that is an
- // empty result set, not a failure (a fresh IndexedDB database is a
- // legitimate state, e.g. the first `LocalStore::open` of a session).
+        // An empty object store hands back no cursor at all — that is an
+        // empty result set, not a failure (a fresh IndexedDB database is a
+        // legitimate state, e.g. the first `LocalStore::open` of a session).
         let Some(cursor) = cursor else {
             return Ok(Vec::new());
         };
@@ -669,7 +667,7 @@ impl IdbStore {
         Ok(results)
     }
 
- /// Update the `migration_id` field on a quarantine entry in-place.
+    /// Update the `migration_id` field on a quarantine entry in-place.
     pub(crate) async fn update_quarantine_migration_id(
         &self,
         entry_id: &[u8],
@@ -729,7 +727,7 @@ impl IdbStore {
 // ─── Side-Car ledger persistence (Req 19.2/19.3, WASM) ────────────────────────
 
 impl IdbStore {
- /// Record a Side-Car entry in the `sidecar_ledger` object store (Req 19.2).
+    /// Record a Side-Car entry in the `sidecar_ledger` object store (Req 19.2).
     pub(crate) async fn put_sidecar_entry(
         &self,
         entry: &crate::migration::sidecar::SideCarEntry,
@@ -763,8 +761,8 @@ impl IdbStore {
         Ok(())
     }
 
- /// Scan all Side-Car entries for a `migration_id`, returning them in
- /// recorded-timestamp order (Req 19.3).
+    /// Scan all Side-Car entries for a `migration_id`, returning them in
+    /// recorded-timestamp order (Req 19.3).
     pub(crate) async fn scan_sidecar_entries_for_migration(
         &self,
         migration_id: crate::migration::migration_delta::MigrationId,
@@ -787,9 +785,9 @@ impl IdbStore {
             .await
             .map_err(|e| js_error(format!("open_cursor await for sidecar failed: {e:?}")))?;
 
- // An empty object store hands back no cursor at all — that is an
- // empty result set, not a failure (a fresh IndexedDB database is a
- // legitimate state, e.g. the first `LocalStore::open` of a session).
+        // An empty object store hands back no cursor at all — that is an
+        // empty result set, not a failure (a fresh IndexedDB database is a
+        // legitimate state, e.g. the first `LocalStore::open` of a session).
         let Some(cursor) = cursor else {
             return Ok(Vec::new());
         };
@@ -826,7 +824,7 @@ impl IdbStore {
         Ok(results)
     }
 
- /// Update the `replay_status` and `conflict_info` on a Side-Car entry.
+    /// Update the `replay_status` and `conflict_info` on a Side-Car entry.
     pub(crate) async fn update_sidecar_status(
         &self,
         entry_id: &[u8],
@@ -906,9 +904,9 @@ pub(crate) async fn delete_database(path: &str) -> Result<(), TirBaseError> {
 /// the raw `idb::Database` handle by re-opening after the `IdbStore` has
 /// created the schema.
 pub(crate) async fn open_database(path: &str) -> Result<idb::Database, TirBaseError> {
- // First open via IdbStore so the object stores are created on first use.
+    // First open via IdbStore so the object stores are created on first use.
     let _store = IdbStore::open(path).await?;
- // Re-open to get a standalone handle that the caller owns.
+    // Re-open to get a standalone handle that the caller owns.
     let name = database_name(path);
     let factory = idb::Factory::new().map_err(idb_error)?;
     let mut open_req = factory.open(&name, Some(DB_VERSION)).map_err(idb_error)?;
@@ -932,10 +930,10 @@ pub(crate) async fn open_database(path: &str) -> Result<idb::Database, TirBaseEr
 pub(crate) async fn load_all_into(
     db: &idb::Database,
 ) -> Result<BTreeMap<String, BTreeMap<String, serde_json::Value>>, TirBaseError> {
- // Construct a temporary IdbStore wrapping the caller's database handle
- // purely to reuse load_all's cursor logic. We can't clone idb::Database,
- // so we reconstruct the IdbStore struct fields manually — the db field
- // is not Clone, so we use a different approach: inline the cursor scan.
+    // Construct a temporary IdbStore wrapping the caller's database handle
+    // purely to reuse load_all's cursor logic. We can't clone idb::Database,
+    // so we reconstruct the IdbStore struct fields manually — the db field
+    // is not Clone, so we use a different approach: inline the cursor scan.
     let tx = db
         .transaction(&[KV_STORE], idb::TransactionMode::ReadOnly)
         .map_err(|e| js_error(format!("IDB transaction (readonly) failed: {e:?}")))?;
@@ -952,9 +950,9 @@ pub(crate) async fn load_all_into(
         .await
         .map_err(|e| js_error(format!("open_cursor await failed: {e:?}")))?;
 
- // An empty object store hands back no cursor at all — that is an
- // empty result set, not a failure (a fresh IndexedDB database is a
- // legitimate state, e.g. the first `LocalStore::open` of a session).
+    // An empty object store hands back no cursor at all — that is an
+    // empty result set, not a failure (a fresh IndexedDB database is a
+    // legitimate state, e.g. the first `LocalStore::open` of a session).
     let Some(cursor) = cursor else {
         return Ok(BTreeMap::new());
     };

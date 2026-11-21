@@ -42,7 +42,7 @@ pub(crate) fn append_tag_to_db(
     delta_id: &DeltaId,
     tag: DeltaTag,
 ) -> Result<(), TirBaseError> {
- // Read existing tags, deserialise, push, serialise back.
+    // Read existing tags, deserialise, push, serialise back.
     let existing_json: String = conn
         .query_row(
             "SELECT tags_json FROM dag_nodes WHERE id = ?1",
@@ -172,7 +172,7 @@ pub(crate) fn bfs_descendants_raw(
         }
         result.push(current);
 
- // Query children of `current` from the dag_edges table.
+        // Query children of `current` from the dag_edges table.
         let mut stmt = conn
             .prepare("SELECT child_id FROM dag_edges WHERE parent_id = ?1")
             .map_err(|e| TirBaseError::LocalStoreWriteFailed {
@@ -234,11 +234,11 @@ pub(crate) fn walk_late_arrival_descendants(
 ) -> Result<Vec<DeltaId>, TirBaseError> {
     use std::collections::HashSet;
 
- // 1. Query the live DAG for all descendants of the root using the raw
- // connection (avoids re-entrant Mutex lock — see decompose_composites_if_needed).
+    // 1. Query the live DAG for all descendants of the root using the raw
+    // connection (avoids re-entrant Mutex lock — see decompose_composites_if_needed).
     let live_descendants = bfs_descendants_raw(conn, root_delta_id)?;
 
- // 2. Determine which descendants are late arrivals (not in the snapshot).
+    // 2. Determine which descendants are late arrivals (not in the snapshot).
     let snapshot_set: HashSet<DeltaId> = snapshot_deltas.iter().copied().collect();
     let late_arrivals: Vec<DeltaId> = live_descendants
         .iter()
@@ -246,7 +246,7 @@ pub(crate) fn walk_late_arrival_descendants(
         .filter(|d| !snapshot_set.contains(d))
         .collect();
 
- // 3. Tag each late arrival.
+    // 3. Tag each late arrival.
     let at = crate::contamination::resolution::now_micros();
     for delta_id in &late_arrivals {
         if resolved {
@@ -343,7 +343,7 @@ pub(crate) fn resolve_affected_rows(
 ) -> Result<Vec<crate::contamination::incident::AffectedRow>, TirBaseError> {
     use crate::contamination::incident::AffectedRow;
 
- // 1. Enumerate all projection tables.
+    // 1. Enumerate all projection tables.
     let proj_tables: Vec<String> = {
         let mut stmt = conn
             .prepare(
@@ -363,7 +363,7 @@ pub(crate) fn resolve_affected_rows(
         tables
     };
 
- // 2. For each projection table, collect all row keys.
+    // 2. For each projection table, collect all row keys.
     let mut affected = Vec::new();
     for proj_table in &proj_tables {
         let logical_table = proj_table.strip_prefix("proj_").unwrap_or(proj_table);
@@ -408,13 +408,13 @@ pub(crate) fn resolve_affected_rows(
     use crate::contamination::incident::AffectedRow;
     use std::collections::BTreeMap;
 
- // Map (table, row_key) -> most-recent delta_id for deduplication.
+    // Map (table, row_key) -> most-recent delta_id for deduplication.
     let mut seen: BTreeMap<(String, String), DeltaId> = BTreeMap::new();
 
     for &delta_id in delta_ids {
         let rows = crate::store::projection::rows_by_delta_id(&delta_id);
         for (table, row_key) in rows {
- // First writer wins for the delta_id association.
+            // First writer wins for the delta_id association.
             seen.entry((table, row_key)).or_insert(delta_id);
         }
     }

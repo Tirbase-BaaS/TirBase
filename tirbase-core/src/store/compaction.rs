@@ -13,12 +13,12 @@ pub use CompactionPolicy::*;
 /// Per-table compaction policy (design §Schema Object / CompactionPolicy).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompactionPolicy {
- /// Compact when the table's Delta record count exceeds `threshold` (unit: whole Delta records).
+    /// Compact when the table's Delta record count exceeds `threshold` (unit: whole Delta records).
     Aggressive {
- /// Delta count above which compaction is triggered (Req 3.4).
+        /// Delta count above which compaction is triggered (Req 3.4).
         threshold: u64,
     },
- /// Never compact; full Delta history preserved (Req 3.4).
+    /// Never compact; full Delta history preserved (Req 3.4).
     None,
 }
 
@@ -49,14 +49,14 @@ pub fn compact_table(
     table_name: &str,
     doc: &mut automerge::AutoCommit,
 ) -> Result<(), TirBaseError> {
- // Snapshot the current bytes before compaction.
+    // Snapshot the current bytes before compaction.
     let snapshot_bytes = doc.save();
 
- // Attempt the compacted save. `save()` in automerge always produces a
- // valid full snapshot of the current state.
+    // Attempt the compacted save. `save()` in automerge always produces a
+    // valid full snapshot of the current state.
     let compacted_bytes = doc.save();
 
- // Persist the compacted bytes back to automerge_docs.
+    // Persist the compacted bytes back to automerge_docs.
     let update_result = conn.execute(
         "UPDATE automerge_docs SET doc_bytes = ?1 WHERE table_name = ?2;",
         rusqlite::params![compacted_bytes, table_name],
@@ -65,20 +65,20 @@ pub fn compact_table(
     if let Err(e) = update_result {
         let ts = crate::traits::wall_hint_secs().unwrap_or(0);
         eprintln!("[COMPACTION FAIL] table={table_name} ts={ts} error={e}");
- // Restore snapshot — re-load from snapshot bytes so the in-memory doc
- // reflects pre-compaction state.
+        // Restore snapshot — re-load from snapshot bytes so the in-memory doc
+        // reflects pre-compaction state.
         if let Ok(restored) = automerge::AutoCommit::load(&snapshot_bytes) {
             *doc = restored;
         }
- // Non-fatal: return Ok to preserve existing data (Req 3.5).
+        // Non-fatal: return Ok to preserve existing data (Req 3.5).
         return Ok(());
     }
 
- // Mark dag_nodes as compacted **only for this table**. Each Delta payload
- // carries its table in the `_tirbase_table` ROOT key (written by
- // `CrdtEngine::write_scalar`), so the association is exact rather than
- // approximate: compacting table A must never mark table B's history as
- // compacted (Req 3.4 per-table isolation).
+    // Mark dag_nodes as compacted **only for this table**. Each Delta payload
+    // carries its table in the `_tirbase_table` ROOT key (written by
+    // `CrdtEngine::write_scalar`), so the association is exact rather than
+    // approximate: compacting table A must never mark table B's history as
+    // compacted (Req 3.4 per-table isolation).
     let mark_result = mark_table_nodes_compacted(conn, table_name);
 
     if let Err(e) = mark_result {
@@ -88,7 +88,6 @@ pub fn compact_table(
 
     Ok(())
 }
-
 
 /// Mark every uncompacted DAG node whose payload belongs to `table_name` as
 /// `compacted = 1`, leaving other tables' nodes untouched.

@@ -145,16 +145,16 @@ pub fn verify_capability_token(
     authority_public_key: &[u8],
     revocation: &CapabilityVerification<'_>,
 ) -> Result<VerifiedCapability, TirBaseError> {
-    let public_key = PublicKey::from_bytes(authority_public_key, Algorithm::Ed25519).map_err(
-        |e| TirBaseError::AuthorisationFailed {
-            reason: format!("invalid capability authority public key: {e}"),
-        },
-    )?;
-    let token = Biscuit::from(token_bytes, public_key).map_err(|e| {
-        TirBaseError::AuthorisationFailed {
+    let public_key =
+        PublicKey::from_bytes(authority_public_key, Algorithm::Ed25519).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("invalid capability authority public key: {e}"),
+            }
+        })?;
+    let token =
+        Biscuit::from(token_bytes, public_key).map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("capability token signature/parse failed: {e}"),
-        }
-    })?;
+        })?;
 
     let now = UNIX_EPOCH + Duration::from_secs(revocation.now_secs.max(0) as u64);
     let time_fact = fact("time", &[date(&now)]);
@@ -174,11 +174,11 @@ pub fn verify_capability_token(
         max_iterations: 10_000,
         max_time: Duration::from_secs(5),
     };
-    authorizer.authorize_with_limits(limits.clone()).map_err(|e| {
-        TirBaseError::AuthorisationFailed {
+    authorizer
+        .authorize_with_limits(limits.clone())
+        .map_err(|e| TirBaseError::AuthorisationFailed {
             reason: format!("capability authorization failed (possibly expired): {e}"),
-        }
-    })?;
+        })?;
 
     let claims_json: Vec<(String,)> = authorizer
         .query_with_limits("data($c) <- operator_capability($c)", limits)
@@ -230,11 +230,12 @@ fn mint_token(
     claims: &CapabilityClaims,
     authority_private_key: &[u8],
 ) -> Result<Vec<u8>, TirBaseError> {
-    let private_key = PrivateKey::from_bytes(authority_private_key, Algorithm::Ed25519).map_err(
-        |e| TirBaseError::AuthorisationFailed {
-            reason: format!("invalid capability authority private key: {e}"),
-        },
-    )?;
+    let private_key =
+        PrivateKey::from_bytes(authority_private_key, Algorithm::Ed25519).map_err(|e| {
+            TirBaseError::AuthorisationFailed {
+                reason: format!("invalid capability authority private key: {e}"),
+            }
+        })?;
     let keypair = KeyPair::from(&private_key);
     let claims_json =
         serde_json::to_string(claims).map_err(|e| TirBaseError::AuthorisationFailed {
@@ -266,9 +267,11 @@ fn mint_token(
             reason: format!("failed to build capability token: {e}"),
         })?;
 
-    token.to_vec().map_err(|e| TirBaseError::AuthorisationFailed {
-        reason: format!("failed to serialize capability token: {e}"),
-    })
+    token
+        .to_vec()
+        .map_err(|e| TirBaseError::AuthorisationFailed {
+            reason: format!("failed to serialize capability token: {e}"),
+        })
 }
 
 fn ensure_not_wider(

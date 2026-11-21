@@ -39,8 +39,8 @@
 pub mod zone;
 
 pub use zone::{
-    CivilDate, DstRule, DstTransition, LocalResolution, ScheduledEvent,
-    ScheduledOccurrence, SiteTimeZone, TimeZoneRegistry,
+    CivilDate, DstRule, DstTransition, LocalResolution, ScheduledEvent, ScheduledOccurrence,
+    SiteTimeZone, TimeZoneRegistry,
 };
 
 use std::fmt;
@@ -313,11 +313,13 @@ pub fn select_sample(
         let replace = match &best {
             None => true,
             Some(current) => {
-                (sample.uncertainty_ms, std::cmp::Reverse(sample.source.priority()))
-                    < (
-                        current.uncertainty_ms,
-                        std::cmp::Reverse(current.source.priority()),
-                    )
+                (
+                    sample.uncertainty_ms,
+                    std::cmp::Reverse(sample.source.priority()),
+                ) < (
+                    current.uncertainty_ms,
+                    std::cmp::Reverse(current.source.priority()),
+                )
             }
         };
         if replace {
@@ -517,7 +519,10 @@ impl TimeEvidence {
     }
 
     /// Sign this evidence with a device/export key.
-    pub fn sign(&self, provider: &dyn KeyProvider) -> Result<SignedTimeEvidence, TimeEvidenceError> {
+    pub fn sign(
+        &self,
+        provider: &dyn KeyProvider,
+    ) -> Result<SignedTimeEvidence, TimeEvidenceError> {
         let bytes = evidence_signing_bytes(self)?;
         let signature = provider
             .sign(&bytes)
@@ -590,7 +595,10 @@ impl fmt::Display for TimeEvidenceError {
                 f.write_str("time evidence public key is not Ed25519")
             }
             TimeEvidenceError::SignerMismatch { signer_did } => {
-                write!(f, "time evidence signer {signer_did} does not match the public key")
+                write!(
+                    f,
+                    "time evidence signer {signer_did} does not match the public key"
+                )
             }
             TimeEvidenceError::SignatureInvalid => {
                 f.write_str("time evidence signature did not verify")
@@ -718,8 +726,7 @@ mod tests {
             TimeSample::authenticated(TimeSourceKind::Gps, 1_001, 40, 100, 7),
             TimeSample::authenticated(TimeSourceKind::GatewayBeacon, 1_000, 10, 100, 7),
         ];
-        let selected =
-            select_sample(&samples, 900, 300, 100, 7, 60).expect("select best sample");
+        let selected = select_sample(&samples, 900, 300, 100, 7, 60).expect("select best sample");
         assert_eq!(selected.source, TimeSourceKind::GatewayBeacon);
         assert_eq!(selected.wall_time_secs, 1_000);
     }
@@ -821,7 +828,14 @@ mod tests {
     #[test]
     fn tampered_confidence_breaks_the_evidence_signature() {
         let provider = InMemoryKeyProvider::generate().expect("key");
-        let evidence = TimeEvidence::verified(1_800_000_000, 5_000, 7, 1_800_000_000, TimeSourceKind::GatewayBeacon, 10);
+        let evidence = TimeEvidence::verified(
+            1_800_000_000,
+            5_000,
+            7,
+            1_800_000_000,
+            TimeSourceKind::GatewayBeacon,
+            10,
+        );
         let mut signed = evidence.sign(&provider).expect("sign");
         signed.evidence.wall_time_secs += 86_400;
         assert_eq!(

@@ -343,9 +343,7 @@ impl QuorumApproval {
 
     /// Whether the approval is unexpired and meets its threshold at `now`.
     pub fn is_satisfied(&self, now: i64) -> bool {
-        now <= self.expires_at
-            && self.distinct_approvals() >= self.threshold
-            && self.threshold > 0
+        now <= self.expires_at && self.distinct_approvals() >= self.threshold && self.threshold > 0
     }
 }
 
@@ -459,10 +457,9 @@ impl fmt::Display for KeyError {
             KeyError::NotActive { key_id, state } => {
                 write!(f, "key '{key_id}' is {state:?} and may not sign")
             }
-            KeyError::NotYetValid {
-                key_id,
-                not_before,
-            } => write!(f, "key '{key_id}' is not valid before {not_before}"),
+            KeyError::NotYetValid { key_id, not_before } => {
+                write!(f, "key '{key_id}' is not valid before {not_before}")
+            }
             KeyError::Expired { key_id, not_after } => {
                 write!(f, "key '{key_id}' expired at {not_after}")
             }
@@ -777,11 +774,7 @@ impl KeyRegistry {
             });
         }
 
-        if let Some(existing) = self
-            .revocations
-            .iter()
-            .find(|entry| entry.key_id == key_id)
-        {
+        if let Some(existing) = self.revocations.iter().find(|entry| entry.key_id == key_id) {
             return Ok(existing.clone());
         }
 
@@ -850,12 +843,14 @@ impl KeyRegistry {
             bridge_secs,
             validity_secs,
         )?;
-        let old_root_key_id = receipt
-            .previous_key_id
-            .clone()
-            .ok_or_else(|| KeyError::ApprovalInvalid {
-                reason: "disaster re-key requires an existing root key to bridge from".to_string(),
-            })?;
+        let old_root_key_id =
+            receipt
+                .previous_key_id
+                .clone()
+                .ok_or_else(|| KeyError::ApprovalInvalid {
+                    reason: "disaster re-key requires an existing root key to bridge from"
+                        .to_string(),
+                })?;
         let bridge = BridgeWindow {
             old_root_key_id,
             new_root_key_id: new_root_key_id.to_string(),
@@ -1063,7 +1058,10 @@ mod tests {
         assert_eq!(registry.record("update-1").unwrap().not_after, 1_600);
         assert_eq!(registry.record("update-2").unwrap().state, KeyState::Active);
         assert_eq!(
-            registry.active_key(KeyDomain::UpdateSigner, 1_500).unwrap().key_id,
+            registry
+                .active_key(KeyDomain::UpdateSigner, 1_500)
+                .unwrap()
+                .key_id,
             "update-2"
         );
 
@@ -1168,8 +1166,7 @@ mod tests {
 
     #[test]
     fn decommission_zeroizes_and_fails_closed() {
-        let (custodian, mut registry) =
-            custodian_with_key(KeyDomain::TenantWrapping, "tenant-1");
+        let (custodian, mut registry) = custodian_with_key(KeyDomain::TenantWrapping, "tenant-1");
         let signed = registry
             .sign(&custodian, KeyDomain::TenantWrapping, b"dek", 2_000)
             .expect("sign");

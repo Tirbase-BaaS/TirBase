@@ -53,15 +53,15 @@ use crate::events::SecurityEvent;
 /// advanced" from "the device rebooted". It is stable for the lifetime of a
 /// boot and changes across reboots.
 pub trait TimeSource: Send + Sync + std::fmt::Debug {
- /// `CLOCK_BOOTTIME` in **microseconds** (monotonic, includes suspend time).
+    /// `CLOCK_BOOTTIME` in **microseconds** (monotonic, includes suspend time).
     fn monotonic_now(&self) -> u64;
 
- /// `CLOCK_REALTIME` in **microseconds** since the Unix epoch, if the
- /// platform exposes a wall clock (explicitly untrusted).
+    /// `CLOCK_REALTIME` in **microseconds** since the Unix epoch, if the
+    /// platform exposes a wall clock (explicitly untrusted).
     fn wall_hint(&self) -> Option<i64>;
 
- /// Identifier of the current boot (stable within one boot, changes across
- /// reboots).
+    /// Identifier of the current boot (stable within one boot, changes across
+    /// reboots).
     fn boot_id(&self) -> u64;
 }
 
@@ -73,13 +73,13 @@ pub trait TimeSource: Send + Sync + std::fmt::Debug {
 ///
 /// `monotonic_now` is derived from `std::time::Instant`, which is the
 /// `CLOCK_MONOTONIC` domain: monotonic and wall-clock-adjustment-proof, but it
-/// does not count time spent suspended. That difference is why 
+/// does not count time spent suspended. That difference is why
 /// supplies a direct `CLOCK_BOOTTIME` reader for production gateways.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct SystemTimeSource;
 
 impl SystemTimeSource {
- /// Construct a system time source.
+    /// Construct a system time source.
     pub fn new() -> Self {
         SystemTimeSource
     }
@@ -100,11 +100,11 @@ static MONOTONIC_ORIGIN: OnceLock<f64> = OnceLock::new();
 static DEFAULT_BOOT_ID: OnceLock<u64> = OnceLock::new();
 
 impl TimeSource for SystemTimeSource {
- // This is the clock boundary the `clippy::disallowed_methods` clock ban
- // (PV-3.12) exists to funnel everything through: `SystemTimeSource` is the
- // one implementation permitted to read the platform primitive, and the
- // allow cannot be removed without making the trait unimplementable. Every
- // other crate must obtain time through `TimeSource`.
+    // This is the clock boundary the `clippy::disallowed_methods` clock ban
+    // (PV-3.12) exists to funnel everything through: `SystemTimeSource` is the
+    // one implementation permitted to read the platform primitive, and the
+    // allow cannot be removed without making the trait unimplementable. Every
+    // other crate must obtain time through `TimeSource`.
     #[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
     #[allow(clippy::disallowed_methods)]
     fn monotonic_now(&self) -> u64 {
@@ -112,11 +112,11 @@ impl TimeSource for SystemTimeSource {
         origin.elapsed().as_micros() as u64
     }
 
- // wasm32-unknown-unknown has no OS clock: `Instant::now()` panics with
- // "time not implemented on this platform". `performance.now()` is the
- // browser's monotonic, high-resolution clock, so the WASM build uses it
- // (falling back to `Date.now()` when there is no `window.performance`,
- // e.g. inside a worker).
+    // wasm32-unknown-unknown has no OS clock: `Instant::now()` panics with
+    // "time not implemented on this platform". `performance.now()` is the
+    // browser's monotonic, high-resolution clock, so the WASM build uses it
+    // (falling back to `Date.now()` when there is no `window.performance`,
+    // e.g. inside a worker).
     #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
     fn monotonic_now(&self) -> u64 {
         let origin = MONOTONIC_ORIGIN.get_or_init(browser_monotonic_ms);
@@ -177,10 +177,10 @@ fn default_boot_id() -> u64 {
             return fnv1a64(raw.trim().as_bytes());
         }
     }
- // A browser page load is the WASM analogue of a boot, and both
- // `std::process::id()` and `SystemTime::now()` panic on
- // wasm32-unknown-unknown, so the identifier is derived from the browser
- // clock instead.
+    // A browser page load is the WASM analogue of a boot, and both
+    // `std::process::id()` and `SystemTime::now()` panic on
+    // wasm32-unknown-unknown, so the identifier is derived from the browser
+    // clock instead.
     #[cfg(all(target_arch = "wasm32", feature = "wasm"))]
     {
         let mut bytes = Vec::with_capacity(16);
@@ -188,9 +188,9 @@ fn default_boot_id() -> u64 {
         bytes.extend_from_slice(&js_sys::Math::random().to_le_bytes());
         return fnv1a64(&bytes);
     }
- // Non-Linux fallback: the process id plus the monotonic origin. This is
- // stable for the process but not across reboots; the production gateway
- // overrides `boot_id` with a kernel-derived value ().
+    // Non-Linux fallback: the process id plus the monotonic origin. This is
+    // stable for the process but not across reboots; the production gateway
+    // overrides `boot_id` with a kernel-derived value ().
     #[cfg(not(all(target_arch = "wasm32", feature = "wasm")))]
     {
         let mut bytes = Vec::with_capacity(16);
@@ -281,25 +281,25 @@ pub(crate) fn wall_hint_system_time() -> SystemTime {
 /// across the gateway's Tokio tasks.
 #[async_trait::async_trait]
 pub trait KeyProvider: Send + Sync + std::fmt::Debug {
- /// Sign `payload`, returning a typed [`DeviceSignature`].
- ///
- /// This is the synchronous path used by code that is not on an async
- /// runtime (delta production, token issuance).
+    /// Sign `payload`, returning a typed [`DeviceSignature`].
+    ///
+    /// This is the synchronous path used by code that is not on an async
+    /// runtime (delta production, token issuance).
     fn sign(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError>;
 
- /// Async variant for callers on a Tokio task whose provider may need to
- /// await hardware I/O (TPM2 / PKCS#11).
+    /// Async variant for callers on a Tokio task whose provider may need to
+    /// await hardware I/O (TPM2 / PKCS#11).
     async fn sign_async(&self, payload: &[u8]) -> Result<DeviceSignature, TirBaseError>;
 
- /// The public key bytes for this key (raw encoding for
- /// [`DeviceKeyType::Ed25519`], SEC1 uncompressed for
- /// [`DeviceKeyType::P256`]).
+    /// The public key bytes for this key (raw encoding for
+    /// [`DeviceKeyType::Ed25519`], SEC1 uncompressed for
+    /// [`DeviceKeyType::P256`]).
     fn public_key_bytes(&self) -> Vec<u8>;
 
- /// Algorithm of this key.
+    /// Algorithm of this key.
     fn key_type(&self) -> DeviceKeyType;
 
- /// The DID bound to this key (`did:key:z6Mk…`).
+    /// The DID bound to this key (`did:key:z6Mk…`).
     fn did(&self) -> &str;
 }
 
@@ -317,14 +317,14 @@ pub trait KeyProvider: Send + Sync + std::fmt::Debug {
 /// or eMMC RPMB). Required for any documented anti-rollback claim.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AssuranceLevel {
- /// Software-backed counter (WAL + `synchronous=FULL`).
+    /// Software-backed counter (WAL + `synchronous=FULL`).
     Level1,
- /// Hardware-backed counter (TPM2 NV index / eMMC RPMB).
+    /// Hardware-backed counter (TPM2 NV index / eMMC RPMB).
     Level2,
 }
 
 impl AssuranceLevel {
- /// Canonical string used in the boot diagnostic.
+    /// Canonical string used in the boot diagnostic.
     pub fn as_str(&self) -> &'static str {
         match self {
             AssuranceLevel::Level1 => "Level1",
@@ -340,18 +340,18 @@ impl AssuranceLevel {
 /// failures are reported as `Err` rather than being swallowed: a counter that
 /// silently fails to persist is worse than no counter.
 pub trait MonotonicCounterTrait: Send + Sync + std::fmt::Debug {
- /// Read the current value without changing it.
+    /// Read the current value without changing it.
     fn read(&self) -> Result<u64, TirBaseError>;
 
- /// Increment by one and return the new value.
+    /// Increment by one and return the new value.
     fn increment(&self) -> Result<u64, TirBaseError>;
 
- /// Raise the counter to `value` if `value` is greater than the current
- /// value; returns the value now stored. A lower `value` never moves the
- /// counter backwards.
+    /// Raise the counter to `value` if `value` is greater than the current
+    /// value; returns the value now stored. A lower `value` never moves the
+    /// counter backwards.
     fn set_if_greater(&self, value: u64) -> Result<u64, TirBaseError>;
 
- /// Assurance level reported in the gateway boot diagnostic (PV-9.8).
+    /// Assurance level reported in the gateway boot diagnostic (PV-9.8).
     fn assurance_level(&self) -> AssuranceLevel;
 }
 
@@ -367,7 +367,7 @@ pub trait MonotonicCounterTrait: Send + Sync + std::fmt::Debug {
 /// sequence numbers, and checkpointing — none of that state lives at the
 /// emission site.
 pub trait SecurityEventSink: Send + Sync + std::fmt::Debug {
- /// Record one event.
+    /// Record one event.
     fn emit(&self, event: SecurityEvent);
 }
 

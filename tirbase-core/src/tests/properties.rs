@@ -164,7 +164,7 @@ fn arb_field_def() -> impl Strategy<Value = FieldDef> {
 /// Strategy for a random `TableDef` with unique field names.
 fn arb_table_def() -> impl Strategy<Value = TableDef> {
     (arb_ident(), prop_vec(arb_field_def(), 1..=5)).prop_map(|(table_name, raw_fields)| {
- // Deduplicate field names to avoid schema ambiguity.
+        // Deduplicate field names to avoid schema ambiguity.
         let mut seen = std::collections::HashSet::new();
         let fields: Vec<FieldDef> = raw_fields
             .into_iter()
@@ -249,7 +249,7 @@ pub fn arb_delta(schema_hash: [u8; 32]) -> impl Strategy<Value = Delta> {
 /// Strategy for two concurrent Deltas (disjoint causal parents, random lamport).
 pub fn arb_delta_pair_concurrent(schema_hash: [u8; 32]) -> impl Strategy<Value = (Delta, Delta)> {
     (1u64..=50u64, 1u64..=50u64).prop_map(move |(lam_a, lam_b)| {
- // Use two different secrets so signatures are valid for different DIDs.
+        // Use two different secrets so signatures are valid for different DIDs.
         let secret_a = [0x01u8; 32];
         let secret_b = [0x02u8; 32];
         let da = make_signed_delta_from(&secret_a, schema_hash, lam_a, vec![0x01], vec![]);
@@ -265,7 +265,7 @@ pub fn arb_ordered_delta_sequence(schema_hash: [u8; 32]) -> impl Strategy<Value 
         let mut deltas: Vec<Delta> = Vec::new();
         for (i, payload) in payloads.into_iter().enumerate() {
             let parents: Vec<[u8; 32]> = if i > 0 && i % 2 == 0 {
- // Every other delta references the previous one as a parent.
+                // Every other delta references the previous one as a parent.
                 vec![deltas[i - 1].id]
             } else {
                 vec![]
@@ -1809,103 +1809,103 @@ mod prop_20_biscuit {
     };
 
     proptest! {
-        #![proptest_config(ProptestConfig::with_cases(30))]
+           #![proptest_config(ProptestConfig::with_cases(30))]
 
- /// Invariant (a): device is in SATURATE iff a valid Lease exists.
-        #[test]
-        fn prop_20a_saturate_iff_valid_lease_exists(
-            _dummy in 0u8..=0u8,
-        ) {
-            let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
-            let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
-            let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
+    /// Invariant (a): device is in SATURATE iff a valid Lease exists.
+           #[test]
+           fn prop_20a_saturate_iff_valid_lease_exists(
+               _dummy in 0u8..=0u8,
+           ) {
+               let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+               let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
+               let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
- // Before activation: must be NORMAL.
-            prop_assert_eq!(sm.state(), SaturateState::Normal);
-            prop_assert!(sm.lease().is_none());
+    // Before activation: must be NORMAL.
+               prop_assert_eq!(sm.state(), SaturateState::Normal);
+               prop_assert!(sm.lease().is_none());
 
- // After valid activation: must be SATURATE with a future lease.
-            sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
-                .expect("activate must succeed");
-            prop_assert_eq!(sm.state(), SaturateState::Saturate, "(a): must be in SATURATE");
-            let lease = sm.lease().expect("lease must exist after activation");
-            prop_assert!(
-                lease.expires_at > now_sec,
-                "(a): lease.expires_at must be in the future: expires={} now={}",
-                lease.expires_at, now_sec
-            );
-            prop_assert_eq!(
-                lease.expires_at,
-                now_sec + SATURATE_LEASE_DURATION_SECS,
-                "(a): lease duration must be exactly 60 minutes"
-            );
-        }
+    // After valid activation: must be SATURATE with a future lease.
+               sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
+                   .expect("activate must succeed");
+               prop_assert_eq!(sm.state(), SaturateState::Saturate, "(a): must be in SATURATE");
+               let lease = sm.lease().expect("lease must exist after activation");
+               prop_assert!(
+                   lease.expires_at > now_sec,
+                   "(a): lease.expires_at must be in the future: expires={} now={}",
+                   lease.expires_at, now_sec
+               );
+               prop_assert_eq!(
+                   lease.expires_at,
+                   now_sec + SATURATE_LEASE_DURATION_SECS,
+                   "(a): lease duration must be exactly 60 minutes"
+               );
+           }
 
- /// Invariant (b): Lease Termination Delta with < M sigs leaves mode unchanged.
-        #[test]
-        fn prop_20b_insufficient_termination_sigs_preserve_mode(
-            _dummy in 0u8..=0u8,
-        ) {
-            let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
- // threshold_m = 2, so 1 sig is insufficient.
-            let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
-            let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
+    /// Invariant (b): Lease Termination Delta with < M sigs leaves mode unchanged.
+           #[test]
+           fn prop_20b_insufficient_termination_sigs_preserve_mode(
+               _dummy in 0u8..=0u8,
+           ) {
+               let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+    // threshold_m = 2, so 1 sig is insufficient.
+               let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
+               let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
-            sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
-                .expect("activate");
+               sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
+                   .expect("activate");
 
- // 0 termination signatures → must stay SATURATE.
-            let _ = sm.terminate(vec![], b"term_msg", now_sec);
-            prop_assert_eq!(
-                sm.state(),
-                SaturateState::Saturate,
-                "(b): insufficient sigs must leave SATURATE unchanged"
-            );
-        }
+    // 0 termination signatures → must stay SATURATE.
+               let _ = sm.terminate(vec![], b"term_msg", now_sec);
+               prop_assert_eq!(
+                   sm.state(),
+                   SaturateState::Saturate,
+                   "(b): insufficient sigs must leave SATURATE unchanged"
+               );
+           }
 
- /// Invariant (c): invalid/missing token preserves current mode.
-        #[test]
-        fn prop_20c_invalid_token_preserves_mode(
-            _dummy in 0u8..=0u8,
-        ) {
-            let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
-            let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
-            let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
+    /// Invariant (c): invalid/missing token preserves current mode.
+           #[test]
+           fn prop_20c_invalid_token_preserves_mode(
+               _dummy in 0u8..=0u8,
+           ) {
+               let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+               let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
+               let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
- // In NORMAL: absent token returns error, mode unchanged.
-            sm.activate("did:key:test".to_string(), &[], now_sec).unwrap_err();
-            prop_assert_eq!(sm.state(), SaturateState::Normal, "(c): NORMAL preserved");
+    // In NORMAL: absent token returns error, mode unchanged.
+               sm.activate("did:key:test".to_string(), &[], now_sec).unwrap_err();
+               prop_assert_eq!(sm.state(), SaturateState::Normal, "(c): NORMAL preserved");
 
- // In NORMAL: token without disaster-alert caveat returns error, mode unchanged.
-            let (bad_token, bad_ca_pub) = make_token_without_disaster_alert_for_test(3600);
-            let mut sm2 = SaturateModeStateMachine::new(2, bad_ca_pub, SATURATE_LEASE_DURATION_SECS);
-            sm2.activate("did:key:test".to_string(), &bad_token, now_sec).unwrap_err();
-            prop_assert_eq!(sm2.state(), SaturateState::Normal, "(c): NORMAL preserved on no-caveat token");
-        }
+    // In NORMAL: token without disaster-alert caveat returns error, mode unchanged.
+               let (bad_token, bad_ca_pub) = make_token_without_disaster_alert_for_test(3600);
+               let mut sm2 = SaturateModeStateMachine::new(2, bad_ca_pub, SATURATE_LEASE_DURATION_SECS);
+               sm2.activate("did:key:test".to_string(), &bad_token, now_sec).unwrap_err();
+               prop_assert_eq!(sm2.state(), SaturateState::Normal, "(c): NORMAL preserved on no-caveat token");
+           }
 
- /// Invariant (d): lease expiry without renewal reverts to NORMAL.
-        #[test]
-        fn prop_20d_lease_expiry_reverts_to_normal(
-            _dummy in 0u8..=0u8,
-        ) {
-            let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
-            let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
-            let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
+    /// Invariant (d): lease expiry without renewal reverts to NORMAL.
+           #[test]
+           fn prop_20d_lease_expiry_reverts_to_normal(
+               _dummy in 0u8..=0u8,
+           ) {
+               let (token, ca_pub) = make_disaster_alert_token_for_test(3600);
+               let mut sm = SaturateModeStateMachine::new(2, ca_pub, SATURATE_LEASE_DURATION_SECS);
+               let now_sec = crate::traits::wall_hint_secs().unwrap_or(0);
 
-            sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
-                .expect("activate");
-            prop_assert_eq!(sm.state(), SaturateState::Saturate);
+               sm.activate("did:key:z6MkManager".to_string(), &token, now_sec)
+                   .expect("activate");
+               prop_assert_eq!(sm.state(), SaturateState::Saturate);
 
- // Advance clock past lease expiry.
-            sm.tick(now_sec + SATURATE_LEASE_DURATION_SECS + 1);
-            prop_assert_eq!(
-                sm.state(),
-                SaturateState::Normal,
-                "(d): must revert to NORMAL after lease expiry"
-            );
-            prop_assert!(sm.lease().is_none(), "(d): lease must be cleared after expiry");
-        }
-    }
+    // Advance clock past lease expiry.
+               sm.tick(now_sec + SATURATE_LEASE_DURATION_SECS + 1);
+               prop_assert_eq!(
+                   sm.state(),
+                   SaturateState::Normal,
+                   "(d): must revert to NORMAL after lease expiry"
+               );
+               prop_assert!(sm.lease().is_none(), "(d): lease must be cleared after expiry");
+           }
+       }
 }
 
 /// Property 20 (sequence) — activation, renewal, and M-of-N termination events
@@ -1951,7 +1951,11 @@ fn prop_20_sequence_covers_renewal_and_termination_events() {
     let renew_at = now + 5 * 60;
     sm.renew("did:key:z6MkManager".to_string(), &token, renew_at)
         .expect("renewal must succeed with valid heartbeat token in SATURATE");
-    assert_eq!(sm.state(), SaturateState::Saturate, "renewal keeps SATURATE");
+    assert_eq!(
+        sm.state(),
+        SaturateState::Saturate,
+        "renewal keeps SATURATE"
+    );
     let renewed_expiry = sm.lease().expect("lease after renewal").expires_at;
     assert_eq!(
         renewed_expiry,
@@ -1972,7 +1976,11 @@ fn prop_20_sequence_covers_renewal_and_termination_events() {
     let sig2 = sk2.sign(&msg).to_bytes().to_vec();
     sm.terminate(vec![(did1, sig1), (did2, sig2)], &msg, renew_at + 60)
         .expect("M-of-N termination must succeed");
-    assert_eq!(sm.state(), SaturateState::Normal, "termination returns to NORMAL");
+    assert_eq!(
+        sm.state(),
+        SaturateState::Normal,
+        "termination returns to NORMAL"
+    );
     assert!(sm.lease().is_none(), "lease cleared after termination");
 
     // Expiry event after a fresh activation+renewal sequence (no termination).
@@ -1983,7 +1991,11 @@ fn prop_20_sequence_covers_renewal_and_termination_events() {
         .expect("renewal");
     let expiry = sm2.lease().unwrap().expires_at;
     sm2.tick(expiry + 1);
-    assert_eq!(sm2.state(), SaturateState::Normal, "expiry after renewal reverts to NORMAL");
+    assert_eq!(
+        sm2.state(),
+        SaturateState::Normal,
+        "expiry after renewal reverts to NORMAL"
+    );
     assert!(sm2.lease().is_none());
 }
 

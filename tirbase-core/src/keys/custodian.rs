@@ -170,8 +170,8 @@ impl KeyCustodian for SoftwareCustodian {
         not_before: i64,
         not_after: i64,
     ) -> Result<KeyRecord, KeyError> {
-        let (seed, public_key) = keypair::generate_keypair()
-            .map_err(|_| KeyError::CustodianKeyMissing {
+        let (seed, public_key) =
+            keypair::generate_keypair().map_err(|_| KeyError::CustodianKeyMissing {
                 key_id: key_id.to_string(),
             })?;
         let mut keys = self.lock();
@@ -207,9 +207,11 @@ impl KeyCustodian for SoftwareCustodian {
         payload: &[u8],
     ) -> Result<DeviceSignature, KeyError> {
         let keys = self.lock();
-        let key = keys.get(key_id).ok_or_else(|| KeyError::CustodianKeyMissing {
-            key_id: key_id.to_string(),
-        })?;
+        let key = keys
+            .get(key_id)
+            .ok_or_else(|| KeyError::CustodianKeyMissing {
+                key_id: key_id.to_string(),
+            })?;
         if key.domain != domain {
             return Err(KeyError::DomainMismatch {
                 expected: domain,
@@ -244,9 +246,11 @@ impl KeyCustodian for SoftwareCustodian {
         effective_at: i64,
     ) -> Result<RevocationRecord, KeyError> {
         let keys = self.lock();
-        let key = keys.get(key_id).ok_or_else(|| KeyError::CustodianKeyMissing {
-            key_id: key_id.to_string(),
-        })?;
+        let key = keys
+            .get(key_id)
+            .ok_or_else(|| KeyError::CustodianKeyMissing {
+                key_id: key_id.to_string(),
+            })?;
         if key.domain != domain {
             return Err(KeyError::DomainMismatch {
                 expected: domain,
@@ -264,9 +268,11 @@ impl KeyCustodian for SoftwareCustodian {
 
     fn zeroize(&self, key_id: &str, now: i64) -> Result<ZeroizeReceipt, KeyError> {
         let mut keys = self.lock();
-        let key = keys.get_mut(key_id).ok_or_else(|| KeyError::CustodianKeyMissing {
-            key_id: key_id.to_string(),
-        })?;
+        let key = keys
+            .get_mut(key_id)
+            .ok_or_else(|| KeyError::CustodianKeyMissing {
+                key_id: key_id.to_string(),
+            })?;
         let already_destroyed = key.seed.is_none();
         // Dropping the `Secret` overwrites the seed bytes in place.
         drop(key.seed.take());
@@ -306,7 +312,14 @@ mod tests {
     fn zeroize_is_idempotent_and_blocks_signing() {
         let custodian = SoftwareCustodian::new();
         custodian
-            .from_seed(KeyDomain::ExportSigner, "export-1", 1, 1_000, 2_000, [7u8; 32])
+            .from_seed(
+                KeyDomain::ExportSigner,
+                "export-1",
+                1,
+                1_000,
+                2_000,
+                [7u8; 32],
+            )
             .expect("import");
 
         let first = custodian.zeroize("export-1", 1_500).expect("zeroize");

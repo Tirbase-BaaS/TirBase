@@ -50,24 +50,24 @@ pub use crate::crdt::inbound_caps::{
 /// Result of [`validate_start_op`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum StartOpValidation {
- /// All changes have dependency-consistent `start_op` values.
+    /// All changes have dependency-consistent `start_op` values.
     Ok,
- /// A change's `start_op` deviates from the value implied by its causal
- /// dependencies (clock/start_op poisoning). The delta must be quarantined
- /// as `ClockJump`.
+    /// A change's `start_op` deviates from the value implied by its causal
+    /// dependencies (clock/start_op poisoning). The delta must be quarantined
+    /// as `ClockJump`.
     ClockJump {
- /// Hex of the offending change hash, when available.
+        /// Hex of the offending change hash, when available.
         change_hash: Option<String>,
         expected: u64,
         actual: u64,
     },
- /// A causal dependency could not be resolved in the local document or within
- /// the incoming change set, so `start_op` cannot be verified yet. The
- /// caller should treat this as a missing dependency (pending queue).
- /// does not quarantine this as `ClockJump`.
+    /// A causal dependency could not be resolved in the local document or within
+    /// the incoming change set, so `start_op` cannot be verified yet. The
+    /// caller should treat this as a missing dependency (pending queue).
+    /// does not quarantine this as `ClockJump`.
     MissingDependency,
- /// The payload is not valid Automerge change data (empty or unparseable).
- /// Callers decide how to handle this; it is not a `ClockJump`.
+    /// The payload is not valid Automerge change data (empty or unparseable).
+    /// Callers decide how to handle this; it is not a `ClockJump`.
     NotAutomerge,
 }
 
@@ -90,10 +90,10 @@ pub(crate) fn validate_start_op(
         return StartOpValidation::NotAutomerge;
     }
 
- // Parse the incoming bytes as Automerge changes. `AutoCommit::load` accepts a
- // full document save (possibly multiple concatenated changes); `get_changes`
- // yields the individual changes with their metadata (start_op, len, deps,
- // hash).
+    // Parse the incoming bytes as Automerge changes. `AutoCommit::load` accepts a
+    // full document save (possibly multiple concatenated changes); `get_changes`
+    // yields the individual changes with their metadata (start_op, len, deps,
+    // hash).
     let mut incoming_doc = match automerge::AutoCommit::load(&delta.automerge_bytes) {
         Ok(doc) => doc,
         Err(_) => return StartOpValidation::NotAutomerge,
@@ -103,10 +103,9 @@ pub(crate) fn validate_start_op(
         return StartOpValidation::NotAutomerge;
     }
 
- // Index changes carried inside this payload so intra-payload dependencies
- // resolve (a batch may contain a chain).
-    let mut payload_index: BTreeMap<automerge::ChangeHash, (u64, u64)> =
-        BTreeMap::new();
+    // Index changes carried inside this payload so intra-payload dependencies
+    // resolve (a batch may contain a chain).
+    let mut payload_index: BTreeMap<automerge::ChangeHash, (u64, u64)> = BTreeMap::new();
     for change in &changes {
         let start = change.start_op().get();
         let len = change.len() as u64;
@@ -117,7 +116,7 @@ pub(crate) fn validate_start_op(
         let actual = change.start_op().get();
         let deps = change.deps();
 
- // expected = 1 + max(max_op(dep)) over deps, or 1 when there are no deps.
+        // expected = 1 + max(max_op(dep)) over deps, or 1 when there are no deps.
         let mut max_dep_op: Option<u64> = None;
         for dep_hash in deps {
             let (dep_start, dep_len) = if let Some(v) = payload_index.get(dep_hash) {
@@ -125,8 +124,8 @@ pub(crate) fn validate_start_op(
             } else if let Some(v) = known_changes.get(dep_hash) {
                 *v
             } else {
- // Dependency not resolvable — cannot verify yet ( pending
- // queue). Do not classify as ClockJump.
+                // Dependency not resolvable — cannot verify yet ( pending
+                // queue). Do not classify as ClockJump.
                 return StartOpValidation::MissingDependency;
             };
             if dep_len == 0 {
@@ -239,16 +238,16 @@ pub(crate) fn inflate_start_op_in_payload(
         inflated.push(recoded);
     }
 
- // Assemble a save payload containing the inflated changes. A fresh doc that
- // has no history cannot `load_incremental` changes whose dependencies are the
- // original (now-hashed-differently) chain, so we serialize the inflated
- // change bytes in order; each `automerge::Change::bytes()` is a valid chunk.
+    // Assemble a save payload containing the inflated changes. A fresh doc that
+    // has no history cannot `load_incremental` changes whose dependencies are the
+    // original (now-hashed-differently) chain, so we serialize the inflated
+    // change bytes in order; each `automerge::Change::bytes()` is a valid chunk.
     let mut out = Vec::new();
     for ch in &mut inflated {
         out.extend_from_slice(&ch.bytes());
     }
- // Verify the result is parseable as an Automerge load so the characterization
- // baseline (CrdtEngine::apply) and the validator see the same bytes.
+    // Verify the result is parseable as an Automerge load so the characterization
+    // baseline (CrdtEngine::apply) and the validator see the same bytes.
     automerge::AutoCommit::load(&out).map_err(|e| format!("inflated payload not loadable: {e}"))?;
     Ok(out)
 }
@@ -283,9 +282,9 @@ mod start_op_validation_tests {
         CrdtEngine::new(secret, public, did, schema, Arc::new(Mutex::new(conn)))
     }
 
- /// Sign `delta` over the inflated/hostile `automerge_bytes` so the CRDT
- /// hardening gate (which runs on the production inbound path) is the only
- /// thing that can reject it — signature/schema gates must pass.
+    /// Sign `delta` over the inflated/hostile `automerge_bytes` so the CRDT
+    /// hardening gate (which runs on the production inbound path) is the only
+    /// thing that can reject it — signature/schema gates must pass.
     fn sign_delta(
         secret: &[u8; 32],
         author_did: String,
@@ -311,24 +310,24 @@ mod start_op_validation_tests {
         d
     }
 
- /// A real Automerge scalar write payload (honest history, deps consistent).
+    /// A real Automerge scalar write payload (honest history, deps consistent).
     fn honest_scalar_payload(actor: &[u8], key: &str, value: &str) -> Vec<u8> {
         let mut doc = AutoCommit::new().with_actor(automerge::ActorId::from(actor));
         doc.put(ROOT, key, value).expect("put");
         doc.save()
     }
 
- /// The characterization/regression attack payload: honest write with
- /// `start_op` inflated far beyond what its (empty) dependency set allows.
- /// Expected `start_op` for a root change with no deps is 1; we inflate by a
- /// large offset so the change's op IDs dominate LWW on an unprotected merge.
+    /// The characterization/regression attack payload: honest write with
+    /// `start_op` inflated far beyond what its (empty) dependency set allows.
+    /// Expected `start_op` for a root change with no deps is 1; we inflate by a
+    /// large offset so the change's op IDs dominate LWW on an unprotected merge.
     fn inflated_start_op_payload(actor: &[u8], key: &str, value: &str, offset: u64) -> Vec<u8> {
         let honest = honest_scalar_payload(actor, key, value);
         inflate_start_op_in_payload(&honest, offset).expect("inflate start_op")
     }
 
- /// Record the observed winner for `key` in `engine` (best-effort via
- /// doc_map_range_root). Returns `None` if the key is absent/unreadable.
+    /// Record the observed winner for `key` in `engine` (best-effort via
+    /// doc_map_range_root). Returns `None` if the key is absent/unreadable.
     fn read_root_string(engine: &CrdtEngine, key: &str) -> Option<String> {
         let pairs = engine.doc_map_range_root();
         for (k, v) in pairs {
@@ -342,15 +341,15 @@ mod start_op_validation_tests {
         None
     }
 
- // ── 22.2 Characterization (PV-6.2, CLAIM-22.2) ───────────────────────────
- //
- // Applies a delta with an inflated `start_op` to an UNPROTECTED baseline
- // (CrdtEngine::apply bypasses the production `validate_start_op()` gate that
- // lives in `apply_incoming_delta`). Records that the attack wins the LWW
- // conflict. This test MUST FAIL if the attack no longer succeeds, prompting
- // review of the baseline assumption (PV-6.2). It is intentionally NOT a
- // "security passes" test — it documents the vulnerability the hardening
- // closes.
+    // ── 22.2 Characterization (PV-6.2, CLAIM-22.2) ───────────────────────────
+    //
+    // Applies a delta with an inflated `start_op` to an UNPROTECTED baseline
+    // (CrdtEngine::apply bypasses the production `validate_start_op()` gate that
+    // lives in `apply_incoming_delta`). Records that the attack wins the LWW
+    // conflict. This test MUST FAIL if the attack no longer succeeds, prompting
+    // review of the baseline assumption (PV-6.2). It is intentionally NOT a
+    // "security passes" test — it documents the vulnerability the hardening
+    // closes.
     #[test]
     fn characterization_inflated_start_op_wins_unprotected_lww() {
         let (sa, pa) = generate_keypair().unwrap();
@@ -360,7 +359,7 @@ mod start_op_validation_tests {
         let schema = test_schema();
         let mut engine = make_engine(sa, pa, did_a.clone(), schema);
 
- // Baseline: A writes the key with an honest (low) op range.
+        // Baseline: A writes the key with an honest (low) op range.
         let honest_a = honest_scalar_payload(&pa, "price", "honest_A");
         let delta_a = sign_delta(&sa, did_a.clone(), schema, 1, honest_a);
         let out_a = engine.apply(&delta_a).expect("apply honest A");
@@ -369,14 +368,14 @@ mod start_op_validation_tests {
             "honest baseline write must merge: {out_a:?}"
         );
 
- // Attack: B sends an inflated-start_op change for the same key. The
- // inflated op IDs place B's element far ahead in Automerge's LWW
- // element-id ordering, so on an UNPROTECTED merge B wins despite no
- // legitimate causal advantage.
+        // Attack: B sends an inflated-start_op change for the same key. The
+        // inflated op IDs place B's element far ahead in Automerge's LWW
+        // element-id ordering, so on an UNPROTECTED merge B wins despite no
+        // legitimate causal advantage.
         let inflated_b = inflated_start_op_payload(&pb, "price", "attacker_B", 1_000_000);
         let delta_b = sign_delta(&sb, did_b, schema, 2, inflated_b);
 
- // Sanity: the payload is actually hostile (validator would flag it).
+        // Sanity: the payload is actually hostile (validator would flag it).
         let known = known_change_index(engine.doc_mut());
         assert!(
             matches!(
@@ -386,9 +385,9 @@ mod start_op_validation_tests {
             "characterization precondition: inflated payload must be detected as ClockJump"
         );
 
- // UNPROTECTED baseline path: CrdtEngine::apply does not run start_op
- // validation. The attack MUST succeed here — if it doesn't, the baseline
- // changed and this characterization test fails to force review.
+        // UNPROTECTED baseline path: CrdtEngine::apply does not run start_op
+        // validation. The attack MUST succeed here — if it doesn't, the baseline
+        // changed and this characterization test fails to force review.
         let out_b = engine.apply(&delta_b).expect("unprotected apply attacker");
         assert!(
             matches!(out_b, MergeOutcome::Merged { .. }),
@@ -405,13 +404,13 @@ mod start_op_validation_tests {
         );
     }
 
- // ── 22.1 / 22.3 Regression (PV-6.1, PV-6.2, CLAIM-22.1, CLAIM-22.3) ─────
- //
- // The same inflated `start_op` delta is quarantined as `ClockJump` once
- // `validate_start_op()` is applied on the production inbound path
- // (`apply_incoming_delta`). Removing the `validate_start_op()` call must fail
- // this regression test (and 22.2 becomes the only outcome), satisfying the
- // wiring-mutation check.
+    // ── 22.1 / 22.3 Regression (PV-6.1, PV-6.2, CLAIM-22.1, CLAIM-22.3) ─────
+    //
+    // The same inflated `start_op` delta is quarantined as `ClockJump` once
+    // `validate_start_op()` is applied on the production inbound path
+    // (`apply_incoming_delta`). Removing the `validate_start_op()` call must fail
+    // this regression test (and 22.2 becomes the only outcome), satisfying the
+    // wiring-mutation check.
     #[test]
     fn regression_inflated_start_op_quarantined_after_validation() {
         let (sa, pa) = generate_keypair().unwrap();
@@ -421,7 +420,7 @@ mod start_op_validation_tests {
         let schema = test_schema();
         let mut engine = make_engine(sa, pa, did_a.clone(), schema);
 
- // Honest baseline state.
+        // Honest baseline state.
         let honest_a = honest_scalar_payload(&pa, "price", "honest_A");
         let delta_a = sign_delta(&sa, did_a, schema, 1, honest_a);
         assert!(matches!(
@@ -431,7 +430,7 @@ mod start_op_validation_tests {
 
         let before = read_root_string(&engine, "price");
 
- // Same attack shape as 22.2, but through the PROTECTED production path.
+        // Same attack shape as 22.2, but through the PROTECTED production path.
         let inflated_b = inflated_start_op_payload(&pb, "price", "attacker_B", 1_000_000);
         let delta_b = sign_delta(&sb, did_b, schema, 2, inflated_b);
         let outcome = apply_incoming_delta(&mut engine, &delta_b).unwrap();
@@ -444,7 +443,7 @@ mod start_op_validation_tests {
              quarantined as ClockJump on the production inbound path"
         );
 
- // State must be unchanged — the hostile delta must not merge.
+        // State must be unchanged — the hostile delta must not merge.
         let after = read_root_string(&engine, "price");
         assert_eq!(
             before, after,
@@ -452,7 +451,7 @@ mod start_op_validation_tests {
         );
     }
 
- // ── 22.1 direct validator contract ────────────────────────────────────────
+    // ── 22.1 direct validator contract ────────────────────────────────────────
     #[test]
     fn validate_start_op_rejects_deviation_and_accepts_honest() {
         let schema = test_schema();
@@ -493,13 +492,13 @@ mod start_op_validation_tests {
         }
     }
 
- // ── 22.4 Property test (P16, PV-6.1, CLAIM-22.4) ────────────────────────
- //
- // Honest Automerge histories with valid dependency chains always pass
- // `validate_start_op()`; any delta whose `start_op` is mutated away from the
- // dependency-implied value always fails. Uses proptest to generate random
- // honest chains and random start_op offsets. Relaxing `validate_start_op()`
- // constraints must fail this property test (wiring-mutation check).
+    // ── 22.4 Property test (P16, PV-6.1, CLAIM-22.4) ────────────────────────
+    //
+    // Honest Automerge histories with valid dependency chains always pass
+    // `validate_start_op()`; any delta whose `start_op` is mutated away from the
+    // dependency-implied value always fails. Uses proptest to generate random
+    // honest chains and random start_op offsets. Relaxing `validate_start_op()`
+    // constraints must fail this property test (wiring-mutation check).
     mod p16_proptest {
         use super::inflate_start_op_in_payload;
         use super::{validate_start_op, StartOpValidation};
@@ -509,11 +508,11 @@ mod start_op_validation_tests {
         use proptest::prelude::*;
         use std::collections::BTreeMap;
 
- /// Build an honest Automerge history of `steps` sequential scalar writes
- /// in one document (each write becomes/extends changes in the saved doc)
- /// and return the saved payload. A single-actor, single-doc save produces
- /// changes whose dependency chain is internally consistent (Automerge's
- /// own invariant), which is exactly the "honest history" P16 requires.
+        /// Build an honest Automerge history of `steps` sequential scalar writes
+        /// in one document (each write becomes/extends changes in the saved doc)
+        /// and return the saved payload. A single-actor, single-doc save produces
+        /// changes whose dependency chain is internally consistent (Automerge's
+        /// own invariant), which is exactly the "honest history" P16 requires.
         fn honest_history_payload(steps: u8, actor_seed: u8) -> Vec<u8> {
             let actor = [actor_seed; 16];
             let mut doc = AutoCommit::new().with_actor(automerge::ActorId::from(&actor[..]));
@@ -522,86 +521,86 @@ mod start_op_validation_tests {
                 let key = format!("k{i}");
                 let val = format!("v{i}");
                 doc.put(ROOT, key.as_str(), val.as_str()).expect("put");
- // commit so each step is materialized in the history
+                // commit so each step is materialized in the history
                 doc.commit();
             }
- // ensure at least the committed state is saved
+            // ensure at least the committed state is saved
             doc.save()
         }
 
         proptest! {
-            #![proptest_config(ProptestConfig::with_cases(64))]
+                   #![proptest_config(ProptestConfig::with_cases(64))]
 
- /// P16a (PV-6.1, CLAIM-22.4): any honest Automerge history with a
- /// valid dependency chain passes `validate_start_op()`.
-            #[test]
-            fn p16_honest_history_always_passes(
-                steps in 1u8..=6u8,
-                actor_seed in any::<u8>(),
-            ) {
-                let bytes = honest_history_payload(steps, actor_seed);
-                let mut delta = Delta {
-                    id: [0u8; 32],
-                    author_did: "did:key:z-p16".into(),
-                    signature: Ed25519Signature::default(),
-                    schema_hash: [0u8; 32],
-                    automerge_bytes: bytes,
-                    priority: PriorityClass::Low,
-                    causal_parents: vec![],
-                    tags: vec![],
-                    lamport: 1,
-                    created_at: 0,
-                };
-                delta.id = Delta::compute_id(&delta.canonical_bytes());
-                let known: BTreeMap<automerge::ChangeHash, (u64, u64)> = BTreeMap::new();
-                let res = validate_start_op(&delta, &known);
-                prop_assert!(
-                    matches!(res, StartOpValidation::Ok),
-                    "honest history (steps={steps}) must pass validate_start_op, got {res:?}"
-                );
-            }
+        /// P16a (PV-6.1, CLAIM-22.4): any honest Automerge history with a
+        /// valid dependency chain passes `validate_start_op()`.
+                   #[test]
+                   fn p16_honest_history_always_passes(
+                       steps in 1u8..=6u8,
+                       actor_seed in any::<u8>(),
+                   ) {
+                       let bytes = honest_history_payload(steps, actor_seed);
+                       let mut delta = Delta {
+                           id: [0u8; 32],
+                           author_did: "did:key:z-p16".into(),
+                           signature: Ed25519Signature::default(),
+                           schema_hash: [0u8; 32],
+                           automerge_bytes: bytes,
+                           priority: PriorityClass::Low,
+                           causal_parents: vec![],
+                           tags: vec![],
+                           lamport: 1,
+                           created_at: 0,
+                       };
+                       delta.id = Delta::compute_id(&delta.canonical_bytes());
+                       let known: BTreeMap<automerge::ChangeHash, (u64, u64)> = BTreeMap::new();
+                       let res = validate_start_op(&delta, &known);
+                       prop_assert!(
+                           matches!(res, StartOpValidation::Ok),
+                           "honest history (steps={steps}) must pass validate_start_op, got {res:?}"
+                       );
+                   }
 
- /// P16b (PV-6.1, CLAIM-22.4): mutating `start_op` away from the
- /// dependency-implied value always causes `validate_start_op()` to
- /// fail with `ClockJump` (not Ok). The mutation offset is non-zero.
-            #[test]
-            fn p16_mutated_start_op_always_fails(
-                steps in 1u8..=4u8,
-                actor_seed in any::<u8>(),
-                offset in 1u64..=1_000_000u64,
-            ) {
-                let honest = honest_history_payload(steps, actor_seed);
- // Inflate start_op in the payload; re-signing not needed because
- // validate_start_op inspects change metadata, not the TirBase sig.
-                let inflated = match super::inflate_start_op_in_payload(&honest, offset) {
-                    Ok(b) => b,
-                    Err(e) => {
- // If a particular history can't be inflated (should not
- // happen), treat as a test inconclusive for that case.
-                        return Err(proptest::test_runner::TestCaseError::reject(format!("inflate failed: {e}")));
-                    }
-                };
-                let mut delta = Delta {
-                    id: [0u8; 32],
-                    author_did: "did:key:z-p16-bad".into(),
-                    signature: Ed25519Signature::default(),
-                    schema_hash: [0u8; 32],
-                    automerge_bytes: inflated,
-                    priority: PriorityClass::Low,
-                    causal_parents: vec![],
-                    tags: vec![],
-                    lamport: 1,
-                    created_at: 0,
-                };
-                delta.id = Delta::compute_id(&delta.canonical_bytes());
-                let known: BTreeMap<automerge::ChangeHash, (u64, u64)> = BTreeMap::new();
-                let res = validate_start_op(&delta, &known);
-                prop_assert!(
-                    matches!(res, StartOpValidation::ClockJump { .. }),
-                    "mutated start_op (offset={offset}, steps={steps}) must fail as ClockJump, got {res:?}"
-                );
-            }
-        }
+        /// P16b (PV-6.1, CLAIM-22.4): mutating `start_op` away from the
+        /// dependency-implied value always causes `validate_start_op()` to
+        /// fail with `ClockJump` (not Ok). The mutation offset is non-zero.
+                   #[test]
+                   fn p16_mutated_start_op_always_fails(
+                       steps in 1u8..=4u8,
+                       actor_seed in any::<u8>(),
+                       offset in 1u64..=1_000_000u64,
+                   ) {
+                       let honest = honest_history_payload(steps, actor_seed);
+        // Inflate start_op in the payload; re-signing not needed because
+        // validate_start_op inspects change metadata, not the TirBase sig.
+                       let inflated = match super::inflate_start_op_in_payload(&honest, offset) {
+                           Ok(b) => b,
+                           Err(e) => {
+        // If a particular history can't be inflated (should not
+        // happen), treat as a test inconclusive for that case.
+                               return Err(proptest::test_runner::TestCaseError::reject(format!("inflate failed: {e}")));
+                           }
+                       };
+                       let mut delta = Delta {
+                           id: [0u8; 32],
+                           author_did: "did:key:z-p16-bad".into(),
+                           signature: Ed25519Signature::default(),
+                           schema_hash: [0u8; 32],
+                           automerge_bytes: inflated,
+                           priority: PriorityClass::Low,
+                           causal_parents: vec![],
+                           tags: vec![],
+                           lamport: 1,
+                           created_at: 0,
+                       };
+                       delta.id = Delta::compute_id(&delta.canonical_bytes());
+                       let known: BTreeMap<automerge::ChangeHash, (u64, u64)> = BTreeMap::new();
+                       let res = validate_start_op(&delta, &known);
+                       prop_assert!(
+                           matches!(res, StartOpValidation::ClockJump { .. }),
+                           "mutated start_op (offset={offset}, steps={steps}) must fail as ClockJump, got {res:?}"
+                       );
+                   }
+               }
     }
 }
 
@@ -832,9 +831,9 @@ impl InboundHardening {
         self.rate.sender_rejections(did)
     }
 
- /// Cheap-checks-first ordering (): rate limit → size → op count →
- /// dep check → start_op validation. Stages are evaluated in that order and
- /// the first failing stage is returned.
+    /// Cheap-checks-first ordering (): rate limit → size → op count →
+    /// dep check → start_op validation. Stages are evaluated in that order and
+    /// the first failing stage is returned.
     pub fn cheap_checks_first(
         &mut self,
         delta: &Delta,
@@ -901,19 +900,19 @@ impl InboundHardening {
         Ok(())
     }
 
- /// Enforce every configured [`InboundCaps`] value on an inbound Delta
- /// (PV-6.3, CLAIM-24.1/24.1a).
- ///
- /// This is the production receive-path gate: `CoreHandle::receive_inbound`
- /// passes the decoded [`InboundShape`] (or `None` for a payload that is not
- /// Automerge) and the current peer count. The first violated cap wins and
- /// the Delta is quarantined with the mapped reason code:
- ///
- /// connections → rate/burst → delta size → op count → batch changes →
- /// heads → deps per change → traversal budget.
- ///
- /// Shape-based caps are skipped for non-Automerge payloads (the legacy JSON
- /// envelope path), matching `cheap_checks_first`.
+    /// Enforce every configured [`InboundCaps`] value on an inbound Delta
+    /// (PV-6.3, CLAIM-24.1/24.1a).
+    ///
+    /// This is the production receive-path gate: `CoreHandle::receive_inbound`
+    /// passes the decoded [`InboundShape`] (or `None` for a payload that is not
+    /// Automerge) and the current peer count. The first violated cap wins and
+    /// the Delta is quarantined with the mapped reason code:
+    ///
+    /// connections → rate/burst → delta size → op count → batch changes →
+    /// heads → deps per change → traversal budget.
+    ///
+    /// Shape-based caps are skipped for non-Automerge payloads (the legacy JSON
+    /// envelope path), matching `cheap_checks_first`.
     pub fn enforce_inbound_caps(
         &mut self,
         delta: &Delta,
@@ -1048,10 +1047,10 @@ impl InboundHardening {
         Ok(())
     }
 
- /// Build a rejection, map it to its quarantine reason, and record it in the
- /// appropriate ledger (rate ledger for rate/size, schema quarantine ledger
- /// for the shape caps; connection violations emit an event only because they
- /// are not a Delta property).
+    /// Build a rejection, map it to its quarantine reason, and record it in the
+    /// appropriate ledger (rate ledger for rate/size, schema quarantine ledger
+    /// for the shape caps; connection violations emit an event only because they
+    /// are not a Delta property).
     fn quarantine_cap(
         &mut self,
         delta: &Delta,
@@ -1102,16 +1101,16 @@ impl InboundHardening {
 /// Structural facts about an inbound Automerge payload used by the cap gate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct InboundShape {
- /// Number of Automerge changes in the payload (batch size).
+    /// Number of Automerge changes in the payload (batch size).
     pub changes: usize,
- /// Sum of operation counts across changes.
+    /// Sum of operation counts across changes.
     pub ops: u64,
- /// Number of DAG heads after loading the payload.
+    /// Number of DAG heads after loading the payload.
     pub heads: usize,
- /// Maximum dependency count of any single change.
+    /// Maximum dependency count of any single change.
     pub max_deps: usize,
- /// Dependency-graph visits (`changes + total deps`) the `start_op`
- /// validator performs over this payload.
+    /// Dependency-graph visits (`changes + total deps`) the `start_op`
+    /// validator performs over this payload.
     pub traversal_visits: u64,
 }
 
@@ -1232,7 +1231,7 @@ mod inbound_caps_enforcement_tests {
         let d = test_delta(vec![1, 2, 3]);
         let s = shape(1, 1, 1, 0, 1);
 
- // Burst of 2 operations is allowed at the same instant.
+        // Burst of 2 operations is allowed at the same instant.
         assert!(h.enforce_inbound_caps(&d, Some(s), 0, 5_000_000, 5).is_ok());
         assert!(h.enforce_inbound_caps(&d, Some(s), 0, 5_000_000, 5).is_ok());
         let rej = h
@@ -1242,7 +1241,7 @@ mod inbound_caps_enforcement_tests {
         assert_eq!(rej.reason, ReasonCode::RateExceeded);
         assert_eq!(h.rate_sender_rejections(&d.author_did), 1);
 
- // One second later the bucket has refilled for exactly one more op.
+        // One second later the bucket has refilled for exactly one more op.
         let later = 5_000_000 + 1_000_000;
         assert!(h.enforce_inbound_caps(&d, Some(s), 0, later, 6).is_ok());
         assert!(h.enforce_inbound_caps(&d, Some(s), 0, later, 6).is_err());

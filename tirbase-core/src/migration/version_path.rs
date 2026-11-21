@@ -15,18 +15,18 @@ use crate::schema::hash::SchemaIdentifierHash;
 /// Registry of the deployment's ordered schema-version update path.
 #[derive(Debug, Clone, Default)]
 pub struct SchemaVersionPath {
- /// Ordered list of schema hashes from oldest to newest.
+    /// Ordered list of schema hashes from oldest to newest.
     pub versions: Vec<SchemaIdentifierHash>,
 }
 
 impl SchemaVersionPath {
- /// Create a new registry from an ordered list of schema hashes.
+    /// Create a new registry from an ordered list of schema hashes.
     pub fn new(versions: Vec<SchemaIdentifierHash>) -> Self {
         Self { versions }
     }
 
- /// Return the next schema hash after `current`, or `None` if `current` is
- /// the latest or is not found in the path.
+    /// Return the next schema hash after `current`, or `None` if `current` is
+    /// the latest or is not found in the path.
     pub fn next_version(&self, current: &SchemaIdentifierHash) -> Option<&SchemaIdentifierHash> {
         self.versions
             .iter()
@@ -34,12 +34,12 @@ impl SchemaVersionPath {
             .and_then(|idx| self.versions.get(idx + 1))
     }
 
- /// Return the current (latest) schema hash, if any versions are registered.
+    /// Return the current (latest) schema hash, if any versions are registered.
     pub fn current_version(&self) -> Option<&SchemaIdentifierHash> {
         self.versions.last()
     }
 
- /// Check that a migration's source → target step is valid in this path.
+    /// Check that a migration's source → target step is valid in this path.
     pub fn is_valid_step(
         &self,
         source: &SchemaIdentifierHash,

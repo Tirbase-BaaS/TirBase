@@ -30,33 +30,33 @@ pub const MESH_CHALLENGE_CONTEXT: &str = "TirBase/v1/MeshChallenge";
 /// A peer request for a challenge nonce.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MeshChallengeRequest {
- /// Random request identifier chosen by the requesting guard.
+    /// Random request identifier chosen by the requesting guard.
     pub request_id: [u8; 32],
- /// DID of the guard instance that must receive the response.
+    /// DID of the guard instance that must receive the response.
     pub origin_guard_did: String,
- /// DID of the peer asking for the nonce (audit only; never trusted for
- /// authorization by the issuing guard).
+    /// DID of the peer asking for the nonce (audit only; never trusted for
+    /// authorization by the issuing guard).
     pub requester_did: String,
- /// Issuer the nonce is scoped to.
+    /// Issuer the nonce is scoped to.
     pub issuer_did: String,
- /// Command target.
+    /// Command target.
     pub target_id: String,
- /// Critical parameter name.
+    /// Critical parameter name.
     pub param: String,
- /// SHA-256 of the canonical command body, binding the nonce to one command.
+    /// SHA-256 of the canonical command body, binding the nonce to one command.
     pub command_hash: [u8; 32],
- /// Best-effort monotonic hint at request time (diagnostics only).
+    /// Best-effort monotonic hint at request time (diagnostics only).
     pub requested_at_mono: i64,
 }
 
 /// A challenge nonce (or typed refusal) routed back to the originating guard.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MeshChallengeResponse {
- /// Echo of the request identifier.
+    /// Echo of the request identifier.
     pub request_id: [u8; 32],
- /// Guard instance that must consume this response.
+    /// Guard instance that must consume this response.
     pub origin_guard_did: String,
- /// Guard instance that issued (or refused) the nonce.
+    /// Guard instance that issued (or refused) the nonce.
     pub responder_guard_did: String,
     pub issuer_did: String,
     pub target_id: String,
@@ -73,7 +73,7 @@ pub struct MeshChallengeResponse {
 
 /// A guard-side issuer plugged into [`crate::api::CoreHandle`].
 pub trait MeshChallengeHandler: Send + Sync {
- /// Issue a nonce for `request`, or return a typed refusal string.
+    /// Issue a nonce for `request`, or return a typed refusal string.
     fn issue_challenge(&self, request: &MeshChallengeRequest)
         -> Result<MeshChallengeNonce, String>;
 }

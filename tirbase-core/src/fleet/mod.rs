@@ -60,9 +60,9 @@ pub const MAX_ENTRIES_PER_UPDATE: usize = 4096;
 /// Lifecycle state of one fleet member.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DeviceLifecycle {
- /// Device is enrolled in the fleet and may participate.
+    /// Device is enrolled in the fleet and may participate.
     Provisioned,
- /// Device has been revoked; this state is terminal in the CRDT.
+    /// Device has been revoked; this state is terminal in the CRDT.
     Revoked,
 }
 
@@ -72,22 +72,22 @@ pub enum DeviceLifecycle {
 /// [`MAX_PROVISIONING_PAYLOAD_BYTES`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeviceProvisioning {
- /// Device DID (`did:key:z…`).
+    /// Device DID (`did:key:z…`).
     pub device_id: Did,
- /// Deployment device class (e.g. `"cold-room-gateway"`).
+    /// Deployment device class (e.g. `"cold-room-gateway"`).
     pub device_class: String,
- /// Envelope profile the device is provisioned with (`ProfileId`).
+    /// Envelope profile the device is provisioned with (`ProfileId`).
     pub profile_id: [u8; 16],
- /// Ed25519 public key of the device.
+    /// Ed25519 public key of the device.
     pub public_key: Vec<u8>,
- /// Enrolment timestamp in authenticated wall time (UTC seconds).
+    /// Enrolment timestamp in authenticated wall time (UTC seconds).
     pub enrolled_at_est: i64,
- /// Free-form operator labels (site, rack, asset tag, …).
+    /// Free-form operator labels (site, rack, asset tag, …).
     pub labels: BTreeMap<String, String>,
 }
 
 impl DeviceProvisioning {
- /// Construct a minimal provisioning record with a 32-byte Ed25519 key.
+    /// Construct a minimal provisioning record with a 32-byte Ed25519 key.
     pub fn new(
         device_id: impl Into<Did>,
         device_class: impl Into<String>,
@@ -105,7 +105,7 @@ impl DeviceProvisioning {
         }
     }
 
- /// Serialised size of this provisioning payload in bytes.
+    /// Serialised size of this provisioning payload in bytes.
     pub fn payload_len(&self) -> Result<usize, FleetError> {
         serde_json::to_vec(self)
             .map(|bytes| bytes.len())
@@ -114,7 +114,7 @@ impl DeviceProvisioning {
             })
     }
 
- /// Enforce the 64 KiB provisioning-payload cap.
+    /// Enforce the 64 KiB provisioning-payload cap.
     pub fn validate_size(&self) -> Result<(), FleetError> {
         let size = self.payload_len()?;
         if size > MAX_PROVISIONING_PAYLOAD_BYTES {
@@ -130,46 +130,46 @@ impl DeviceProvisioning {
 /// One device entry in the fleet inventory.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetEntry {
- /// Device DID; always equal to the map key it is stored under.
+    /// Device DID; always equal to the map key it is stored under.
     pub device_id: Did,
- /// Current lifecycle state.
+    /// Current lifecycle state.
     pub lifecycle: DeviceLifecycle,
- /// CRDT version of the last state change (Lamport value).
+    /// CRDT version of the last state change (Lamport value).
     pub version: u64,
- /// DID of the node that produced this state change (deterministic
- /// tie-break for concurrent changes at the same version).
+    /// DID of the node that produced this state change (deterministic
+    /// tie-break for concurrent changes at the same version).
     pub updated_by: Did,
- /// Authenticated wall time of the last state change (UTC seconds).
+    /// Authenticated wall time of the last state change (UTC seconds).
     pub updated_at_est: i64,
- /// Provisioning record (retained after revocation for audit).
+    /// Provisioning record (retained after revocation for audit).
     pub provisioning: Option<DeviceProvisioning>,
- /// Reason string recorded with a revocation.
+    /// Reason string recorded with a revocation.
     pub revocation_reason: Option<String>,
 }
 
 impl FleetEntry {
- /// `true` when this entry records a revocation.
+    /// `true` when this entry records a revocation.
     pub fn is_revoked(&self) -> bool {
         self.lifecycle == DeviceLifecycle::Revoked
     }
 
- /// Join two entries for the same device into the CRDT-dominant one.
- ///
- /// Returns the dominant entry (which may be `self`).
+    /// Join two entries for the same device into the CRDT-dominant one.
+    ///
+    /// Returns the dominant entry (which may be `self`).
     fn join(&self, other: &FleetEntry) -> FleetEntry {
         let other_wins = match (self.lifecycle, other.lifecycle) {
- // Revocation is monotonic: it always dominates provisioning,
- // regardless of version.
+            // Revocation is monotonic: it always dominates provisioning,
+            // regardless of version.
             (DeviceLifecycle::Provisioned, DeviceLifecycle::Revoked) => true,
             (DeviceLifecycle::Revoked, DeviceLifecycle::Provisioned) => false,
- // Same lifecycle: greatest (version, updated_by) wins.
+            // Same lifecycle: greatest (version, updated_by) wins.
             _ => match (other.version, &other.updated_by).cmp(&(self.version, &self.updated_by)) {
                 std::cmp::Ordering::Greater => true,
                 std::cmp::Ordering::Less => false,
- // Identical version and actor can only differ if a peer sent an
- // entry it did not derive (or two nodes shared an actor id).
- // Fall back to a canonical-content tie-break so every replica
- // still converges on the same entry.
+                // Identical version and actor can only differ if a peer sent an
+                // entry it did not derive (or two nodes shared an actor id).
+                // Fall back to a canonical-content tie-break so every replica
+                // still converges on the same entry.
                 std::cmp::Ordering::Equal => {
                     let self_bytes = serde_json::to_vec(self).unwrap_or_default();
                     let other_bytes = serde_json::to_vec(other).unwrap_or_default();
@@ -188,19 +188,19 @@ impl FleetEntry {
 /// Errors produced by the fleet inventory.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum FleetError {
- /// A provisioning payload exceeds the PV-11.3 64 KiB cap.
+    /// A provisioning payload exceeds the PV-11.3 64 KiB cap.
     #[error("provisioning payload is {size} bytes; the fleet limit is {max} bytes (PV-11.3)")]
     ProvisioningPayloadTooLarge { size: usize, max: usize },
- /// A provisioning record is structurally invalid.
+    /// A provisioning record is structurally invalid.
     #[error("invalid provisioning record: {reason}")]
     InvalidProvisioning { reason: String },
- /// A revoked device cannot be re-provisioned.
+    /// A revoked device cannot be re-provisioned.
     #[error("device {device_id} is revoked and cannot be re-provisioned")]
     DeviceRevoked { device_id: Did },
- /// An inbound update exceeds the entry-count bound.
+    /// An inbound update exceeds the entry-count bound.
     #[error("fleet update carries {count} entries; the maximum is {max}")]
     TooManyEntries { count: usize, max: usize },
- /// Serialisation failure.
+    /// Serialisation failure.
     #[error("fleet inventory serialisation failed: {reason}")]
     Serialisation { reason: String },
 }
@@ -208,18 +208,18 @@ pub enum FleetError {
 /// Result of merging an inbound [`FleetInventoryDelta`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FleetMergeReport {
- /// Entries whose merged state changed locally.
+    /// Entries whose merged state changed locally.
     pub applied: usize,
- /// Entries already at or above the incoming state.
+    /// Entries already at or above the incoming state.
     pub unchanged: usize,
- /// Entries rejected as malformed or over the payload cap.
+    /// Entries rejected as malformed or over the payload cap.
     pub rejected: usize,
- /// Device DIDs that became revoked as a result of this merge.
+    /// Device DIDs that became revoked as a result of this merge.
     pub newly_revoked: Vec<Did>,
 }
 
 impl FleetMergeReport {
- /// `true` when the merge changed any local state.
+    /// `true` when the merge changed any local state.
     pub fn changed(&self) -> bool {
         self.applied > 0
     }
@@ -228,16 +228,16 @@ impl FleetMergeReport {
 /// Wire form of a fleet-inventory change set.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FleetInventoryDelta {
- /// DID of the node that produced the update.
+    /// DID of the node that produced the update.
     pub origin_did: Did,
- /// Entries the origin wants its peers to merge.
+    /// Entries the origin wants its peers to merge.
     pub entries: Vec<FleetEntry>,
- /// Authenticated wall time the update was produced (UTC seconds).
+    /// Authenticated wall time the update was produced (UTC seconds).
     pub sent_at_est: i64,
 }
 
 impl FleetInventoryDelta {
- /// Build an update carrying the given device IDs from `inventory`.
+    /// Build an update carrying the given device IDs from `inventory`.
     pub fn from_inventory(
         inventory: &FleetInventory,
         origin_did: impl Into<Did>,
@@ -264,32 +264,32 @@ pub struct FleetInventory {
 }
 
 impl FleetInventory {
- /// Create an empty inventory.
+    /// Create an empty inventory.
     pub fn new() -> Self {
         Self::default()
     }
 
- /// Number of known devices (provisioned and revoked).
+    /// Number of known devices (provisioned and revoked).
     pub fn len(&self) -> usize {
         self.devices.len()
     }
 
- /// `true` when no device is known.
+    /// `true` when no device is known.
     pub fn is_empty(&self) -> bool {
         self.devices.is_empty()
     }
 
- /// Current Lamport value of the collection.
+    /// Current Lamport value of the collection.
     pub fn lamport(&self) -> u64 {
         self.lamport
     }
 
- /// Look up one device.
+    /// Look up one device.
     pub fn get(&self, device_id: &str) -> Option<&FleetEntry> {
         self.devices.get(device_id)
     }
 
- /// `true` when the device is known and revoked.
+    /// `true` when the device is known and revoked.
     pub fn is_revoked(&self, device_id: &str) -> bool {
         self.devices
             .get(device_id)
@@ -297,7 +297,7 @@ impl FleetInventory {
             .unwrap_or(false)
     }
 
- /// DIDs of every revoked device, in deterministic order.
+    /// DIDs of every revoked device, in deterministic order.
     pub fn revoked_device_ids(&self) -> Vec<Did> {
         self.devices
             .values()
@@ -306,20 +306,20 @@ impl FleetInventory {
             .collect()
     }
 
- /// All entries, in DID order.
+    /// All entries, in DID order.
     pub fn entries(&self) -> impl Iterator<Item = &FleetEntry> {
         self.devices.values()
     }
 
- /// Materialise a snapshot of all entries in DID order.
+    /// Materialise a snapshot of all entries in DID order.
     pub fn snapshot(&self) -> Vec<FleetEntry> {
         self.devices.values().cloned().collect()
     }
 
- /// Provision (or re-provision) a device.
- ///
- /// The provisioning payload must not exceed [`MAX_PROVISIONING_PAYLOAD_BYTES`].
- /// A device that is already revoked cannot be re-provisioned.
+    /// Provision (or re-provision) a device.
+    ///
+    /// The provisioning payload must not exceed [`MAX_PROVISIONING_PAYLOAD_BYTES`].
+    /// A device that is already revoked cannot be re-provisioned.
     pub fn provision(
         &mut self,
         provisioning: DeviceProvisioning,
@@ -353,12 +353,12 @@ impl FleetInventory {
         Ok(entry)
     }
 
- /// Revoke a device.
- ///
- /// Revocation is terminal: revoking an already-revoked device is an
- /// idempotent no-op that returns `Ok(false)`. A device that was never
- /// provisioned is still revoked — the tombstone prevents a later
- /// provisioning record for that DID from being applied.
+    /// Revoke a device.
+    ///
+    /// Revocation is terminal: revoking an already-revoked device is an
+    /// idempotent no-op that returns `Ok(false)`. A device that was never
+    /// provisioned is still revoked — the tombstone prevents a later
+    /// provisioning record for that DID from being applied.
     pub fn revoke(
         &mut self,
         device_id: &str,
@@ -393,7 +393,7 @@ impl FleetInventory {
         Ok(true)
     }
 
- /// Merge one untrusted remote entry.
+    /// Merge one untrusted remote entry.
     fn merge_entry(&mut self, incoming: FleetEntry) -> Result<bool, FleetError> {
         if incoming.device_id.trim().is_empty() {
             return Err(FleetError::InvalidProvisioning {
@@ -422,10 +422,10 @@ impl FleetInventory {
         }
     }
 
- /// Merge a remote update into this inventory.
- ///
- /// Malformed or oversized entries are rejected without affecting the rest
- /// of the update, so one bad entry cannot poison a peer's whole delta.
+    /// Merge a remote update into this inventory.
+    ///
+    /// Malformed or oversized entries are rejected without affecting the rest
+    /// of the update, so one bad entry cannot poison a peer's whole delta.
     pub fn apply_update(&mut self, update: &FleetInventoryDelta) -> FleetMergeReport {
         let mut report = FleetMergeReport::default();
         if update.entries.len() > MAX_ENTRIES_PER_UPDATE {
@@ -448,7 +448,7 @@ impl FleetInventory {
         report
     }
 
- /// Merge a whole inventory replica (state-based merge).
+    /// Merge a whole inventory replica (state-based merge).
     pub fn merge(&mut self, other: &FleetInventory) -> FleetMergeReport {
         let update = FleetInventoryDelta {
             origin_did: "local-merge".to_string(),
@@ -458,8 +458,8 @@ impl FleetInventory {
         self.apply_update(&update)
     }
 
- /// Build a delta containing every entry (used to bring a newly connected
- /// peer up to date).
+    /// Build a delta containing every entry (used to bring a newly connected
+    /// peer up to date).
     pub fn full_update(&self, origin_did: impl Into<Did>, sent_at_est: i64) -> FleetInventoryDelta {
         FleetInventoryDelta {
             origin_did: origin_did.into(),
@@ -468,11 +468,11 @@ impl FleetInventory {
         }
     }
 
- /// SHA-256 over the canonical JSON snapshot of the inventory.
- ///
- /// Equal inventories (same entries in DID order) always produce the same
- /// hash on every replica and platform. This value is the fleet
- /// precondition hash a Contract migration can commit to ().
+    /// SHA-256 over the canonical JSON snapshot of the inventory.
+    ///
+    /// Equal inventories (same entries in DID order) always produce the same
+    /// hash on every replica and platform. This value is the fleet
+    /// precondition hash a Contract migration can commit to ().
     pub fn snapshot_hash(&self) -> [u8; 32] {
         let canonical = serde_json::to_vec(&self.snapshot()).unwrap_or_default();
         let mut hasher = Sha256::new();
@@ -499,7 +499,7 @@ pub struct FleetInventoryVerifier {
 }
 
 impl FleetInventoryVerifier {
- /// Create a verifier over a shared inventory.
+    /// Create a verifier over a shared inventory.
     pub fn new(inventory: Arc<Mutex<FleetInventory>>) -> Self {
         Self { inventory }
     }
@@ -556,7 +556,7 @@ mod tests {
         ));
         assert!(inv.is_empty());
 
- // Just under the limit is accepted.
+        // Just under the limit is accepted.
         let mut fits = provisioning("did:key:zFits", 0);
         fits.labels
             .insert("blob".to_string(), "x".repeat(48 * 1024));
@@ -599,7 +599,7 @@ mod tests {
         inv.revoke("did:key:z9", "stolen", "did:key:zA", 300)
             .unwrap();
 
- // A concurrent, higher-version provisioning record must not resurrect.
+        // A concurrent, higher-version provisioning record must not resurrect.
         let stale_provisioning = FleetEntry {
             device_id: "did:key:z9".to_string(),
             lifecycle: DeviceLifecycle::Provisioned,
@@ -712,7 +712,7 @@ mod tests {
             "a mismatched fleet precondition hash must be rejected"
         );
 
- // Empty inventory rejects even a hash that "matches" its empty state.
+        // Empty inventory rejects even a hash that "matches" its empty state.
         let empty = FleetInventory::new();
         let empty_hash = empty.snapshot_hash();
         let empty_verifier =

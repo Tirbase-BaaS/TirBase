@@ -53,7 +53,7 @@ impl InboundCaps {
         Self::default()
     }
 
- /// Map a cap violation to the corresponding quarantine reason code.
+    /// Map a cap violation to the corresponding quarantine reason code.
     pub fn quarantine_reason_for_violation(violation: InboundCapViolation) -> ReasonCode {
         match violation {
             InboundCapViolation::RateExceeded => ReasonCode::RateExceeded,
@@ -100,8 +100,8 @@ struct TokenBucket {
 const TOKEN_MILLI: u64 = 1000;
 
 impl InboundRateLimiter {
- /// Consume `ops` tokens for `sender`, refilling from elapsed monotonic time.
- /// Returns `false` when the sender is over its configured rate/burst.
+    /// Consume `ops` tokens for `sender`, refilling from elapsed monotonic time.
+    /// Returns `false` when the sender is over its configured rate/burst.
     pub(crate) fn check(
         &mut self,
         sender: &str,

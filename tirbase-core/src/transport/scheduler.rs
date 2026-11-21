@@ -19,9 +19,9 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone)]
 pub struct QueuedDelta {
     pub delta: Delta,
- /// Pre-computed serialised byte length for scheduling.
+    /// Pre-computed serialised byte length for scheduling.
     pub serialized_len: u64,
- /// Timestamp when this Delta was enqueued (UTC microseconds).
+    /// Timestamp when this Delta was enqueued (UTC microseconds).
     pub enqueued_at: i64,
 }
 
@@ -34,32 +34,32 @@ pub struct QueuedDelta {
 /// is also the unit of the LOW-queue 10-epoch bound request.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct SchedulerStats {
- /// Number of completed scheduling epochs (`tick` calls).
+    /// Number of completed scheduling epochs (`tick` calls).
     pub epochs: u64,
- /// Bytes actually transmitted from the HIGH queue.
+    /// Bytes actually transmitted from the HIGH queue.
     pub high_bytes: u64,
- /// Bytes actually transmitted from the MEDIUM queue.
+    /// Bytes actually transmitted from the MEDIUM queue.
     pub medium_bytes: u64,
- /// Bytes actually transmitted from the LOW queue.
+    /// Bytes actually transmitted from the LOW queue.
     pub low_bytes: u64,
- /// Deltas actually transmitted from each queue.
+    /// Deltas actually transmitted from each queue.
     pub high_deltas: u64,
     pub medium_deltas: u64,
     pub low_deltas: u64,
 }
 
 impl SchedulerStats {
- /// Total bytes transmitted across all three classes.
+    /// Total bytes transmitted across all three classes.
     pub fn total_bytes(&self) -> u64 {
         self.high_bytes + self.medium_bytes + self.low_bytes
     }
 
- /// Total Deltas transmitted across all three classes.
+    /// Total Deltas transmitted across all three classes.
     pub fn total_deltas(&self) -> u64 {
         self.high_deltas + self.medium_deltas + self.low_deltas
     }
 
- /// Bytes transmitted for `class`.
+    /// Bytes transmitted for `class`.
     pub fn bytes_for(&self, class: PriorityClass) -> u64 {
         match class {
             PriorityClass::High => self.high_bytes,
@@ -68,8 +68,8 @@ impl SchedulerStats {
         }
     }
 
- /// Fraction of transmitted bytes that went to `class` (0.0 when nothing was
- /// transmitted yet).
+    /// Fraction of transmitted bytes that went to `class` (0.0 when nothing was
+    /// transmitted yet).
     pub fn fraction_for(&self, class: PriorityClass) -> f64 {
         let total = self.total_bytes();
         if total == 0 {
@@ -86,18 +86,18 @@ pub struct DrrScheduler {
     medium_queue: VecDeque<QueuedDelta>,
     low_queue: VecDeque<QueuedDelta>,
 
- // Deficit counters (bytes)
+    // Deficit counters (bytes)
     high_deficit: i64,
     medium_deficit: i64,
     low_deficit: i64,
 
- // Quantum allotments per scheduling epoch (1 second)
- // Computed from link_capacity_bps at init and on link change.
+    // Quantum allotments per scheduling epoch (1 second)
+    // Computed from link_capacity_bps at init and on link change.
     high_quantum: u64,   // 70% of epoch capacity
     medium_quantum: u64, // 20% of epoch capacity
     low_quantum: u64,    // 10% of epoch capacity
 
-     /// True when Saturate_Mode is active (Req 13.2).
+    /// True when Saturate_Mode is active (Req 13.2).
     saturate_mode: bool,
 
     /// Production-safe transmission counters (see [`SchedulerStats`]).
@@ -105,7 +105,7 @@ pub struct DrrScheduler {
 }
 
 impl DrrScheduler {
- /// Create a new scheduler for the given link capacity in bytes per second.
+    /// Create a new scheduler for the given link capacity in bytes per second.
     pub fn new(link_capacity_bytes_per_sec: u64) -> Self {
         let high_quantum = (link_capacity_bytes_per_sec * 70) / 100;
         let medium_quantum = (link_capacity_bytes_per_sec * 20) / 100;
@@ -125,12 +125,12 @@ impl DrrScheduler {
         }
     }
 
- /// Update the link capacity and recompute quantum allotments.
- ///
- /// Call this when the active transport reports a link speed change. The
- /// deficit counters are denominated in bytes of the *previous* link's floor
- /// allotment, so they are cleared: carrying them across a capacity change
- /// would let the new link burst (or starve) on stale credit.
+    /// Update the link capacity and recompute quantum allotments.
+    ///
+    /// Call this when the active transport reports a link speed change. The
+    /// deficit counters are denominated in bytes of the *previous* link's floor
+    /// allotment, so they are cleared: carrying them across a capacity change
+    /// would let the new link burst (or starve) on stale credit.
     pub fn update_link_capacity(&mut self, link_capacity_bytes_per_sec: u64) {
         self.high_quantum = (link_capacity_bytes_per_sec * 70) / 100;
         self.medium_quantum = (link_capacity_bytes_per_sec * 20) / 100;
@@ -140,7 +140,7 @@ impl DrrScheduler {
         self.low_deficit = 0;
     }
 
- /// Enqueue a Delta for transmission in the appropriate priority queue (Req 12.1).
+    /// Enqueue a Delta for transmission in the appropriate priority queue (Req 12.1).
     pub fn enqueue(&mut self, delta: QueuedDelta) {
         match delta.delta.priority {
             PriorityClass::High => self.high_queue.push_back(delta),
@@ -149,16 +149,16 @@ impl DrrScheduler {
         }
     }
 
- /// Run one scheduling epoch (1 second) and return the Deltas to transmit
- /// in order (design §DRR Scheduler Implementation, `tick()`).
- ///
- /// In Saturate_Mode all bandwidth goes to HIGH; MEDIUM and LOW are queued
- /// without dropping (Req 13.2).
- ///
- /// Returns the drained `QueuedDelta`s in transmission order.
+    /// Run one scheduling epoch (1 second) and return the Deltas to transmit
+    /// in order (design §DRR Scheduler Implementation, `tick()`).
+    ///
+    /// In Saturate_Mode all bandwidth goes to HIGH; MEDIUM and LOW are queued
+    /// without dropping (Req 13.2).
+    ///
+    /// Returns the drained `QueuedDelta`s in transmission order.
     pub fn tick(&mut self, link_capacity_bytes: u64) -> Vec<QueuedDelta> {
         if self.saturate_mode {
- // All bandwidth to HIGH; MEDIUM and LOW are queued but not served.
+            // All bandwidth to HIGH; MEDIUM and LOW are queued but not served.
             let sent = drain_queue(
                 &mut self.high_queue,
                 link_capacity_bytes as i64,
@@ -169,12 +169,12 @@ impl DrrScheduler {
             return sent;
         }
 
- // --- Phase 1: Add guaranteed floor quanta to deficit counters ---
+        // --- Phase 1: Add guaranteed floor quanta to deficit counters ---
         self.high_deficit += self.high_quantum as i64; // 70%
         self.medium_deficit += self.medium_quantum as i64; // 20%
         self.low_deficit += self.low_quantum as i64; // 10%
 
- // --- Phase 2: Serve each queue up to its guaranteed floor ---
+        // --- Phase 2: Serve each queue up to its guaranteed floor ---
         let mut sent_high = drain_queue(
             &mut self.high_queue,
             self.high_deficit,
@@ -192,7 +192,7 @@ impl DrrScheduler {
         let bytes_sent_medium: u64 = sent_medium.iter().map(|d| d.serialized_len).sum();
         let bytes_sent_low: u64 = sent_low.iter().map(|d| d.serialized_len).sum();
 
- // --- Phase 3: Redistribute spare capacity HIGH → MEDIUM → LOW ---
+        // --- Phase 3: Redistribute spare capacity HIGH → MEDIUM → LOW ---
         let total_sent = bytes_sent_high + bytes_sent_medium + bytes_sent_low;
         let mut spare = (link_capacity_bytes as i64) - (total_sent as i64);
 
@@ -211,7 +211,7 @@ impl DrrScheduler {
             sent_low.extend(extra);
         }
 
- // Combine in priority order
+        // Combine in priority order
         let mut result = sent_high;
         result.extend(sent_medium);
         result.extend(sent_low);
@@ -221,7 +221,7 @@ impl DrrScheduler {
         result
     }
 
- /// Accumulate one epoch's transmission counters.
+    /// Accumulate one epoch's transmission counters.
     fn record(&mut self, sent: &[QueuedDelta]) {
         for queued in sent {
             match queued.delta.priority {
@@ -241,47 +241,47 @@ impl DrrScheduler {
         }
     }
 
- /// Snapshot of the cumulative transmission counters.
+    /// Snapshot of the cumulative transmission counters.
     pub fn stats(&self) -> SchedulerStats {
         self.stats
     }
 
- /// Reset the cumulative transmission counters (does not touch queues or
- /// deficits). Used by hosts that want to measure a fresh observation window.
+    /// Reset the cumulative transmission counters (does not touch queues or
+    /// deficits). Used by hosts that want to measure a fresh observation window.
     pub fn reset_stats(&mut self) {
         self.stats = SchedulerStats::default();
     }
 
- /// The per-epoch guaranteed floor quanta in bytes: (HIGH, MEDIUM, LOW).
+    /// The per-epoch guaranteed floor quanta in bytes: (HIGH, MEDIUM, LOW).
     pub fn floor_quanta(&self) -> (u64, u64, u64) {
         (self.high_quantum, self.medium_quantum, self.low_quantum)
     }
 
- /// Current deficit counters in bytes (HIGH, MEDIUM, LOW).
- ///
- /// A positive value is guaranteed floor allocation the queue has not spent
- /// yet: `served + deficit` is the cumulative floor honoured for that class.
- /// Negative values are capacity borrowed against future floors (only ever
- /// produced by the spare-capacity redistribution path).
+    /// Current deficit counters in bytes (HIGH, MEDIUM, LOW).
+    ///
+    /// A positive value is guaranteed floor allocation the queue has not spent
+    /// yet: `served + deficit` is the cumulative floor honoured for that class.
+    /// Negative values are capacity borrowed against future floors (only ever
+    /// produced by the spare-capacity redistribution path).
     pub fn deficits(&self) -> (i64, i64, i64) {
         (self.high_deficit, self.medium_deficit, self.low_deficit)
     }
 
- /// Activate / deactivate the scheduler's Saturate_Mode flag (Req 13.2).
- ///
- /// The scheduler is a **mirror**, not a source of truth: it must only be
- /// written by `MeshTransport::reconcile_scheduler_saturate_mode`
- /// (Subphase 3.2), which derives the flag from the transport's
- /// `SaturateModeStateMachine` after every lease-lifecycle event. Callers
- /// outside `transport` must not flip this boolean directly — doing so
- /// bypasses lease activation / renewal / M-of-N-termination entirely.
- ///
- /// When leaving saturate mode the deficit counters may have accumulated;
- /// reset them to avoid a sudden burst on the first normal-mode epoch.
+    /// Activate / deactivate the scheduler's Saturate_Mode flag (Req 13.2).
+    ///
+    /// The scheduler is a **mirror**, not a source of truth: it must only be
+    /// written by `MeshTransport::reconcile_scheduler_saturate_mode`
+    /// (Subphase 3.2), which derives the flag from the transport's
+    /// `SaturateModeStateMachine` after every lease-lifecycle event. Callers
+    /// outside `transport` must not flip this boolean directly — doing so
+    /// bypasses lease activation / renewal / M-of-N-termination entirely.
+    ///
+    /// When leaving saturate mode the deficit counters may have accumulated;
+    /// reset them to avoid a sudden burst on the first normal-mode epoch.
     pub(crate) fn set_saturate_mode(&mut self, active: bool) {
         self.saturate_mode = active;
- // When leaving saturate mode the deficit counters may have accumulated;
- // reset them to avoid a sudden burst on the first normal-mode epoch.
+        // When leaving saturate mode the deficit counters may have accumulated;
+        // reset them to avoid a sudden burst on the first normal-mode epoch.
         if !active {
             self.high_deficit = 0;
             self.medium_deficit = 0;
@@ -289,32 +289,32 @@ impl DrrScheduler {
         }
     }
 
- /// Returns true if saturate mode is currently active.
+    /// Returns true if saturate mode is currently active.
     pub(crate) fn is_saturate_mode(&self) -> bool {
         self.saturate_mode
     }
 
- /// Returns true if any queue has pending Deltas.
+    /// Returns true if any queue has pending Deltas.
     pub fn has_backlog(&self) -> bool {
         !self.high_queue.is_empty() || !self.medium_queue.is_empty() || !self.low_queue.is_empty()
     }
 
- /// Returns the current depth of the LOW priority queue.
+    /// Returns the current depth of the LOW priority queue.
     pub fn low_queue_depth(&self) -> usize {
         self.low_queue.len()
     }
 
- /// Returns the current depth of the HIGH priority queue.
+    /// Returns the current depth of the HIGH priority queue.
     pub fn high_queue_depth(&self) -> usize {
         self.high_queue.len()
     }
 
- /// Returns the current depth of the MEDIUM priority queue.
+    /// Returns the current depth of the MEDIUM priority queue.
     pub fn medium_queue_depth(&self) -> usize {
         self.medium_queue.len()
     }
 
- /// Total serialised bytes currently queued for `class`.
+    /// Total serialised bytes currently queued for `class`.
     pub fn queued_bytes(&self, class: PriorityClass) -> u64 {
         let queue = match class {
             PriorityClass::High => &self.high_queue,
@@ -324,8 +324,8 @@ impl DrrScheduler {
         queue.iter().map(|q| q.serialized_len).sum()
     }
 
- /// Compute the clearing capacity for the LOW queue (Req 12.8):
- /// 10% of `link_capacity_bytes_per_sec` × 10 seconds.
+    /// Compute the clearing capacity for the LOW queue (Req 12.8):
+    /// 10% of `link_capacity_bytes_per_sec` × 10 seconds.
     pub fn low_clearing_capacity(link_capacity_bytes_per_sec: u64) -> u64 {
         (link_capacity_bytes_per_sec * 10 / 100) * 10
     }
@@ -390,15 +390,15 @@ mod tests {
         }
     }
 
- // ── Floor guarantee: all queues populated ─────────────────────────────
+    // ── Floor guarantee: all queues populated ─────────────────────────────
 
     #[test]
     fn drr_floor_fractions_over_10_epochs() {
- // Link: 1000 bytes/sec → floors: HIGH 700, MEDIUM 200, LOW 100
- // We need all three queues to have backlog throughout all 10 epochs so
- // the floor guarantee is observable. Each epoch drains at most 1000
- // bytes; 10 epochs = 10 000 bytes max. Load each queue with 2 000
- // items × 10 bytes = 20 000 bytes — well above what can be sent.
+        // Link: 1000 bytes/sec → floors: HIGH 700, MEDIUM 200, LOW 100
+        // We need all three queues to have backlog throughout all 10 epochs so
+        // the floor guarantee is observable. Each epoch drains at most 1000
+        // bytes; 10 epochs = 10 000 bytes max. Load each queue with 2 000
+        // items × 10 bytes = 20 000 bytes — well above what can be sent.
         let link_cap = 1000u64;
         let mut sched = DrrScheduler::new(link_cap);
 
@@ -424,9 +424,9 @@ mod tests {
         }
 
         let total = total_high + total_medium + total_low;
- // Floor guarantee: each class must receive AT LEAST its guaranteed
- // fraction of total bytes transmitted over ≥10 epochs (Req 12.2–12.4,
- // Property 12). Small integer rounding tolerance: 1 byte per epoch.
+        // Floor guarantee: each class must receive AT LEAST its guaranteed
+        // fraction of total bytes transmitted over ≥10 epochs (Req 12.2–12.4,
+        // Property 12). Small integer rounding tolerance: 1 byte per epoch.
         assert!(
             total_high * 100 >= total * 70 - 10,
             "HIGH floor violated: {total_high}/{total}"
@@ -441,16 +441,16 @@ mod tests {
         );
     }
 
- // ── Spare redistribution to HIGH-only backlog ─────────────────────────
+    // ── Spare redistribution to HIGH-only backlog ─────────────────────────
 
     #[test]
     fn spare_redistribution_to_high_only_backlog() {
- // Link: 1000 bytes/epoch. Only HIGH queue is populated.
- // After serving HIGH's 700-byte floor, 300 spare bytes should go to HIGH as well.
+        // Link: 1000 bytes/epoch. Only HIGH queue is populated.
+        // After serving HIGH's 700-byte floor, 300 spare bytes should go to HIGH as well.
         let link_cap = 1000u64;
         let mut sched = DrrScheduler::new(link_cap);
 
- // Enqueue 1000 bytes worth of HIGH deltas (10 × 100 bytes each)
+        // Enqueue 1000 bytes worth of HIGH deltas (10 × 100 bytes each)
         for _ in 0..10 {
             sched.enqueue(make_queued(PriorityClass::High, 100));
         }
@@ -458,30 +458,30 @@ mod tests {
         let drained = sched.tick(link_cap);
         let bytes_sent: u64 = drained.iter().map(|d| d.serialized_len).sum();
 
- // With a 1000-byte budget and only 100-byte packets, all 1000 bytes consumed
+        // With a 1000-byte budget and only 100-byte packets, all 1000 bytes consumed
         assert_eq!(
             bytes_sent, 1000,
             "all link capacity should go to HIGH when only HIGH has backlog"
         );
     }
 
- // ── LOW bounded wait at clearing capacity ─────────────────────────────
+    // ── LOW bounded wait at clearing capacity ─────────────────────────────
 
     #[test]
     fn low_bounded_wait_at_clearing_capacity() {
- // LOW clearing capacity = 10% * link_cap * 10 epochs
- // With link_cap = 1000: clearing capacity = 100 * 10 = 1000 bytes
+        // LOW clearing capacity = 10% * link_cap * 10 epochs
+        // With link_cap = 1000: clearing capacity = 100 * 10 = 1000 bytes
         let link_cap = 1000u64;
         let clearing_cap = DrrScheduler::low_clearing_capacity(link_cap); // 1000
         let mut sched = DrrScheduler::new(link_cap);
 
- // Fill LOW queue up to exactly the clearing capacity (10 × 100 bytes)
+        // Fill LOW queue up to exactly the clearing capacity (10 × 100 bytes)
         let n_deltas = 10usize;
         for _ in 0..n_deltas {
             sched.enqueue(make_queued(PriorityClass::Low, 100));
         }
 
- // No HIGH or MEDIUM backlog — all spare goes to LOW as well
+        // No HIGH or MEDIUM backlog — all spare goes to LOW as well
         let mut transmitted_low = 0usize;
         for _ in 0..10 {
             let drained = sched.tick(link_cap);
@@ -498,7 +498,7 @@ mod tests {
         );
     }
 
- // ── Saturate mode: all bandwidth to HIGH ─────────────────────────────
+    // ── Saturate mode: all bandwidth to HIGH ─────────────────────────────
 
     #[test]
     fn saturate_mode_all_bandwidth_to_high() {
@@ -514,7 +514,7 @@ mod tests {
 
         let drained = sched.tick(link_cap);
 
- // Only HIGH should be served in saturate mode
+        // Only HIGH should be served in saturate mode
         for d in &drained {
             assert_eq!(
                 d.delta.priority,
@@ -523,7 +523,7 @@ mod tests {
             );
         }
 
- // MEDIUM and LOW should remain queued
+        // MEDIUM and LOW should remain queued
         assert_eq!(
             sched.medium_queue_depth(),
             5,
@@ -532,7 +532,7 @@ mod tests {
         assert_eq!(sched.low_queue_depth(), 5, "LOW should still be queued");
     }
 
- // ── Saturate mode: MEDIUM and LOW not dropped ─────────────────────────
+    // ── Saturate mode: MEDIUM and LOW not dropped ─────────────────────────
 
     #[test]
     fn saturate_mode_medium_low_not_dropped() {
@@ -545,32 +545,32 @@ mod tests {
             sched.enqueue(make_queued(PriorityClass::Low, 50));
         }
 
- // Run several epochs in saturate mode
+        // Run several epochs in saturate mode
         for _ in 0..5 {
             sched.tick(link_cap);
         }
 
- // MEDIUM and LOW must not be dropped
+        // MEDIUM and LOW must not be dropped
         assert_eq!(sched.medium_queue_depth(), 3, "MEDIUM must not be dropped");
         assert_eq!(sched.low_queue_depth(), 3, "LOW must not be dropped");
     }
 
- // ── Deficit counter resets when leaving saturate mode ─────────────────
+    // ── Deficit counter resets when leaving saturate mode ─────────────────
 
     #[test]
     fn deficit_reset_on_leaving_saturate_mode() {
         let mut sched = DrrScheduler::new(1000);
         sched.set_saturate_mode(true);
 
- // In saturate mode, run ticks to accumulate deficit
+        // In saturate mode, run ticks to accumulate deficit
         for _ in 0..5 {
             sched.tick(1000);
         }
 
- // Leave saturate mode
+        // Leave saturate mode
         sched.set_saturate_mode(false);
 
- // Immediately add data and tick — should not burst beyond one epoch's allotment
+        // Immediately add data and tick — should not burst beyond one epoch's allotment
         for _ in 0..20 {
             sched.enqueue(make_queued(PriorityClass::High, 50));
             sched.enqueue(make_queued(PriorityClass::Medium, 50));
@@ -580,14 +580,14 @@ mod tests {
         let drained = sched.tick(1000);
         let bytes_sent: u64 = drained.iter().map(|d| d.serialized_len).sum();
 
- // Should not exceed the link capacity (no deficit burst after saturation)
+        // Should not exceed the link capacity (no deficit burst after saturation)
         assert!(
             bytes_sent <= 1000,
             "should not burst beyond link capacity on first normal epoch after saturation: {bytes_sent}"
         );
     }
 
- // ── has_backlog / queue depth helpers ─────────────────────────────────
+    // ── has_backlog / queue depth helpers ─────────────────────────────────
 
     #[test]
     fn has_backlog_returns_true_when_any_queue_nonempty() {
@@ -599,13 +599,13 @@ mod tests {
 
     #[test]
     fn low_clearing_capacity_calculation() {
- // 10% * 1000 * 10 = 1000
+        // 10% * 1000 * 10 = 1000
         assert_eq!(DrrScheduler::low_clearing_capacity(1000), 1000);
- // 10% * 10000 * 10 = 10000
+        // 10% * 10000 * 10 = 10000
         assert_eq!(DrrScheduler::low_clearing_capacity(10000), 10000);
     }
 
- // ── No data: tick returns empty ────────────────────────────────────────
+    // ── No data: tick returns empty ────────────────────────────────────────
 
     #[test]
     fn tick_with_empty_queues_returns_empty() {

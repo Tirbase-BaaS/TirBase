@@ -119,7 +119,7 @@ pub fn reassemble_ble_chunks(
         fragments.push(parse_ble_chunk(&chunk)?);
     }
 
- // Delegate to the canonical reassemble() for validation + concatenation.
+    // Delegate to the canonical reassemble() for validation + concatenation.
     reassemble(fragments, sender_did)
 }
 
@@ -328,7 +328,7 @@ pub struct BleAdapter {
 }
 
 impl BleAdapter {
- /// Create a new `BleAdapter` from the first available platform BLE adapter.
+    /// Create a new `BleAdapter` from the first available platform BLE adapter.
     pub async fn new(local_did: Did, peer_did: Did) -> Result<Self, TirBaseError> {
         let manager = Manager::new()
             .await
@@ -359,7 +359,7 @@ impl BleAdapter {
         })
     }
 
- /// Scan for the TirBase BLE service and connect to the first matching peripheral (central role).
+    /// Scan for the TirBase BLE service and connect to the first matching peripheral (central role).
     pub async fn scan_and_connect(&mut self, scan_timeout_secs: u64) -> Result<(), TirBaseError> {
         self.adapter
             .start_scan(ScanFilter::default())
@@ -433,7 +433,7 @@ impl BleAdapter {
         }))
     }
 
- /// Send a list of BLE chunks to the connected peer.
+    /// Send a list of BLE chunks to the connected peer.
     pub async fn send_chunks(&mut self, chunks: &[Vec<u8>]) -> Result<(), TirBaseError> {
         let chr = self
             .char_handle
@@ -460,11 +460,11 @@ impl BleAdapter {
         Ok(())
     }
 
- /// Subscribe to notifications on the TirBase characteristic.
- ///
- /// Received chunks are delivered through [`BleAdapter::take_notifications`]
- /// (the bridge runner owns receive scheduling); the subscription itself is a
- /// radio operation, not part of the framing loop.
+    /// Subscribe to notifications on the TirBase characteristic.
+    ///
+    /// Received chunks are delivered through [`BleAdapter::take_notifications`]
+    /// (the bridge runner owns receive scheduling); the subscription itself is a
+    /// radio operation, not part of the framing loop.
     pub async fn subscribe_notifications(&mut self) -> Result<(), TirBaseError> {
         let chr = self
             .char_handle
@@ -511,13 +511,13 @@ impl BleAdapter {
         Ok(())
     }
 
- /// Move the notification receiver out of the adapter (used by the bridge
- /// runner, which owns receive scheduling).
+    /// Move the notification receiver out of the adapter (used by the bridge
+    /// runner, which owns receive scheduling).
     pub fn take_notifications(&mut self) -> Option<tokio::sync::mpsc::Receiver<Vec<u8>>> {
         self.notify_rx.take()
     }
 
- /// Disconnect from the peer.
+    /// Disconnect from the peer.
     pub async fn disconnect(&mut self) -> Result<(), TirBaseError> {
         if let Some(peripheral) = &self.peripheral {
             peripheral

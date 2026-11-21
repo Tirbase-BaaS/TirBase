@@ -22,17 +22,17 @@ use crate::crdt::delta::{Delta, PriorityClass};
 /// The scheduler reads `delta.priority`, which is set using `classify_with_flags()`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PayloadFlag {
- /// Marks a Revocation_Delta (always HIGH — Req 12.5).
+    /// Marks a Revocation_Delta (always HIGH — Req 12.5).
     Revocation,
- /// Safety-alert payload flag (always HIGH — Req 12.5).
+    /// Safety-alert payload flag (always HIGH — Req 12.5).
     SafetyAlert,
- /// Emergency-alert payload flag (always HIGH — Req 12.5).
+    /// Emergency-alert payload flag (always HIGH — Req 12.5).
     EmergencyAlert,
- /// Peer reachability or link-state record (MEDIUM — Req 12.6).
+    /// Peer reachability or link-state record (MEDIUM — Req 12.6).
     PeerReachability,
- /// Link-state record (MEDIUM — Req 12.6).
+    /// Link-state record (MEDIUM — Req 12.6).
     LinkState,
- /// Session-validity record (MEDIUM — Req 12.6).
+    /// Session-validity record (MEDIUM — Req 12.6).
     SessionValidity,
 }
 
@@ -63,13 +63,13 @@ pub fn classify_with_flags(flags: &[PayloadFlag]) -> PriorityClass {
     for flag in flags {
         match flag {
             PayloadFlag::Revocation | PayloadFlag::SafetyAlert | PayloadFlag::EmergencyAlert => {
- // HIGH beats everything — short-circuit
+                // HIGH beats everything — short-circuit
                 return PriorityClass::High;
             }
             PayloadFlag::PeerReachability
             | PayloadFlag::LinkState
             | PayloadFlag::SessionValidity => {
- // MEDIUM upgrades from LOW, but HIGH still wins
+                // MEDIUM upgrades from LOW, but HIGH still wins
                 result = PriorityClass::Medium;
             }
         }
@@ -100,7 +100,7 @@ mod tests {
         }
     }
 
- // ── classify() returns stored priority ───────────────────────────────
+    // ── classify() returns stored priority ───────────────────────────────
 
     #[test]
     fn classify_returns_high_for_high_delta() {
@@ -120,7 +120,7 @@ mod tests {
         assert_eq!(classify(&d), PriorityClass::Low);
     }
 
- // ── classify_with_flags: HIGH flags ──────────────────────────────────
+    // ── classify_with_flags: HIGH flags ──────────────────────────────────
 
     #[test]
     fn revocation_flag_yields_high() {
@@ -146,7 +146,7 @@ mod tests {
         );
     }
 
- // ── classify_with_flags: MEDIUM flags ────────────────────────────────
+    // ── classify_with_flags: MEDIUM flags ────────────────────────────────
 
     #[test]
     fn peer_reachability_flag_yields_medium() {
@@ -172,14 +172,14 @@ mod tests {
         );
     }
 
- // ── classify_with_flags: LOW (no flags) ──────────────────────────────
+    // ── classify_with_flags: LOW (no flags) ──────────────────────────────
 
     #[test]
     fn no_flags_yields_low() {
         assert_eq!(classify_with_flags(&[]), PriorityClass::Low);
     }
 
- // ── classify_with_flags: mixed tiers — highest wins ──────────────────
+    // ── classify_with_flags: mixed tiers — highest wins ──────────────────
 
     #[test]
     fn revocation_beats_medium_flags() {

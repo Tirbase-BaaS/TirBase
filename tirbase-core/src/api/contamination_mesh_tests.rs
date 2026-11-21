@@ -27,11 +27,11 @@ use crate::auth::biscuit;
 use crate::contamination::incident::{IncidentEvent, IncidentEventKind, TaintSource};
 use crate::crdt::delta::{Delta, DeltaTag, Ed25519Signature};
 use crate::identity::file_key_provider::InMemoryKeyProvider;
-use crate::traits::KeyProvider;
 use crate::migration::migration_delta::{
     CaSignature, ManagerSignature, MigrationDelta, MigrationRevocationDelta,
 };
 use crate::migration::sidecar::ReplayStatus;
+use crate::traits::KeyProvider;
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -282,9 +282,20 @@ async fn revoked_author_over_real_mesh_taints_descendants_appends_tags_and_emits
 
     // Req 10.2: every reachable descendant of the root carries an append-only
     // CONTAMINATED tag — the root and B's own descendant.
-    wait_for_tag(&path_b, root.delta_id, "Contaminated", Duration::from_secs(10)).await;
-    let descendant_tags =
-        wait_for_tag(&path_b, descendant.delta_id, "Contaminated", Duration::from_secs(10)).await;
+    wait_for_tag(
+        &path_b,
+        root.delta_id,
+        "Contaminated",
+        Duration::from_secs(10),
+    )
+    .await;
+    let descendant_tags = wait_for_tag(
+        &path_b,
+        descendant.delta_id,
+        "Contaminated",
+        Duration::from_secs(10),
+    )
+    .await;
 
     // ICO created with the right taint source and affected rows.
     let ico = {
@@ -387,17 +398,38 @@ async fn composite_incident_over_real_mesh_merges_decomposes_and_decontaminates(
         .write("reports", "x1", json!({ "v": 1 }))
         .await
         .expect("x1");
-    wait_for_data(&a2, "reports", "x1", &json!({ "v": 1 }), Duration::from_secs(10)).await;
+    wait_for_data(
+        &a2,
+        "reports",
+        "x1",
+        &json!({ "v": 1 }),
+        Duration::from_secs(10),
+    )
+    .await;
     let y1 = a2
         .write("reports", "y1", json!({ "v": 2 }))
         .await
         .expect("y1");
-    wait_for_data(&a1, "reports", "y1", &json!({ "v": 2 }), Duration::from_secs(10)).await;
+    wait_for_data(
+        &a1,
+        "reports",
+        "y1",
+        &json!({ "v": 2 }),
+        Duration::from_secs(10),
+    )
+    .await;
     let x2 = a1
         .write("reports", "x2", json!({ "v": 3 }))
         .await
         .expect("x2");
-    wait_for_data(&b, "reports", "x2", &json!({ "v": 3 }), Duration::from_secs(10)).await;
+    wait_for_data(
+        &b,
+        "reports",
+        "x2",
+        &json!({ "v": 3 }),
+        Duration::from_secs(10),
+    )
+    .await;
 
     let token = token_with_role(&ca, "RevocationManager");
     b.initiate_revocation(&a1.local_did(), &token, now_secs())
@@ -406,16 +438,20 @@ async fn composite_incident_over_real_mesh_merges_decomposes_and_decontaminates(
         .expect("revoke a2");
 
     // Req 10.5: exactly one composite incident for the graph-joined chains.
-    let composite = wait_for(Duration::from_secs(10), "exactly one composite incident", || {
-        let cce = b.cce.lock().unwrap();
-        let composites = cce.open_composite_incidents().expect("composites");
-        assert!(
-            composites.len() <= 1,
-            "expected exactly one composite, got {}",
-            composites.len()
-        );
-        composites.first().cloned()
-    })
+    let composite = wait_for(
+        Duration::from_secs(10),
+        "exactly one composite incident",
+        || {
+            let cce = b.cce.lock().unwrap();
+            let composites = cce.open_composite_incidents().expect("composites");
+            assert!(
+                composites.len() <= 1,
+                "expected exactly one composite, got {}",
+                composites.len()
+            );
+            composites.first().cloned()
+        },
+    )
     .await;
     for id in [x1.delta_id, y1.delta_id, x2.delta_id] {
         assert!(
@@ -599,7 +635,8 @@ async fn setup_corrupted_window(tag: &str, writes: usize) -> CorruptedWindow {
     // Bad migration s→t arrives over the real mesh.
     let bad = ca_signed_migration(&ca_secret, s, t, trivial_wasm());
     let bad_id = bad.id;
-    a.publish_migration_delta(&bad).expect("publish bad migration");
+    a.publish_migration_delta(&bad)
+        .expect("publish bad migration");
     wait_for(Duration::from_secs(15), "bad migration applied", || {
         let mig = b.migration.lock().unwrap();
         (mig.current_schema_hash() == t).then_some(())
@@ -608,12 +645,8 @@ async fn setup_corrupted_window(tag: &str, writes: usize) -> CorruptedWindow {
 
     // Manager revocation over the real mesh → CCE ICO + corruption window.
     let (mgr_secret, mgr_public) = crate::identity::keypair::generate_keypair().expect("mgr");
-    a.publish_migration_revocation_delta(&manager_revocation(
-        &mgr_secret,
-        &mgr_public,
-        bad_id,
-    ))
-    .expect("publish revocation");
+    a.publish_migration_revocation_delta(&manager_revocation(&mgr_secret, &mgr_public, bad_id))
+        .expect("publish revocation");
     wait_for(Duration::from_secs(10), "corruption window opened", || {
         let mig = b.migration.lock().unwrap();
         (mig.is_revoked(&bad_id) && mig.active_corruption_migration() == Some(bad_id)).then_some(())
@@ -656,15 +689,15 @@ async fn await_replay_done(
         Duration::from_secs(15),
         "Side-Car replay complete",
         || {
-        let mig = ctx.device.migration.lock().unwrap();
-        if mig.current_schema_hash() != ctx.u || mig.active_corruption_migration().is_some() {
-            return None;
-        }
-        let entries = mig.sidecar_entries(&ctx.bad_id).ok()?;
-        let done = entries.len() == expected_entries
-            && entries.iter().all(|e| {
-                !matches!(e.replay_status, ReplayStatus::Pending)
-            });
+            let mig = ctx.device.migration.lock().unwrap();
+            if mig.current_schema_hash() != ctx.u || mig.active_corruption_migration().is_some() {
+                return None;
+            }
+            let entries = mig.sidecar_entries(&ctx.bad_id).ok()?;
+            let done = entries.len() == expected_entries
+                && entries
+                    .iter()
+                    .all(|e| !matches!(e.replay_status, ReplayStatus::Pending));
             done.then_some(entries)
         },
     )
@@ -693,9 +726,11 @@ async fn sidecar_replay_on_corrected_migration_over_real_mesh_projects_replayed_
     {
         let conn = crate::store::sqlite::open(&ctx.path_b).expect("conn");
         let n: i64 = conn
-            .query_row("SELECT COUNT(*) FROM migration_corruption_windows", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(*) FROM migration_corruption_windows",
+                [],
+                |r| r.get(0),
+            )
             .expect("count windows");
         assert_eq!(n, 1, "the corruption window must be persisted");
     }
@@ -715,9 +750,11 @@ async fn sidecar_replay_on_corrected_migration_over_real_mesh_projects_replayed_
     {
         let conn = crate::store::sqlite::open(&ctx.path_b).expect("conn");
         let n: i64 = conn
-            .query_row("SELECT COUNT(*) FROM migration_corruption_windows", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(*) FROM migration_corruption_windows",
+                [],
+                |r| r.get(0),
+            )
             .expect("count windows");
         assert_eq!(n, 0, "the corruption window must close after replay");
     }
@@ -801,7 +838,11 @@ async fn sidecar_replay_conflict_is_observable_and_does_not_stop_other_entries()
 
     // The conflict is observable from the public boundary.
     let exposed = ctx.device.sidecar_conflicts().expect("sidecar conflicts");
-    assert_eq!(exposed.len(), 1, "exactly one conflict is awaiting resolution");
+    assert_eq!(
+        exposed.len(),
+        1,
+        "exactly one conflict is awaiting resolution"
+    );
     assert_eq!(exposed[0].id, conflicted.id);
 
     // The replayed row is projected even though the pass had a conflict.
@@ -876,7 +917,10 @@ async fn sidecar_replay_resume_is_idempotent_without_duplicate_or_lost_writes() 
     let summary = ledger
         .replay_sidecar(ctx.bad_id, ctx.u, &mut crdt)
         .expect("idempotent replay");
-    assert_eq!(summary.replayed, 0, "a resumed pass must not re-apply entries");
+    assert_eq!(
+        summary.replayed, 0,
+        "a resumed pass must not re-apply entries"
+    );
     assert_eq!(summary.conflicts, 0);
     assert_eq!(summary.total_entries, 3);
     assert!(

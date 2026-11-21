@@ -149,13 +149,13 @@ pub struct ResumptionStats {
 #[cfg(feature = "native")]
 #[async_trait::async_trait]
 pub trait AsyncNoiseStream: Send + Unpin {
- /// Write a handshake or transport message and flush.
+    /// Write a handshake or transport message and flush.
     async fn write_noise_message(&mut self, msg: &[u8]) -> std::io::Result<()>;
 
- /// Read one handshake message into `buf`, returning the number of bytes
- /// read. Messages are length-prefixed on the wire (4-byte big-endian
- /// length), so the reader never has to know Noise's message size in
- /// advance and never returns uninitialised tail bytes as payload.
+    /// Read one handshake message into `buf`, returning the number of bytes
+    /// read. Messages are length-prefixed on the wire (4-byte big-endian
+    /// length), so the reader never has to know Noise's message size in
+    /// advance and never returns uninitialised tail bytes as payload.
     async fn read_noise_message(&mut self, buf: &mut [u8]) -> std::io::Result<usize>;
 }
 
@@ -169,8 +169,9 @@ async fn write_framed<W: tokio::io::AsyncWrite + Unpin>(
     msg: &[u8],
 ) -> std::io::Result<()> {
     use tokio::io::AsyncWriteExt as _;
-    let len = u32::try_from(msg.len())
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "noise message too large"))?;
+    let len = u32::try_from(msg.len()).map_err(|_| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, "noise message too large")
+    })?;
     let mut buf = Vec::with_capacity(NOISE_FRAME_PREFIX + msg.len());
     buf.extend_from_slice(&len.to_be_bytes());
     buf.extend_from_slice(msg);
@@ -190,7 +191,10 @@ async fn read_framed<R: tokio::io::AsyncRead + Unpin>(
     if len > buf.len() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
-            format!("noise message of {len} bytes exceeds buffer of {}", buf.len()),
+            format!(
+                "noise message of {len} bytes exceeds buffer of {}",
+                buf.len()
+            ),
         ));
     }
     r.read_exact(&mut buf[..len]).await?;
@@ -209,8 +213,8 @@ pub struct DuplexNoiseStream {
 
 #[cfg(feature = "native")]
 impl DuplexNoiseStream {
- /// Create a paired `(DuplexNoiseStream, DuplexNoiseStream)` connected
- /// by an in-memory duplex channel. Each end can read what the other writes.
+    /// Create a paired `(DuplexNoiseStream, DuplexNoiseStream)` connected
+    /// by an in-memory duplex channel. Each end can read what the other writes.
     pub fn pair() -> (Self, Self) {
         let (a, b) = tokio::io::duplex(65536);
         let (a_rx, a_tx) = tokio::io::split(a);
@@ -221,7 +225,7 @@ impl DuplexNoiseStream {
         )
     }
 
- /// Wrap an existing `tokio::io::DuplexStream` into an `AsyncNoiseStream`.
+    /// Wrap an existing `tokio::io::DuplexStream` into an `AsyncNoiseStream`.
     pub fn from_duplex(duplex: tokio::io::DuplexStream) -> Self {
         let (rx, tx) = tokio::io::split(duplex);
         DuplexNoiseStream { rx, tx }
@@ -290,15 +294,15 @@ impl AsyncNoiseStream for TcpNoiseStream {
 #[derive(Debug, Clone)]
 pub struct ResumptionCredential {
     pub peer_did: Did,
- /// UTC timestamp (seconds) when this credential was issued.
+    /// UTC timestamp (seconds) when this credential was issued.
     pub issued_at: i64,
- /// Cached remote static public key bytes (32 bytes for X25519).
+    /// Cached remote static public key bytes (32 bytes for X25519).
     pub credential_bytes: Vec<u8>,
 }
 
 impl ResumptionCredential {
- /// Returns `true` if this credential is still within its 24-hour validity
- /// window (Req 6.2).
+    /// Returns `true` if this credential is still within its 24-hour validity
+    /// window (Req 6.2).
     pub fn is_valid(&self, now_secs: i64) -> bool {
         now_secs - self.issued_at < CREDENTIAL_VALIDITY_SECS
     }
@@ -319,13 +323,13 @@ pub struct PeerPair {
 #[derive(Debug, Clone)]
 pub struct HandshakeFailureRecord {
     pub peer_did: Did,
- /// UTC seconds when the failure occurred.
+    /// UTC seconds when the failure occurred.
     pub failed_at: i64,
     pub reason: String,
 }
 
 impl HandshakeFailureRecord {
- /// Returns `true` when the backoff period has elapsed and we may retry.
+    /// Returns `true` when the backoff period has elapsed and we may retry.
     pub fn backoff_elapsed(&self, now_secs: i64) -> bool {
         now_secs - self.failed_at >= MIN_RETRY_BACKOFF_SECS
     }
@@ -340,26 +344,26 @@ impl HandshakeFailureRecord {
 #[derive(Debug)]
 pub struct NoiseSession {
     pub remote_did: Did,
- /// UTC seconds of the last successful key rotation (or session establishment).
+    /// UTC seconds of the last successful key rotation (or session establishment).
     pub last_rotated_secs: i64,
- /// Configured key rotation interval in seconds (60–86400 — Req 6.4).
+    /// Configured key rotation interval in seconds (60–86400 — Req 6.4).
     pub rotation_interval_secs: u64,
 
- /// `true` when this session was established by a 0-RTT resumption (the
- /// cached ticket was reused and the first application payload travelled in
- /// handshake message 1). `false` for a full Noise_IK handshake.
+    /// `true` when this session was established by a 0-RTT resumption (the
+    /// cached ticket was reused and the first application payload travelled in
+    /// handshake message 1). `false` for a full Noise_IK handshake.
     pub resumed: bool,
 
- /// Native-only: live Noise transport state (present only when this session
- /// was created by a local `full_ik_handshake`; `None` for sessions registered
- /// after an external transport such as libp2p already performed the handshake).
+    /// Native-only: live Noise transport state (present only when this session
+    /// was created by a local `full_ik_handshake`; `None` for sessions registered
+    /// after an external transport such as libp2p already performed the handshake).
     #[cfg(feature = "native")]
     pub(crate) transport: Option<snow::TransportState>,
 }
 
 impl NoiseSession {
- /// Returns `true` when the rotation interval has elapsed and `rotate_keys()`
- /// should be called (Req 6.4).
+    /// Returns `true` when the rotation interval has elapsed and `rotate_keys()`
+    /// should be called (Req 6.4).
     pub fn rotation_due(&self, now_secs: i64) -> bool {
         now_secs - self.last_rotated_secs >= self.rotation_interval_secs as i64
     }
@@ -370,24 +374,25 @@ impl NoiseSession {
 /// Session manager — handles handshake initiation, resumption cache, and
 /// in-place key rotation (Req 6).
 pub struct SessionManager {
- /// 0-RTT resumption credential cache, capped at 1024 entries (Req 6.2).
+    /// 0-RTT resumption credential cache, capped at 1024 entries (Req 6.2).
     resumption_cache: LruCache<PeerPair, ResumptionCredential>,
- /// Records of recent handshake failures for backoff enforcement (Req 6.6).
+    /// Records of recent handshake failures for backoff enforcement (Req 6.6).
     failure_records: Vec<HandshakeFailureRecord>,
- /// Configured key rotation interval in seconds (Req 6.4).
+    /// Configured key rotation interval in seconds (Req 6.4).
     pub rotation_interval_secs: u64,
- /// The local device DID (needed as cache key half).
+    /// The local device DID (needed as cache key half).
     pub local_did: Did,
- /// Full-handshake / resumption / fallback counters (Req 6.2–6.3 evidence).
+    /// Full-handshake / resumption / fallback counters (Req 6.2–6.3 evidence).
     pub stats: ResumptionStats,
 }
 
 impl SessionManager {
- /// Create a new `SessionManager` with the given rotation interval.
- ///
- /// `rotation_interval_secs` is clamped to `[60, 86400]` per Req 6.4.
+    /// Create a new `SessionManager` with the given rotation interval.
+    ///
+    /// `rotation_interval_secs` is clamped to `[60, 86400]` per Req 6.4.
     pub fn new(local_did: Did, rotation_interval_secs: u64) -> Self {
-        let interval = rotation_interval_secs.clamp(MIN_ROTATION_INTERVAL_SECS, MAX_ROTATION_INTERVAL_SECS);
+        let interval =
+            rotation_interval_secs.clamp(MIN_ROTATION_INTERVAL_SECS, MAX_ROTATION_INTERVAL_SECS);
         Self {
             resumption_cache: LruCache::new(NonZeroUsize::new(MAX_RESUMPTION_CACHE).unwrap()),
             failure_records: Vec::new(),
@@ -397,22 +402,22 @@ impl SessionManager {
         }
     }
 
- /// Snapshot of the handshake/resumption counters.
+    /// Snapshot of the handshake/resumption counters.
     pub fn resumption_stats(&self) -> ResumptionStats {
         self.stats
     }
 
- /// `true` when a valid (< 24 h) resumption ticket exists for `peer_did`.
- ///
- /// This is the production decision predicate: only a non-expired cached
- /// ticket permits the 0-RTT path (Req 6.2).
+    /// `true` when a valid (< 24 h) resumption ticket exists for `peer_did`.
+    ///
+    /// This is the production decision predicate: only a non-expired cached
+    /// ticket permits the 0-RTT path (Req 6.2).
     pub fn can_resume(&self, peer_did: &Did, now_secs: i64) -> bool {
         self.has_valid_credential(peer_did, now_secs)
     }
 
- // ── Public helpers (no feature gate) ─────────────────────────────────────
+    // ── Public helpers (no feature gate) ─────────────────────────────────────
 
- /// Check whether a valid (< 24h) resumption credential exists for a peer.
+    /// Check whether a valid (< 24h) resumption credential exists for a peer.
     pub fn has_valid_credential(&self, peer_did: &Did, now_secs: i64) -> bool {
         let key = PeerPair {
             local_did: self.local_did.clone(),
@@ -424,7 +429,7 @@ impl SessionManager {
             .unwrap_or(false)
     }
 
- /// Store a resumption credential after a successful handshake.
+    /// Store a resumption credential after a successful handshake.
     pub fn store_credential(&mut self, peer_did: Did, credential: ResumptionCredential) {
         let key = PeerPair {
             local_did: self.local_did.clone(),
@@ -433,7 +438,7 @@ impl SessionManager {
         self.resumption_cache.put(key, credential);
     }
 
- /// Record a handshake failure for backoff tracking (Req 6.6).
+    /// Record a handshake failure for backoff tracking (Req 6.6).
     pub fn record_failure(&mut self, peer_did: Did, reason: String, now_secs: i64) {
         self.failure_records
             .retain(|r| !r.backoff_elapsed(now_secs));
@@ -444,27 +449,27 @@ impl SessionManager {
         });
     }
 
- /// Returns `true` if the peer is still in the retry backoff window (Req 6.6).
+    /// Returns `true` if the peer is still in the retry backoff window (Req 6.6).
     pub fn in_backoff(&self, peer_did: &Did, now_secs: i64) -> bool {
         self.failure_records
             .iter()
             .any(|r| &r.peer_did == peer_did && !r.backoff_elapsed(now_secs))
     }
 
- /// Current size of the resumption cache.
+    /// Current size of the resumption cache.
     pub fn cache_size(&self) -> usize {
         self.resumption_cache.len()
     }
 
- /// Register an already-established Noise session (production libp2p path).
- ///
- /// When the libp2p transport has already completed the Noise handshake
- /// (its own built-in transport), the application layer records the session
- /// here so rotation tracking and the resumption cache stay in sync with
- /// actual connectivity.
+    /// Register an already-established Noise session (production libp2p path).
+    ///
+    /// When the libp2p transport has already completed the Noise handshake
+    /// (its own built-in transport), the application layer records the session
+    /// here so rotation tracking and the resumption cache stay in sync with
+    /// actual connectivity.
     #[cfg(feature = "native")]
     pub fn register_session(&mut self, peer_did: Did, now_secs: i64) -> NoiseSession {
-                    let session = NoiseSession {
+        let session = NoiseSession {
             remote_did: peer_did.clone(),
             last_rotated_secs: now_secs,
             rotation_interval_secs: self.rotation_interval_secs,
@@ -482,19 +487,19 @@ impl SessionManager {
         session
     }
 
- // ── Native-only Noise handshake, resumption, and key rotation ─────────────
+    // ── Native-only Noise handshake, resumption, and key rotation ─────────────
 
- /// Initiate a Noise_IK session with a remote peer (Req 6.1).
- ///
- /// 1. Reject REVOKED peers immediately (Req 6.7).
- /// 2. Reject if still in handshake-failure backoff (Req 6.6).
- /// 3. Evict expired credential if present (Req 6.2–6.3).
- /// 4. Perform full Noise_IK handshake (production: messages exchanged
- /// over the supplied `stream`; test: in-process responder).
- ///
- /// `stream` is required in production — it must wrap a real libp2p
- /// substream opened on the established connection. Pass `None` only
- /// when also passing `responder_privkey_for_test` (unit-test path).
+    /// Initiate a Noise_IK session with a remote peer (Req 6.1).
+    ///
+    /// 1. Reject REVOKED peers immediately (Req 6.7).
+    /// 2. Reject if still in handshake-failure backoff (Req 6.6).
+    /// 3. Evict expired credential if present (Req 6.2–6.3).
+    /// 4. Perform full Noise_IK handshake (production: messages exchanged
+    /// over the supplied `stream`; test: in-process responder).
+    ///
+    /// `stream` is required in production — it must wrap a real libp2p
+    /// substream opened on the established connection. Pass `None` only
+    /// when also passing `responder_privkey_for_test` (unit-test path).
     #[cfg(feature = "native")]
     pub async fn initiate(
         &mut self,
@@ -505,14 +510,14 @@ impl SessionManager {
         stream: Option<&mut dyn AsyncNoiseStream>,
         now_secs: i64,
     ) -> Result<NoiseSession, TirBaseError> {
- // Step 1 — REVOKED check (Req 6.7)
+        // Step 1 — REVOKED check (Req 6.7)
         if peer_trust_level == TrustLevel::Revoked {
             return Err(TirBaseError::PeerRevoked {
                 peer_did: peer_did.clone(),
             });
         }
 
- // Step 2 — backoff check (Req 6.6)
+        // Step 2 — backoff check (Req 6.6)
         if self.in_backoff(&peer_did, now_secs) {
             return Err(TirBaseError::NoiseHandshakeFailed {
                 peer_did: peer_did.clone(),
@@ -520,8 +525,8 @@ impl SessionManager {
             });
         }
 
- // Step 4 — full IK handshake (production: messages exchanged over `stream`;
- // test: in-process responder when responder_privkey_for_test is Some).
+        // Step 4 — full IK handshake (production: messages exchanged over `stream`;
+        // test: in-process responder when responder_privkey_for_test is Some).
         self.full_ik_handshake(
             peer_did,
             local_static_privkey,
@@ -533,19 +538,19 @@ impl SessionManager {
         .await
     }
 
- /// Initiate a session, attempting 0-RTT resumption from the cached ticket
- /// before falling back to a full Noise_IK handshake (Req 6.2–6.3).
- ///
- /// A resumption reuses the cached remote static key from the previous
- /// handshake and carries `zero_rtt_payload` (the first application frame)
- /// inside handshake **message 1** — data is in flight with the first
- /// flight, so no extra round trip is spent on a fresh handshake. The peer
- /// accepts that payload only because the IK message authenticates it under
- /// the cached static key; an expired, tampered, foreign or evicted ticket
- /// fails before the payload can be trusted, and the caller transparently
- /// receives a full handshake instead (`stats.resumption_fallbacks` plus
- /// `stats.full_handshakes`).
- #[cfg(feature = "native")]
+    /// Initiate a session, attempting 0-RTT resumption from the cached ticket
+    /// before falling back to a full Noise_IK handshake (Req 6.2–6.3).
+    ///
+    /// A resumption reuses the cached remote static key from the previous
+    /// handshake and carries `zero_rtt_payload` (the first application frame)
+    /// inside handshake **message 1** — data is in flight with the first
+    /// flight, so no extra round trip is spent on a fresh handshake. The peer
+    /// accepts that payload only because the IK message authenticates it under
+    /// the cached static key; an expired, tampered, foreign or evicted ticket
+    /// fails before the payload can be trusted, and the caller transparently
+    /// receives a full handshake instead (`stats.resumption_fallbacks` plus
+    /// `stats.full_handshakes`).
+    #[cfg(feature = "native")]
     #[allow(clippy::too_many_arguments)]
     pub async fn initiate_with_0rtt(
         &mut self,
@@ -557,15 +562,15 @@ impl SessionManager {
         now_secs: i64,
         zero_rtt_payload: &[u8],
     ) -> Result<NoiseSession, TirBaseError> {
- // Step 1 — REVOKED check (Req 6.7). This runs before any byte is
- // written, so a revoked peer is refused at the handshake layer.
+        // Step 1 — REVOKED check (Req 6.7). This runs before any byte is
+        // written, so a revoked peer is refused at the handshake layer.
         if peer_trust_level == TrustLevel::Revoked {
             return Err(TirBaseError::PeerRevoked {
                 peer_did: peer_did.clone(),
             });
         }
 
- // Step 2 — backoff check (Req 6.6)
+        // Step 2 — backoff check (Req 6.6)
         if self.in_backoff(&peer_did, now_secs) {
             return Err(TirBaseError::NoiseHandshakeFailed {
                 peer_did: peer_did.clone(),
@@ -573,7 +578,7 @@ impl SessionManager {
             });
         }
 
- // Step 3 — ticket lookup / expiry eviction (Req 6.2–6.3)
+        // Step 3 — ticket lookup / expiry eviction (Req 6.2–6.3)
         let cred_key = PeerPair {
             local_did: self.local_did.clone(),
             remote_did: peer_did.clone(),
@@ -597,8 +602,8 @@ impl SessionManager {
                     .await;
                 match session {
                     Ok(session) => {
- // Refresh the ticket timestamp: a resumed session extends the
- // window from the resumption, not from the original handshake.
+                        // Refresh the ticket timestamp: a resumed session extends the
+                        // window from the resumption, not from the original handshake.
                         self.store_credential(
                             peer_did.clone(),
                             ResumptionCredential {
@@ -625,14 +630,14 @@ impl SessionManager {
                     }
                 }
             } else {
- // No stream to resume over (in-process test path) — count the
+                // No stream to resume over (in-process test path) — count the
                 // fallback and run the normal handshake.
                 self.stats.resumption_fallbacks += 1;
             }
         }
 
- // Step 5 — full IK handshake (production: messages exchanged over `stream`;
- // test: in-process responder when responder_privkey_for_test is Some).
+        // Step 5 — full IK handshake (production: messages exchanged over `stream`;
+        // test: in-process responder when responder_privkey_for_test is Some).
         self.full_ik_handshake(
             peer_did,
             local_static_privkey,
@@ -644,8 +649,8 @@ impl SessionManager {
         .await
     }
 
- /// Attempt a 0-RTT resumption flight using the cached ticket's static key.
- #[cfg(feature = "native")]
+    /// Attempt a 0-RTT resumption flight using the cached ticket's static key.
+    #[cfg(feature = "native")]
     async fn try_resume(
         &mut self,
         peer_did: &Did,
@@ -662,17 +667,15 @@ impl SessionManager {
             reason,
         };
 
-        let mut initiator = Builder::new(
-            NOISE_PATTERN.parse().expect("valid Noise pattern"),
-        )
-        .local_private_key(local_static_privkey)
-        .map_err(|e| make_err(format!("local_private_key: {e}")))?
-        .remote_public_key(&cred.credential_bytes)
-        .map_err(|e| make_err(format!("cached ticket key rejected: {e}")))?
-        .build_initiator()
-        .map_err(|e| make_err(format!("build_initiator: {e}")))?;
+        let mut initiator = Builder::new(NOISE_PATTERN.parse().expect("valid Noise pattern"))
+            .local_private_key(local_static_privkey)
+            .map_err(|e| make_err(format!("local_private_key: {e}")))?
+            .remote_public_key(&cred.credential_bytes)
+            .map_err(|e| make_err(format!("cached ticket key rejected: {e}")))?
+            .build_initiator()
+            .map_err(|e| make_err(format!("build_initiator: {e}")))?;
 
- // 0-RTT: the first application frame rides in message 1.
+        // 0-RTT: the first application frame rides in message 1.
         let mut msg1 = vec![0u8; 65535];
         let n1 = initiator
             .write_message(zero_rtt_payload, &mut msg1)
@@ -713,15 +716,15 @@ impl SessionManager {
         })
     }
 
- /// Respond to a Noise_IK handshake initiated by a peer over `stream`.
- ///
- /// This is the counterpart production half of
- /// [`SessionManager::initiate_with_0rtt`]: it reads flight 1, accepts any
- /// 0-RTT payload it carries (returned to the caller so the receiving
- /// transport can apply it immediately), writes flight 2 and enters
- /// transport mode. On success the initiator's static key is cached as a
- /// resumption ticket for this peer, so both directions can resume.
- #[cfg(feature = "native")]
+    /// Respond to a Noise_IK handshake initiated by a peer over `stream`.
+    ///
+    /// This is the counterpart production half of
+    /// [`SessionManager::initiate_with_0rtt`]: it reads flight 1, accepts any
+    /// 0-RTT payload it carries (returned to the caller so the receiving
+    /// transport can apply it immediately), writes flight 2 and enters
+    /// transport mode. On success the initiator's static key is cached as a
+    /// resumption ticket for this peer, so both directions can resume.
+    #[cfg(feature = "native")]
     pub async fn respond(
         &mut self,
         peer_did: Did,
@@ -799,24 +802,24 @@ impl SessionManager {
         ))
     }
 
- /// Perform a full Noise_IK_25519_AESGCM_SHA256 handshake.
- ///
- /// # Parameters
- ///
- /// - `peer_did` — the remote peer's DID.
- /// - `local_static_privkey` — the local X25519 private key scalar.
- /// - `remote_static_pubkey` — the remote X25519 public key.
- /// - `responder_privkey_for_test`: if `Some`, builds a matching responder
- /// in-process so the handshake completes locally (unit tests only). In
- /// production this is `None`.
- /// - `stream`: optional bidirectional async byte stream for the wire
- /// exchange. **Required** in production (`responder_privkey_for_test ==
- /// None`); if absent the production path will error with
- /// `NoiseHandshakeFailed`. When `responder_privkey_for_test` is `Some`
- /// the stream is ignored (the exchange happens in-process).
- /// - `now_secs` — current wall-clock time for credential timestamping.
- ///
- /// On any failure: records the backoff (Req 6.6) and returns an error.
+    /// Perform a full Noise_IK_25519_AESGCM_SHA256 handshake.
+    ///
+    /// # Parameters
+    ///
+    /// - `peer_did` — the remote peer's DID.
+    /// - `local_static_privkey` — the local X25519 private key scalar.
+    /// - `remote_static_pubkey` — the remote X25519 public key.
+    /// - `responder_privkey_for_test`: if `Some`, builds a matching responder
+    /// in-process so the handshake completes locally (unit tests only). In
+    /// production this is `None`.
+    /// - `stream`: optional bidirectional async byte stream for the wire
+    /// exchange. **Required** in production (`responder_privkey_for_test ==
+    /// None`); if absent the production path will error with
+    /// `NoiseHandshakeFailed`. When `responder_privkey_for_test` is `Some`
+    /// the stream is ignored (the exchange happens in-process).
+    /// - `now_secs` — current wall-clock time for credential timestamping.
+    ///
+    /// On any failure: records the backoff (Req 6.6) and returns an error.
     #[cfg(feature = "native")]
     pub async fn full_ik_handshake(
         &mut self,
@@ -834,7 +837,7 @@ impl SessionManager {
             reason,
         };
 
- // Build the initiator handshake state.
+        // Build the initiator handshake state.
         let mut initiator = Builder::new(
             "Noise_IK_25519_AESGCM_SHA256"
                 .parse()
@@ -851,17 +854,17 @@ impl SessionManager {
             make_err(reason)
         })?;
 
- // Message 1: initiator → responder (> e, es, s, ss)
+        // Message 1: initiator → responder (> e, es, s, ss)
         let mut msg1 = vec![0u8; 65535];
         let n1 = initiator
             .write_message(&[], &mut msg1)
             .map_err(|e| make_err(format!("initiator write_message 1: {e}")))?;
 
- // If a responder private key is provided, complete the full exchange
- // locally (unit test path). In production (`None`) the handshake
- // messages are exchanged over the libp2p transport stream — the
- // initiator writes message 1, the responder reads it and writes
- // message 2 back, and the initiator reads message 2 to finalise.
+        // If a responder private key is provided, complete the full exchange
+        // locally (unit test path). In production (`None`) the handshake
+        // messages are exchanged over the libp2p transport stream — the
+        // initiator writes message 1, the responder reads it and writes
+        // message 2 back, and the initiator reads message 2 to finalise.
         if let Some(resp_priv) = responder_privkey_for_test {
             let mut responder = Builder::new(
                 "Noise_IK_25519_AESGCM_SHA256"
@@ -888,9 +891,9 @@ impl SessionManager {
                 .read_message(&msg2[..n2], &mut _p2)
                 .map_err(|e| make_err(format!("initiator read_message 2: {e}")))?;
         } else {
- // Production path: exchange Noise IK handshake messages over the
- // real libp2p transport stream (Req 6.1). The stream must be
- // provided — without it the handshake cannot complete.
+            // Production path: exchange Noise IK handshake messages over the
+            // real libp2p transport stream (Req 6.1). The stream must be
+            // provided — without it the handshake cannot complete.
             let stream = stream.ok_or_else(|| {
                 let reason =
                     "full_ik_handshake requires a stream for the production Noise IK wire exchange"
@@ -899,14 +902,14 @@ impl SessionManager {
                 make_err(reason)
             })?;
 
- // Send message 1 to the responder over the wire.
+            // Send message 1 to the responder over the wire.
             stream.write_noise_message(&msg1[..n1]).await.map_err(|e| {
                 let reason = format!("stream write_message 1: {e}");
                 self.record_failure(peer_did.clone(), reason.clone(), now_secs);
                 make_err(reason)
             })?;
 
- // Read message 2 from the responder (the remote e + payer).
+            // Read message 2 from the responder (the remote e + payer).
             let mut msg2 = vec![0u8; 65535];
             let n2 = match stream.read_noise_message(&mut msg2).await {
                 Ok(n) => n,
@@ -931,7 +934,7 @@ impl SessionManager {
             make_err(reason)
         })?;
 
- // Cache the credential (remote static key) for 0-RTT resumption.
+        // Cache the credential (remote static key) for 0-RTT resumption.
         let cred_bytes = transport
             .get_remote_static()
             .map(|k| k.to_vec())
@@ -957,8 +960,8 @@ impl SessionManager {
         })
     }
 
- /// Rotate the CipherState keys in-place without dropping the connection
- /// (Req 6.4).
+    /// Rotate the CipherState keys in-place without dropping the connection
+    /// (Req 6.4).
     #[cfg(feature = "native")]
     pub fn rotate_keys(
         &mut self,
@@ -992,7 +995,7 @@ impl Default for SessionManager {
 mod tests {
     use super::*;
 
- // ── ResumptionCredential ──────────────────────────────────────────────────
+    // ── ResumptionCredential ──────────────────────────────────────────────────
 
     #[test]
     fn credential_valid_within_24h() {
@@ -1014,7 +1017,7 @@ mod tests {
         assert!(!cred.is_valid(1_000_000 + CREDENTIAL_VALIDITY_SECS));
     }
 
- // ── Handshake failure backoff ─────────────────────────────────────────────
+    // ── Handshake failure backoff ─────────────────────────────────────────────
 
     #[test]
     fn backoff_active_within_30s() {
@@ -1030,7 +1033,7 @@ mod tests {
         assert!(!sm.in_backoff(&"did:key:peer".to_string(), 1_030));
     }
 
- // ── 0-RTT resumption cache ────────────────────────────────────────────────
+    // ── 0-RTT resumption cache ────────────────────────────────────────────────
 
     #[test]
     fn cache_stores_and_retrieves_credential() {
@@ -1086,7 +1089,7 @@ mod tests {
         assert_eq!(sm.cache_size(), MAX_RESUMPTION_CACHE);
     }
 
- // ── Rotation interval clamping ────────────────────────────────────────────
+    // ── Rotation interval clamping ────────────────────────────────────────────
 
     #[test]
     fn rotation_interval_clamped_to_minimum() {
@@ -1106,7 +1109,7 @@ mod tests {
         assert_eq!(sm.rotation_interval_secs, 3_600);
     }
 
- // ── REVOKED peer rejection (native only) ──────────────────────────────────
+    // ── REVOKED peer rejection (native only) ──────────────────────────────────
 
     #[cfg(feature = "native")]
     #[tokio::test]
@@ -1150,14 +1153,14 @@ mod tests {
         );
     }
 
- /// Full Noise_IK handshake with properly generated keypairs + in-place key
- /// rotation (Req 6.1, 6.4).
+    /// Full Noise_IK handshake with properly generated keypairs + in-place key
+    /// rotation (Req 6.1, 6.4).
     #[cfg(feature = "native")]
     #[tokio::test]
     async fn full_ik_handshake_and_key_rotation_in_place() {
         use snow::Builder;
 
- // Generate proper X25519 keypairs.
+        // Generate proper X25519 keypairs.
         let initiator_kp = Builder::new("Noise_IK_25519_AESGCM_SHA256".parse().unwrap())
             .generate_keypair()
             .expect("generate initiator keypair");
@@ -1168,8 +1171,8 @@ mod tests {
 
         let mut sm = SessionManager::new("did:key:initiator".to_string(), 300);
 
- // Use full_ik_handshake with responder's private key so the exchange
- // completes in-process.
+        // Use full_ik_handshake with responder's private key so the exchange
+        // completes in-process.
         let mut session = sm
             .full_ik_handshake(
                 "did:key:responder".to_string(),
@@ -1186,15 +1189,15 @@ mod tests {
         assert!(!session.rotation_due(1_000 + 299));
         assert!(session.rotation_due(1_000 + 300));
 
- // Credential cached after successful handshake
+        // Credential cached after successful handshake
         assert!(sm.has_valid_credential(&"did:key:responder".to_string(), 1_000));
 
- // In-place key rotation (Req 6.4)
+        // In-place key rotation (Req 6.4)
         sm.rotate_keys(&mut session, 1_300)
             .expect("rotate_keys must not fail");
         assert_eq!(session.last_rotated_secs, 1_300);
 
- // Verify the transport is still functional after rekeying
+        // Verify the transport is still functional after rekeying
         let mut cipher = vec![0u8; 65535];
         let n = session
             .transport
@@ -1205,8 +1208,8 @@ mod tests {
         assert!(n > 0);
     }
 
- /// Demonstrate that the Noise_IK snow machinery works correctly with
- /// properly generated keypairs (validates Req 6.1 end-to-end).
+    /// Demonstrate that the Noise_IK snow machinery works correctly with
+    /// properly generated keypairs (validates Req 6.1 end-to-end).
     #[cfg(feature = "native")]
     #[test]
     fn noise_ik_rekey_both_cipher_states() {
@@ -1233,7 +1236,7 @@ mod tests {
             .build_responder()
             .unwrap();
 
- // Handshake exchange
+        // Handshake exchange
         let mut buf = vec![0u8; 65535];
         let n = initiator.write_message(&[], &mut buf).unwrap();
         let mut p = vec![0u8; 65535];
@@ -1244,80 +1247,80 @@ mod tests {
         let mut i_transport = initiator.into_transport_mode().unwrap();
         let mut r_transport = responder.into_transport_mode().unwrap();
 
- // Rekey both CipherStates in-place (Req 6.4)
+        // Rekey both CipherStates in-place (Req 6.4)
         i_transport.rekey_outgoing();
         i_transport.rekey_incoming();
         r_transport.rekey_outgoing();
         r_transport.rekey_incoming();
 
- // After rekeying: initiator can still encrypt, responder can decrypt
+        // After rekeying: initiator can still encrypt, responder can decrypt
         let mut ciphertext = vec![0u8; 65535];
         let n = i_transport
             .write_message(b"hello after rekey", &mut ciphertext)
             .unwrap();
         let plaintext = vec![0u8; 65535];
- // Note: after rekey, nonces are out of sync between the two sides in a
- // stateless test like this (both rekeyed independently). The important
- // invariant tested here is that rekey_outgoing/incoming don't panic.
+        // Note: after rekey, nonces are out of sync between the two sides in a
+        // stateless test like this (both rekeyed independently). The important
+        // invariant tested here is that rekey_outgoing/incoming don't panic.
         assert!(n > 0, "encrypted message length must be positive");
     }
 
- /// Integration test: two devices establish an IK session via DID resolution,
- /// rotate keys, and verify state (Req 6.1, 6.4 — production wiring).
- ///
- /// Validates the production wiring path end-to-end:
- /// 1. Two Ed25519 keypairs are generated and DIDs derived.
- /// 2. The responder's DID is resolved back to its Ed25519 public key,
- /// confirming the DID round-trip (resolve_did ↔ derive_did).
- /// 3. The Ed25519 public key is converted to X25519 Montgomery form and
- /// the Ed25519 private key seed is converted to the X25519 scalar.
- /// 4. `SessionManager::full_ik_handshake` completes the full Noise_IK
- /// exchange (message 1 → message 2 → transport mode) with a live
- /// `snow::TransportState` stored in the returned `NoiseSession`.
- /// 5. `rotate_keys` rekeys both CipherStates in-place; the transport
- /// remains functional.
- /// 6. `tick_key_rotation` on a `MeshTransport` drives rotation for
- /// sessions whose interval has elapsed.
+    /// Integration test: two devices establish an IK session via DID resolution,
+    /// rotate keys, and verify state (Req 6.1, 6.4 — production wiring).
+    ///
+    /// Validates the production wiring path end-to-end:
+    /// 1. Two Ed25519 keypairs are generated and DIDs derived.
+    /// 2. The responder's DID is resolved back to its Ed25519 public key,
+    /// confirming the DID round-trip (resolve_did ↔ derive_did).
+    /// 3. The Ed25519 public key is converted to X25519 Montgomery form and
+    /// the Ed25519 private key seed is converted to the X25519 scalar.
+    /// 4. `SessionManager::full_ik_handshake` completes the full Noise_IK
+    /// exchange (message 1 → message 2 → transport mode) with a live
+    /// `snow::TransportState` stored in the returned `NoiseSession`.
+    /// 5. `rotate_keys` rekeys both CipherStates in-place; the transport
+    /// remains functional.
+    /// 6. `tick_key_rotation` on a `MeshTransport` drives rotation for
+    /// sessions whose interval has elapsed.
     #[cfg(feature = "native")]
     #[tokio::test]
     async fn two_devices_ik_session_establishment_rotate_and_verify() {
         use crate::identity::did::{derive_did, resolve_did};
         use ed25519_dalek::SigningKey;
 
- // ── Device A (initiator) ──────────────────────────────────────────────
+        // ── Device A (initiator) ──────────────────────────────────────────────
         let init_sk = SigningKey::from_bytes(&[0xAB; 32]);
         let init_pk = init_sk.verifying_key().to_bytes();
         let init_did = derive_did(&init_pk);
 
- // ── Device B (responder) ───────────────────────────────────────────────
+        // ── Device B (responder) ───────────────────────────────────────────────
         let resp_sk = SigningKey::from_bytes(&[0xCD; 32]);
         let resp_pk = resp_sk.verifying_key().to_bytes();
         let resp_did = derive_did(&resp_pk);
 
- // Verify DID round-trip: resolving the DID must give back the same
- // Ed25519 public key we derived from.
+        // Verify DID round-trip: resolving the DID must give back the same
+        // Ed25519 public key we derived from.
         let resolved = resolve_did(&resp_did).expect("resolve_did must succeed for derived DID");
         assert_eq!(
             resolved, resp_pk,
             "resolved DID public key must match the original"
         );
 
- // Convert the responder's Ed25519 public key to X25519 for Noise_IK.
+        // Convert the responder's Ed25519 public key to X25519 for Noise_IK.
         let x25519_resp_pk = ed25519_pubkey_to_x25519(&resolved)
             .expect("Ed25519→X25519 pubkey conversion must succeed for a valid DID");
 
- // Convert the Ed25519 private key seeds to X25519 scalars for `snow`.
+        // Convert the Ed25519 private key seeds to X25519 scalars for `snow`.
         let x25519_init_privkey = ed25519_privkey_to_x25519(&init_sk.to_bytes())
             .expect("initiator Ed25519→X25519 privkey conversion must succeed");
         let x25519_resp_privkey = ed25519_privkey_to_x25519(&resp_sk.to_bytes())
             .expect("responder Ed25519→X25519 privkey conversion must succeed");
 
- // ── Establish IK session via full_ik_handshake ────────────────────────
- // This mirrors what SessionManager::initiate calls internally, but
- // supplies the responder's private key so the handshake completes
- // in-process (test path). In production, the responder's private key
- // is not available locally; the handshake messages are exchanged over
- // the libp2p transport stream.
+        // ── Establish IK session via full_ik_handshake ────────────────────────
+        // This mirrors what SessionManager::initiate calls internally, but
+        // supplies the responder's private key so the handshake completes
+        // in-process (test path). In production, the responder's private key
+        // is not available locally; the handshake messages are exchanged over
+        // the libp2p transport stream.
         let mut sm = SessionManager::new(init_did.clone(), 300);
         let mut session = sm
             .full_ik_handshake(
@@ -1331,7 +1334,7 @@ mod tests {
             .await
             .expect("full IK handshake must succeed with resolved DID key");
 
- // Session carries live transport state.
+        // Session carries live transport state.
         assert_eq!(session.remote_did, resp_did);
         assert!(
             session.transport.is_some(),
@@ -1340,15 +1343,15 @@ mod tests {
         assert!(!session.rotation_due(1_299));
         assert!(session.rotation_due(1_300));
 
- // Credential cached for 0-RTT resumption.
+        // Credential cached for 0-RTT resumption.
         assert!(sm.has_valid_credential(&resp_did, 1_000));
 
- // ── Key rotation (Req 6.4) ──────────────────────────────────────────────
+        // ── Key rotation (Req 6.4) ──────────────────────────────────────────────
         sm.rotate_keys(&mut session, 1_300)
             .expect("rotate_keys must succeed after rotation interval");
         assert_eq!(session.last_rotated_secs, 1_300);
 
- // Transport still functional after rekey.
+        // Transport still functional after rekey.
         let mut cipher = vec![0u8; 65535];
         let n = session
             .transport
@@ -1361,10 +1364,10 @@ mod tests {
             "encrypted message length must be positive after rotation"
         );
 
- // ── tick_key_rotation via MeshTransport ────────────────────────────────
- // Build a real MeshTransport with a short rotation interval, perform a
- // full IK handshake through it, and verify tick_key_rotation drives
- // rotation when the interval elapses.
+        // ── tick_key_rotation via MeshTransport ────────────────────────────────
+        // Build a real MeshTransport with a short rotation interval, perform a
+        // full IK handshake through it, and verify tick_key_rotation drives
+        // rotation when the interval elapses.
         let mut transport = crate::transport::MeshTransport::new(
             init_did.clone(),
             init_sk.to_bytes(), // Ed25519 seed — stored as-is; conversions happen in initiate_session
@@ -1383,8 +1386,8 @@ mod tests {
             },
         );
 
- // Perform a full IK handshake through the transport's SessionManager,
- // producing a session with live snow::TransportState at time 1_000.
+        // Perform a full IK handshake through the transport's SessionManager,
+        // producing a session with live snow::TransportState at time 1_000.
         let session = transport
             .session_manager
             .full_ik_handshake(
@@ -1398,8 +1401,8 @@ mod tests {
             .await
             .expect("full IK handshake through transport SessionManager must succeed");
 
- // The session's rotation_interval_secs comes from the transport's
- // SessionManager (60s, clamped from key_rotation_interval_secs=60).
+        // The session's rotation_interval_secs comes from the transport's
+        // SessionManager (60s, clamped from key_rotation_interval_secs=60).
         assert_eq!(
             session.rotation_interval_secs, 60,
             "session rotation interval must match the transport config (60s)"
@@ -1407,7 +1410,7 @@ mod tests {
 
         transport.active_sessions.insert(resp_did.clone(), session);
 
- // Before the rotation interval (60s): tick should be a no-op.
+        // Before the rotation interval (60s): tick should be a no-op.
         transport.tick_key_rotation(1_050);
         let before = transport.active_sessions.get(&resp_did).unwrap();
         assert_eq!(
@@ -1415,7 +1418,7 @@ mod tests {
             "rotation must not occur before the interval elapses"
         );
 
- // After the rotation interval (60s): tick should rotate.
+        // After the rotation interval (60s): tick should rotate.
         transport.tick_key_rotation(1_060);
         let after = transport.active_sessions.get(&resp_did).unwrap();
         assert!(
@@ -1424,9 +1427,9 @@ mod tests {
             after.last_rotated_secs
         );
 
- // ── initiate_session fallback (non-resolvable DID → register_session) ─
- // A libp2p PeerId-derived pseudo-DID is not a valid did:key:, so
- // resolution fails and the fallback to register_session must run.
+        // ── initiate_session fallback (non-resolvable DID → register_session) ─
+        // A libp2p PeerId-derived pseudo-DID is not a valid did:key:, so
+        // resolution fails and the fallback to register_session must run.
         transport
             .initiate_session(
                 "did:key:12D3KooWFakePeerId".to_string(),
@@ -1439,8 +1442,8 @@ mod tests {
             .await
             .expect("initiate_session fallback to register_session must succeed");
 
- // The pseudo-peer session is registered (transport: None) so rotate_keys
- // skips it gracefully during tick_key_rotation.
+        // The pseudo-peer session is registered (transport: None) so rotate_keys
+        // skips it gracefully during tick_key_rotation.
         let fake_did = "did:key:12D3KooWFakePeerId".to_string();
         assert!(
             transport.active_sessions.contains_key(&fake_did),
@@ -1452,7 +1455,7 @@ mod tests {
             "register_session path must produce a session without transport state"
         );
 
- // tick_key_rotation must not panic on sessions with transport: None.
+        // tick_key_rotation must not panic on sessions with transport: None.
         transport.tick_key_rotation(1_120);
     }
 }

@@ -64,13 +64,13 @@ const IO_MANAGER_EXPORTS: &[(&str, &str, &str)] = &[
     ("read", "core_read", "read"),
     ("query", "core_query", "query"),
     ("trust_level", "core_trust_level", "trustLevel"),
-    ("present_biscuit_token", "core_present_token", "core_present_token"),
-    ("mesh_status", "core_mesh_status", "meshStatus"),
     (
-        "register_root_ca_key",
-        "core_register_root_ca_key",
-        "",
+        "present_biscuit_token",
+        "core_present_token",
+        "core_present_token",
     ),
+    ("mesh_status", "core_mesh_status", "meshStatus"),
+    ("register_root_ca_key", "core_register_root_ca_key", ""),
     (
         "register_migration_ca_key",
         "core_register_migration_ca_key",
@@ -564,8 +564,7 @@ fn all_corehandle_public_methods_are_accounted_for() {
     let methods = corehandle_public_methods();
     let exports = wasm_bindgen_exports();
 
-    let exported_methods: BTreeSet<&str> =
-        IO_MANAGER_EXPORTS.iter().map(|(m, _, _)| *m).collect();
+    let exported_methods: BTreeSet<&str> = IO_MANAGER_EXPORTS.iter().map(|(m, _, _)| *m).collect();
     let excluded: BTreeSet<&str> = UNEXPORTED_COREHANDLE_METHODS
         .iter()
         .map(|(m, _)| *m)
@@ -699,10 +698,7 @@ fn openapi_admin_paths(source: &str) -> BTreeSet<String> {
         }
         // Path item keys are indented under `paths:`; accept the one- and
         // two-space forms the repository has used.
-        if let Some(rest) = line
-            .strip_prefix(" /")
-            .or_else(|| line.strip_prefix("  /"))
-        {
+        if let Some(rest) = line.strip_prefix(" /").or_else(|| line.strip_prefix("  /")) {
             if let Some(path) = rest.strip_suffix(':') {
                 paths.insert(format!("/{path}"));
             }

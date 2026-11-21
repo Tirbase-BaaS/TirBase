@@ -148,7 +148,12 @@ async fn fragmented_large_row_crosses_a_256_byte_mesh_mtu() {
         .collect();
     let whole: Vec<_> = published
         .iter()
-        .filter(|p| matches!(GossipMessage::from_bytes(p), Some(GossipMessage::InboundDelta(_))))
+        .filter(|p| {
+            matches!(
+                GossipMessage::from_bytes(p),
+                Some(GossipMessage::InboundDelta(_))
+            )
+        })
         .collect();
 
     assert!(
@@ -251,7 +256,10 @@ async fn incomplete_fragment_set_is_never_partially_applied() {
             + crate::transport::fragment::FRAGMENT_STALE_TIMEOUT_US
             + 1,
     );
-    assert_eq!(expired, 1, "the partial assembly must be discarded on timeout");
+    assert_eq!(
+        expired, 1,
+        "the partial assembly must be discarded on timeout"
+    );
 
     // And a complete retransmission applies cleanly.
     let prepared = a
@@ -392,7 +400,11 @@ async fn three_node_chain_relays_a_delta_with_bounded_hops_and_no_duplicates() {
     )
     .await;
     let forwards = b.transport.lock().unwrap().relay_forwarded.clone();
-    assert_eq!(forwards.len(), 1, "B must forward exactly once (no duplicates)");
+    assert_eq!(
+        forwards.len(),
+        1,
+        "B must forward exactly once (no duplicates)"
+    );
     assert_eq!(forwards[0].0, c_did);
     assert_eq!(forwards[0].1, 1, "the relay hop count advances by one");
     assert!(
@@ -427,7 +439,8 @@ async fn three_node_chain_relays_a_delta_with_bounded_hops_and_no_duplicates() {
 fn relay_hop_bound_is_enforced_by_the_transport() {
     let mut config = crate::transport::TransportConfig::default();
     config.max_hop_count = 2;
-    let transport = crate::transport::MeshTransport::new("did:key:relay".to_string(), [0u8; 32], config);
+    let transport =
+        crate::transport::MeshTransport::new("did:key:relay".to_string(), [0u8; 32], config);
     let delta = signed_delta_for_relay_unit_test();
 
     match transport.relay_decision(
@@ -522,10 +535,7 @@ async fn attempt_session(
     Result<(SessionEstablishment, Vec<u8>), String>,
 ) {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind listener");
-    let addr = listener
-        .local_addr()
-        .expect("local addr")
-        .to_string();
+    let addr = listener.local_addr().expect("local addr").to_string();
     let responder_did = responder.identity.did().to_string();
     let initiator_did = initiator.identity.did().to_string();
     let thread = spawn_noise_responder(responder.clone(), listener, initiator_did, now);
@@ -578,7 +588,12 @@ async fn noise_session_resumes_with_0rtt_and_rotates_keys_in_place() {
     assert!(!server_est.resumed);
     assert!(server_payload.is_empty());
     {
-        let stats = a.transport.lock().unwrap().session_manager.resumption_stats();
+        let stats = a
+            .transport
+            .lock()
+            .unwrap()
+            .session_manager
+            .resumption_stats();
         assert_eq!(stats.full_handshakes, 1, "exactly one full handshake");
         assert_eq!(stats.resumptions, 0);
     }
@@ -608,7 +623,12 @@ async fn noise_session_resumes_with_0rtt_and_rotates_keys_in_place() {
         "the 0-RTT payload must be delivered with the handshake flight"
     );
     {
-        let stats = a.transport.lock().unwrap().session_manager.resumption_stats();
+        let stats = a
+            .transport
+            .lock()
+            .unwrap()
+            .session_manager
+            .resumption_stats();
         assert_eq!(stats.resumptions, 1, "exactly one resumption");
         assert_eq!(
             stats.full_handshakes, 1,
@@ -725,7 +745,13 @@ async fn resumption_negative_cases_fall_back_or_fail_closed() {
     let est = client.expect("full handshake with no ticket");
     assert!(!est.resumed);
     assert!(server.expect("responder").0.resumed == false);
-    let full_after_first = a.transport.lock().unwrap().session_manager.resumption_stats().full_handshakes;
+    let full_after_first = a
+        .transport
+        .lock()
+        .unwrap()
+        .session_manager
+        .resumption_stats()
+        .full_handshakes;
 
     // Expired ticket (injected clock advance beyond the 24 h window).
     let (client, _server) = attempt_session(
@@ -739,7 +765,12 @@ async fn resumption_negative_cases_fall_back_or_fail_closed() {
     let est = client.expect("expired ticket must fall back to a full handshake");
     assert!(!est.resumed, "an expired ticket must not be used");
     {
-        let stats = a.transport.lock().unwrap().session_manager.resumption_stats();
+        let stats = a
+            .transport
+            .lock()
+            .unwrap()
+            .session_manager
+            .resumption_stats();
         assert!(
             stats.full_handshakes > full_after_first,
             "the fallback must be a real full handshake"
@@ -852,9 +883,12 @@ async fn revoked_peer_is_refused_at_the_handshake_layer() {
     // No handshake byte was written: the peer side sees nothing.
     let mut buf = [0u8; 64];
     assert!(
-        tokio::time::timeout(Duration::from_millis(200), peer.read_noise_message(&mut buf))
-            .await
-            .is_err(),
+        tokio::time::timeout(
+            Duration::from_millis(200),
+            peer.read_noise_message(&mut buf)
+        )
+        .await
+        .is_err(),
         "a revoked peer must be refused before any data exchange"
     );
 

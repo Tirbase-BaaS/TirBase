@@ -71,7 +71,10 @@ pub enum ProvisioningError {
     DeviceAlreadyExists { device_id: String },
     /// Device state does not permit the requested transition.
     #[error("invalid device state {state:?} for operation {operation}")]
-    InvalidState { state: DeviceState, operation: String },
+    InvalidState {
+        state: DeviceState,
+        operation: String,
+    },
     /// Provisioning payload failed validation.
     #[error("invalid provisioning payload: {reason}")]
     InvalidPayload { reason: String },
@@ -263,8 +266,10 @@ impl ProvisioningPayload {
             expires_at_est: self.expires_at_est,
             issued_by: &self.issued_by,
         };
-        let canonical = serde_json::to_vec(&body)
-            .map_err(|e| ProvisioningError::Serialisation { reason: e.to_string() })?;
+        let canonical =
+            serde_json::to_vec(&body).map_err(|e| ProvisioningError::Serialisation {
+                reason: e.to_string(),
+            })?;
         let mut out = Vec::with_capacity(PROVISIONING_PAYLOAD_DOMAIN.len() + canonical.len());
         out.extend_from_slice(PROVISIONING_PAYLOAD_DOMAIN);
         out.extend_from_slice(&canonical);
@@ -273,8 +278,11 @@ impl ProvisioningPayload {
 
     /// Verify the payload signature against an authority public key.
     pub fn verify(&self, authority_public_key: &[u8; 32]) -> Result<(), ProvisioningError> {
-        let verifying_key = VerifyingKey::from_bytes(authority_public_key)
-            .map_err(|e| ProvisioningError::Crypto { reason: e.to_string() })?;
+        let verifying_key = VerifyingKey::from_bytes(authority_public_key).map_err(|e| {
+            ProvisioningError::Crypto {
+                reason: e.to_string(),
+            }
+        })?;
         let sig_bytes: [u8; 64] = self.signature.as_slice().try_into().map_err(|_| {
             ProvisioningError::InvalidPayload {
                 reason: "signature must be 64 bytes".to_string(),
@@ -300,7 +308,9 @@ impl ProvisioningPayload {
     pub fn encoded_len(&self) -> Result<usize, ProvisioningError> {
         serde_json::to_vec(self)
             .map(|b| b.len())
-            .map_err(|e| ProvisioningError::Serialisation { reason: e.to_string() })
+            .map_err(|e| ProvisioningError::Serialisation {
+                reason: e.to_string(),
+            })
     }
 
     /// Validate structural and bound constraints.
@@ -527,7 +537,13 @@ impl DeviceLifecycleRegistry {
     ) -> ClaimCode {
         let issued_by = issued_by.into();
         let expires_at_est = now_est.saturating_add(ttl_secs.max(1));
-        let code = derive_claim_code(&tenant, site.as_deref(), device_type.as_deref(), nonce, now_est);
+        let code = derive_claim_code(
+            &tenant,
+            site.as_deref(),
+            device_type.as_deref(),
+            nonce,
+            now_est,
+        );
         let claim = ClaimCode {
             code: code.clone(),
             tenant: tenant.clone(),
@@ -679,7 +695,8 @@ impl DeviceLifecycleRegistry {
             tenant_data_cleared_at_est: Some(now_est),
             previous_tenants: Vec::new(),
         };
-        self.devices.insert(record.device_id.clone(), record.clone());
+        self.devices
+            .insert(record.device_id.clone(), record.clone());
         self.credentials
             .insert(credential.credential_id.clone(), credential.clone());
         self.push_audit(
@@ -688,10 +705,7 @@ impl DeviceLifecycleRegistry {
             Some(record.tenant.clone()),
             actor.clone(),
             AuditEventKind::Enrolled,
-            format!(
-                "device enrolled with payload {}",
-                payload.payload_id
-            ),
+            format!("device enrolled with payload {}", payload.payload_id),
         );
         self.push_audit(
             now_est,
@@ -754,7 +768,8 @@ impl DeviceLifecycleRegistry {
     ) -> CredentialRecord {
         self.next_credential_seq = self.next_credential_seq.saturating_add(1);
         let credential_id = format!("cred-{}-{}", device_id, self.next_credential_seq);
-        let material_fingerprint = fingerprint_credential(device_id, tenant, self.next_credential_seq, now_est);
+        let material_fingerprint =
+            fingerprint_credential(device_id, tenant, self.next_credential_seq, now_est);
         CredentialRecord {
             credential_id,
             device_id: device_id.to_string(),
@@ -782,8 +797,15 @@ impl DeviceLifecycleRegistry {
         if let Some(old) = old_id.as_ref() {
             self.set_credential_state(old, CredentialState::Replaced, now_est)?;
         }
-        let new = self.issue_credential_internal(device_id, &tenant, now_est, old_id.clone(), CredentialState::Active);
-        self.credentials.insert(new.credential_id.clone(), new.clone());
+        let new = self.issue_credential_internal(
+            device_id,
+            &tenant,
+            now_est,
+            old_id.clone(),
+            CredentialState::Active,
+        );
+        self.credentials
+            .insert(new.credential_id.clone(), new.clone());
         let record = self.devices.get_mut(device_id).expect("checked above");
         record.active_credential_id = Some(new.credential_id.clone());
         record.updated_at_est = now_est;
@@ -868,8 +890,15 @@ impl DeviceLifecycleRegistry {
         if let Some(old) = old_id.as_ref() {
             self.set_credential_state(old, CredentialState::Revoked, now_est)?;
         }
-        let new = self.issue_credential_internal(device_id, &tenant, now_est, old_id.clone(), CredentialState::Active);
-        self.credentials.insert(new.credential_id.clone(), new.clone());
+        let new = self.issue_credential_internal(
+            device_id,
+            &tenant,
+            now_est,
+            old_id.clone(),
+            CredentialState::Active,
+        );
+        self.credentials
+            .insert(new.credential_id.clone(), new.clone());
         let record = self.devices.get_mut(device_id).expect("checked");
         record.active_credential_id = Some(new.credential_id.clone());
         record.updated_at_est = now_est;
@@ -900,11 +929,15 @@ impl DeviceLifecycleRegistry {
             if record.state == DeviceState::Decommissioned {
                 return Ok(());
             }
-            (record.tenant.clone(), self.credentials_for_device(device_id))
+            (
+                record.tenant.clone(),
+                self.credentials_for_device(device_id),
+            )
         };
         for cred_id in creds {
             if let Some(cred) = self.credentials.get_mut(&cred_id) {
-                if cred.state == CredentialState::Active || cred.state == CredentialState::Replaced {
+                if cred.state == CredentialState::Active || cred.state == CredentialState::Replaced
+                {
                     cred.state = CredentialState::Decommissioned;
                     cred.updated_at_est = now_est;
                 }
@@ -985,7 +1018,10 @@ impl DeviceLifecycleRegistry {
         let actor = actor.into();
         let (old_tenant, old_cred) = {
             let record = self.device_mut(device_id)?;
-            if matches!(record.state, DeviceState::Decommissioned | DeviceState::Revoked) {
+            if matches!(
+                record.state,
+                DeviceState::Decommissioned | DeviceState::Revoked
+            ) {
                 return Err(ProvisioningError::InvalidState {
                     state: record.state,
                     operation: "transfer_ownership".to_string(),
@@ -1015,7 +1051,8 @@ impl DeviceLifecycleRegistry {
             old_cred.clone(),
             CredentialState::Active,
         );
-        self.credentials.insert(new_cred.credential_id.clone(), new_cred.clone());
+        self.credentials
+            .insert(new_cred.credential_id.clone(), new_cred.clone());
         let record = self.devices.get_mut(device_id).expect("checked");
         record.tenant = new_tenant.clone();
         record.site = new_site;
@@ -1103,13 +1140,16 @@ impl DeviceLifecycleRegistry {
 
     /// Compute current drift status for a device.
     pub fn drift_status(&self, device_id: &str) -> Result<DriftStatus, ProvisioningError> {
-        let record = self
-            .devices
-            .get(device_id)
-            .ok_or_else(|| ProvisioningError::DeviceNotFound {
-                device_id: device_id.to_string(),
-            })?;
-        Ok(compute_drift(&record.expected_versions, &record.reported_versions))
+        let record =
+            self.devices
+                .get(device_id)
+                .ok_or_else(|| ProvisioningError::DeviceNotFound {
+                    device_id: device_id.to_string(),
+                })?;
+        Ok(compute_drift(
+            &record.expected_versions,
+            &record.reported_versions,
+        ))
     }
 
     /// Query devices by tenant, site, type, and/or state.
@@ -1142,9 +1182,11 @@ impl DeviceLifecycleRegistry {
     }
 
     fn device_mut(&mut self, device_id: &str) -> Result<&mut DeviceRecord, ProvisioningError> {
-        self.devices.get_mut(device_id).ok_or_else(|| ProvisioningError::DeviceNotFound {
-            device_id: device_id.to_string(),
-        })
+        self.devices
+            .get_mut(device_id)
+            .ok_or_else(|| ProvisioningError::DeviceNotFound {
+                device_id: device_id.to_string(),
+            })
     }
 
     fn device_mut_active(
@@ -1257,12 +1299,7 @@ pub fn derive_claim_code(
     hex::encode(&digest[..16])
 }
 
-fn fingerprint_credential(
-    device_id: &str,
-    tenant: &TenantPath,
-    seq: u64,
-    now_est: i64,
-) -> String {
+fn fingerprint_credential(device_id: &str, tenant: &TenantPath, seq: u64, now_est: i64) -> String {
     let mut hasher = Sha256::new();
     hasher.update(CREDENTIAL_DOMAIN);
     hasher.update(device_id.as_bytes());
@@ -1418,15 +1455,34 @@ mod tests {
         let t = tenant("acme", "site-1");
         let mut reg = DeviceLifecycleRegistry::new();
         let claim = reg.issue_claim_code(t.clone(), None, None, "op", 1000, 600, b"n1");
-        let payload = sample_payload(&auth, t.clone(), None, Some(claim.code), "did:key:zStolen", "p1", 1000);
+        let payload = sample_payload(
+            &auth,
+            t.clone(),
+            None,
+            Some(claim.code),
+            "did:key:zStolen",
+            "p1",
+            1000,
+        );
         reg.enrol(&payload, &auth_pub, "op", 1000).unwrap();
 
-        reg.revoke_credential("did:key:zStolen", None, "secops", 1100).unwrap();
+        reg.revoke_credential("did:key:zStolen", None, "secops", 1100)
+            .unwrap();
 
         // Even with a fresh valid claim/payload for the same stolen identity, re-enrolment is blocked.
         let claim2 = reg.issue_claim_code(t.clone(), None, None, "op", 1200, 600, b"n2");
-        let payload2 = sample_payload(&auth, t.clone(), None, Some(claim2.code), "did:key:zStolen", "p2", 1200);
-        let err = reg.enrol(&payload2, &auth_pub, "attacker-or-op", 1200).unwrap_err();
+        let payload2 = sample_payload(
+            &auth,
+            t.clone(),
+            None,
+            Some(claim2.code),
+            "did:key:zStolen",
+            "p2",
+            1200,
+        );
+        let err = reg
+            .enrol(&payload2, &auth_pub, "attacker-or-op", 1200)
+            .unwrap_err();
         assert_eq!(
             err,
             ProvisioningError::ReenrolmentBlocked {
@@ -1435,9 +1491,18 @@ mod tests {
         );
 
         // Explicit re-issue authorisation still does NOT allow the old identity back.
-        reg.authorise_reissue("did:key:zStolen", "secops", 1300).unwrap();
+        reg.authorise_reissue("did:key:zStolen", "secops", 1300)
+            .unwrap();
         let claim3 = reg.issue_claim_code(t.clone(), None, None, "op", 1301, 600, b"n3");
-        let payload3 = sample_payload(&auth, t, None, Some(claim3.code), "did:key:zStolen", "p3", 1301);
+        let payload3 = sample_payload(
+            &auth,
+            t,
+            None,
+            Some(claim3.code),
+            "did:key:zStolen",
+            "p3",
+            1301,
+        );
         assert!(matches!(
             reg.enrol(&payload3, &auth_pub, "op", 1301),
             Err(ProvisioningError::ReenrolmentBlocked { .. })
@@ -1451,9 +1516,22 @@ mod tests {
         let t2 = tenant("globex", "site-9");
         let mut reg = DeviceLifecycleRegistry::new();
         let claim = reg.issue_claim_code(t1.clone(), None, None, "op", 1000, 600, b"n1");
-        let payload = sample_payload(&auth, t1.clone(), None, Some(claim.code), "did:key:zMove", "p1", 1000);
+        let payload = sample_payload(
+            &auth,
+            t1.clone(),
+            None,
+            Some(claim.code),
+            "did:key:zMove",
+            "p1",
+            1000,
+        );
         reg.enrol(&payload, &auth_pub, "op", 1000).unwrap();
-        let old_cred = reg.get("did:key:zMove").unwrap().active_credential_id.clone().unwrap();
+        let old_cred = reg
+            .get("did:key:zMove")
+            .unwrap()
+            .active_credential_id
+            .clone()
+            .unwrap();
         reg.report_versions(
             "did:key:zMove",
             ReportedVersions {
@@ -1478,13 +1556,22 @@ mod tests {
         let record = reg.get("did:key:zMove").unwrap().clone();
         assert_eq!(record.tenant, t2);
         assert_eq!(record.site.as_deref(), Some("site-9"));
-        assert_ne!(record.active_credential_id.as_deref(), Some(old_cred.as_str()));
-        assert_eq!(record.active_credential_id.as_deref(), Some(new_cred.credential_id.as_str()));
+        assert_ne!(
+            record.active_credential_id.as_deref(),
+            Some(old_cred.as_str())
+        );
+        assert_eq!(
+            record.active_credential_id.as_deref(),
+            Some(new_cred.credential_id.as_str())
+        );
         // Old tenant runtime material cleared (reported versions reset) and clearance recorded.
         assert_eq!(record.reported_versions, ReportedVersions::default());
         assert_eq!(record.tenant_data_cleared_at_est, Some(2000));
         assert_eq!(record.previous_tenants, vec![t1.clone()]);
-        assert_eq!(reg.credential(&old_cred).unwrap().state, CredentialState::Revoked);
+        assert_eq!(
+            reg.credential(&old_cred).unwrap().state,
+            CredentialState::Revoked
+        );
         assert_ne!(reg.credential(&old_cred).unwrap().tenant, t2);
         assert!(reg.audit_log().iter().any(|a| {
             a.kind == AuditEventKind::OwnershipTransferred
@@ -1516,7 +1603,15 @@ mod tests {
         let t = tenant("acme", "site-1");
         let mut reg = DeviceLifecycleRegistry::new();
         let claim = reg.issue_claim_code(t.clone(), None, None, "op", 1000, 600, b"n1");
-        let payload = sample_payload(&auth, t.clone(), None, Some(claim.code), "did:key:zOffline", "payload-offline", 1000);
+        let payload = sample_payload(
+            &auth,
+            t.clone(),
+            None,
+            Some(claim.code),
+            "did:key:zOffline",
+            "payload-offline",
+            1000,
+        );
         assert!(payload.encoded_len().unwrap() <= MAX_OFFLINE_PROVISIONING_PAYLOAD_BYTES);
 
         let first = reg
@@ -1536,7 +1631,15 @@ mod tests {
         // Different payload id targeting the same identity is a replay/tamper-style reuse attempt
         // blocked by the one-time identity enrolment and prior application state.
         let claim2 = reg.issue_claim_code(t.clone(), None, None, "op", 1002, 600, b"n2");
-        let payload2 = sample_payload(&auth, t, None, Some(claim2.code), "did:key:zOffline", "payload-offline-2", 1002);
+        let payload2 = sample_payload(
+            &auth,
+            t,
+            None,
+            Some(claim2.code),
+            "did:key:zOffline",
+            "payload-offline-2",
+            1002,
+        );
         assert!(reg
             .apply_offline_provisioning(&payload2, &auth_pub, "field-tech", 1002)
             .is_err());
@@ -1548,25 +1651,55 @@ mod tests {
         let t = tenant("acme", "site-1");
         let mut reg = DeviceLifecycleRegistry::new();
         let claim = reg.issue_claim_code(t.clone(), None, None, "op", 1000, 600, b"n1");
-        let payload = sample_payload(&auth, t, None, Some(claim.code), "did:key:zCred", "p1", 1000);
+        let payload = sample_payload(
+            &auth,
+            t,
+            None,
+            Some(claim.code),
+            "did:key:zCred",
+            "p1",
+            1000,
+        );
         reg.enrol(&payload, &auth_pub, "op", 1000).unwrap();
-        let issued = reg.get("did:key:zCred").unwrap().active_credential_id.clone().unwrap();
+        let issued = reg
+            .get("did:key:zCred")
+            .unwrap()
+            .active_credential_id
+            .clone()
+            .unwrap();
 
         let rotated = reg.rotate_credential("did:key:zCred", "op", 1100).unwrap();
         assert_ne!(rotated.credential_id, issued);
-        assert_eq!(reg.credential(&issued).unwrap().state, CredentialState::Replaced);
+        assert_eq!(
+            reg.credential(&issued).unwrap().state,
+            CredentialState::Replaced
+        );
 
         let replaced = reg.replace_credential("did:key:zCred", "op", 1200).unwrap();
-        assert_eq!(reg.credential(&rotated.credential_id).unwrap().state, CredentialState::Revoked);
-        assert_eq!(reg.get("did:key:zCred").unwrap().active_credential_id.as_deref(), Some(replaced.credential_id.as_str()));
+        assert_eq!(
+            reg.credential(&rotated.credential_id).unwrap().state,
+            CredentialState::Revoked
+        );
+        assert_eq!(
+            reg.get("did:key:zCred")
+                .unwrap()
+                .active_credential_id
+                .as_deref(),
+            Some(replaced.credential_id.as_str())
+        );
 
-        reg.decommission_device("did:key:zCred", "op", 1300).unwrap();
+        reg.decommission_device("did:key:zCred", "op", 1300)
+            .unwrap();
         let record = reg.get("did:key:zCred").unwrap();
         assert_eq!(record.state, DeviceState::Decommissioned);
         assert!(record.active_credential_id.is_none());
         assert_eq!(record.tenant_data_cleared_at_est, Some(1300));
-        assert!(reg.credential(&replaced.credential_id).unwrap().state == CredentialState::Decommissioned
-            || reg.credential(&replaced.credential_id).unwrap().state == CredentialState::Revoked);
+        assert!(
+            reg.credential(&replaced.credential_id).unwrap().state
+                == CredentialState::Decommissioned
+                || reg.credential(&replaced.credential_id).unwrap().state
+                    == CredentialState::Revoked
+        );
     }
 
     #[test]
@@ -1575,7 +1708,15 @@ mod tests {
         let t = tenant("acme", "site-1");
         let mut reg = DeviceLifecycleRegistry::new();
         let claim = reg.issue_claim_code(t.clone(), None, None, "op", 1000, 600, b"n1");
-        let payload = sample_payload(&auth, t, None, Some(claim.code), "did:key:zDrift", "p1", 1000);
+        let payload = sample_payload(
+            &auth,
+            t,
+            None,
+            Some(claim.code),
+            "did:key:zDrift",
+            "p1",
+            1000,
+        );
         reg.enrol(&payload, &auth_pub, "op", 1000).unwrap();
 
         let drift = reg
@@ -1607,8 +1748,14 @@ mod tests {
             )
             .unwrap();
         assert!(!cleared.is_drifted());
-        assert!(reg.audit_log().iter().any(|a| a.kind == AuditEventKind::DriftDetected));
-        assert!(reg.audit_log().iter().any(|a| a.kind == AuditEventKind::DriftCleared));
+        assert!(reg
+            .audit_log()
+            .iter()
+            .any(|a| a.kind == AuditEventKind::DriftDetected));
+        assert!(reg
+            .audit_log()
+            .iter()
+            .any(|a| a.kind == AuditEventKind::DriftCleared));
     }
 
     #[test]
@@ -1625,19 +1772,71 @@ mod tests {
         .into_iter()
         .enumerate()
         {
-            let claim = reg.issue_claim_code(t.clone(), Some(site.to_string()), Some(ty.to_string()), "op", 1000 + i as i64, 600, format!("n{i}").as_bytes());
-            let mut payload = sample_payload(&auth, t, Some(site.to_string()), Some(claim.code), did, &format!("p{i}"), 1000);
+            let claim = reg.issue_claim_code(
+                t.clone(),
+                Some(site.to_string()),
+                Some(ty.to_string()),
+                "op",
+                1000 + i as i64,
+                600,
+                format!("n{i}").as_bytes(),
+            );
+            let mut payload = sample_payload(
+                &auth,
+                t,
+                Some(site.to_string()),
+                Some(claim.code),
+                did,
+                &format!("p{i}"),
+                1000,
+            );
             payload.device_type = ty.to_string();
             payload.sign(&auth).unwrap();
             reg.enrol(&payload, &auth_pub, "op", 1000).unwrap();
         }
-        reg.revoke_credential("did:key:z2", None, "op", 2000).unwrap();
+        reg.revoke_credential("did:key:z2", None, "op", 2000)
+            .unwrap();
 
-        assert_eq!(reg.query(&DeviceQuery { tenant: Some(t1.clone()), ..Default::default() }).len(), 2);
-        assert_eq!(reg.query(&DeviceQuery { site: Some("site-1".to_string()), ..Default::default() }).len(), 2);
-        assert_eq!(reg.query(&DeviceQuery { device_type: Some("sensor".to_string()), ..Default::default() }).len(), 2);
-        assert_eq!(reg.query(&DeviceQuery { state: Some(DeviceState::Active), ..Default::default() }).len(), 2);
-        assert_eq!(reg.query(&DeviceQuery { state: Some(DeviceState::Revoked), ..Default::default() }).len(), 1);
+        assert_eq!(
+            reg.query(&DeviceQuery {
+                tenant: Some(t1.clone()),
+                ..Default::default()
+            })
+            .len(),
+            2
+        );
+        assert_eq!(
+            reg.query(&DeviceQuery {
+                site: Some("site-1".to_string()),
+                ..Default::default()
+            })
+            .len(),
+            2
+        );
+        assert_eq!(
+            reg.query(&DeviceQuery {
+                device_type: Some("sensor".to_string()),
+                ..Default::default()
+            })
+            .len(),
+            2
+        );
+        assert_eq!(
+            reg.query(&DeviceQuery {
+                state: Some(DeviceState::Active),
+                ..Default::default()
+            })
+            .len(),
+            2
+        );
+        assert_eq!(
+            reg.query(&DeviceQuery {
+                state: Some(DeviceState::Revoked),
+                ..Default::default()
+            })
+            .len(),
+            1
+        );
         assert_eq!(
             reg.query(&DeviceQuery {
                 tenant: Some(t1),

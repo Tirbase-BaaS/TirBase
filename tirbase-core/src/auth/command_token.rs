@@ -207,7 +207,7 @@ pub fn create_command_token(
             }
         })?;
     let keypair = KeyPair::from(&private_key);
- // All clock reads go through the injected TimeSource (PV-3.12).
+    // All clock reads go through the injected TimeSource (PV-3.12).
     let issued_secs = crate::traits::wall_hint_secs().unwrap_or(0).max(0) as u64;
     let expiry_secs = issued_secs + ttl_secs;
     let expiry = UNIX_EPOCH + Duration::from_secs(expiry_secs);

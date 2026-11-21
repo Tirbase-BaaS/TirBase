@@ -26,8 +26,8 @@ use super::*;
 use crate::auth::RevocationStatus;
 use crate::crdt::delta::Delta;
 use crate::identity::file_key_provider::InMemoryKeyProvider;
-use crate::transport::message::GossipMessage;
 use crate::traits::KeyProvider;
+use crate::transport::message::GossipMessage;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
@@ -55,8 +55,14 @@ fn root_ca() -> (InMemoryKeyProvider, [u8; 32]) {
 
 /// A root-CA-signed Biscuit token with the given role.
 fn token_with_role(ca: &InMemoryKeyProvider, role: &str) -> Vec<u8> {
-    crate::auth::biscuit::create_token("did:key:z6MkTestManager", role, 3600, &ca.secret_seed(), false)
-        .expect("mint token")
+    crate::auth::biscuit::create_token(
+        "did:key:z6MkTestManager",
+        role,
+        3600,
+        &ca.secret_seed(),
+        false,
+    )
+    .expect("mint token")
 }
 
 /// A root-CA-signed DISASTER_ALERT token (Req 13.1).
@@ -206,10 +212,7 @@ fn published_revocation_envelope(handle: &CoreHandle, did: &str) -> bool {
 
 /// Initialise a loopback device with a real Swarm and both production loops
 /// (inbound drain + DRR scheduler tick).
-async fn init_peer(
-    suffix: &str,
-    deployment: DeploymentConfig,
-) -> (Arc<CoreHandle>, String) {
+async fn init_peer(suffix: &str, deployment: DeploymentConfig) -> (Arc<CoreHandle>, String) {
     let port = reserve_loopback_port();
     let handle = init_mesh_handle_with_deployment(suffix, port, deployment).await;
     CoreHandle::spawn_scheduler_tick_loop(&handle, Duration::from_millis(10));
@@ -358,26 +361,27 @@ async fn partial_revocation_deltas_accumulate_across_offline_managers() {
             2,
             "exactly M signatures must be recorded — no extra contribution"
         );
-        assert!(record.created_at > 0, "the delta must be causally timestamped");
+        assert!(
+            record.created_at > 0,
+            "the delta must be causally timestamped"
+        );
     }
 
     // Immutability: replaying a Manager's contribution after the threshold is
     // met must not append to the recorded delta (fail-closed, idempotent).
-    let recorded_before = m1
-        .0
-        .revocation
-        .lock()
-        .expect("revocation mutex")
-        .build_recent_revocation_deltas(24 * 3600 * 1_000_000);
+    let recorded_before =
+        m1.0.revocation
+            .lock()
+            .expect("revocation mutex")
+            .build_recent_revocation_deltas(24 * 3600 * 1_000_000);
     let created_at_before = recorded_before[0].created_at;
     m1.0.initiate_revocation(&target_did, &manager_token, now)
         .expect("a replayed initiation is idempotently Applied");
-    let recorded_after = m1
-        .0
-        .revocation
-        .lock()
-        .expect("revocation mutex")
-        .build_recent_revocation_deltas(24 * 3600 * 1_000_000);
+    let recorded_after =
+        m1.0.revocation
+            .lock()
+            .expect("revocation mutex")
+            .build_recent_revocation_deltas(24 * 3600 * 1_000_000);
     assert_eq!(
         recorded_after[0].signatures.len(),
         2,
@@ -401,10 +405,7 @@ async fn partial_revocation_deltas_accumulate_across_offline_managers() {
         let outcome =
             crate::crdt::merge::apply_incoming_delta(&mut crdt, &forged).expect("merge attempt");
         assert!(
-            matches!(
-                outcome,
-                crate::crdt::merge::MergeOutcome::Rejected { .. }
-            ),
+            matches!(outcome, crate::crdt::merge::MergeOutcome::Rejected { .. }),
             "apply_incoming_delta must reject a Delta authored by a revoked DID, got {outcome:?}"
         );
     }
@@ -520,7 +521,12 @@ async fn below_threshold_never_revokes_and_threshold_signature_always_does() {
          first observer, took {elapsed} µs"
     );
 
-    for suffix in ["ws4_mthr_m1", "ws4_mthr_m2", "ws4_mthr_m3", "ws4_mthr_target"] {
+    for suffix in [
+        "ws4_mthr_m1",
+        "ws4_mthr_m2",
+        "ws4_mthr_m3",
+        "ws4_mthr_target",
+    ] {
         cleanup(&tmp_path(suffix));
     }
 }
@@ -553,11 +559,8 @@ async fn revocation_negative_cases_fail_closed() {
         let payload = RevocationDelta::signing_payload(payload_target);
         ManagerSignature {
             manager_did: p_did.clone(),
-            signature: crate::identity::keypair::sign(
-                &p.0.identity.signing_key_bytes(),
-                &payload,
-            )
-            .expect("sign"),
+            signature: crate::identity::keypair::sign(&p.0.identity.signing_key_bytes(), &payload)
+                .expect("sign"),
         }
     };
 
@@ -619,10 +622,9 @@ async fn revocation_negative_cases_fail_closed() {
     );
 
     // (c) Expired manager token: rejected before any signature is produced.
-    let err = p
-        .0
-        .initiate_revocation(&target, &manager_token, now_secs() + 7_200)
-        .expect_err("an expired manager token must be rejected");
+    let err =
+        p.0.initiate_revocation(&target, &manager_token, now_secs() + 7_200)
+            .expect_err("an expired manager token must be rejected");
     assert!(
         matches!(err, TirBaseError::AuthorisationFailed { .. }),
         "expected AuthorisationFailed for an expired token, got {err}"
@@ -630,10 +632,9 @@ async fn revocation_negative_cases_fail_closed() {
 
     // (d) Unauthorised role: a valid token, but not a RevocationManager.
     let auditor = token_with_role(&ca, "Auditor");
-    let err = p
-        .0
-        .initiate_revocation(&target, &auditor, now_secs())
-        .expect_err("a non-RevocationManager role must be rejected");
+    let err =
+        p.0.initiate_revocation(&target, &auditor, now_secs())
+            .expect_err("a non-RevocationManager role must be rejected");
     assert!(
         matches!(err, TirBaseError::AuthorisationFailed { .. }),
         "expected AuthorisationFailed for a wrong role, got {err}"
@@ -642,10 +643,9 @@ async fn revocation_negative_cases_fail_closed() {
     // (e) Foreign CA: a token this deployment does not trust.
     let (foreign, _) = root_ca();
     let foreign_token = token_with_role(&foreign, "RevocationManager");
-    let err = p
-        .0
-        .initiate_revocation(&target, &foreign_token, now_secs())
-        .expect_err("a foreign-CA token must be rejected");
+    let err =
+        p.0.initiate_revocation(&target, &foreign_token, now_secs())
+            .expect_err("a foreign-CA token must be rejected");
     assert!(
         matches!(err, TirBaseError::AuthorisationFailed { .. }),
         "expected AuthorisationFailed for a foreign CA, got {err}"
@@ -665,11 +665,8 @@ async fn revocation_negative_cases_fail_closed() {
         let payload = RevocationDelta::signing_payload(&target);
         ManagerSignature {
             manager_did: q_did.clone(),
-            signature: crate::identity::keypair::sign(
-                &q.0.identity.signing_key_bytes(),
-                &payload,
-            )
-            .expect("sign"),
+            signature: crate::identity::keypair::sign(&q.0.identity.signing_key_bytes(), &payload)
+                .expect("sign"),
         }
     };
     let complete = RevocationDelta {
@@ -693,16 +690,15 @@ async fn revocation_negative_cases_fail_closed() {
     )
     .await;
 
-    let recorded_at = q
-        .0
-        .revocation
-        .lock()
-        .expect("revocation mutex")
-        .build_recent_revocation_deltas(24 * 3600 * 1_000_000)
-        .into_iter()
-        .find(|d| d.target_did == target)
-        .expect("applied delta")
-        .created_at;
+    let recorded_at =
+        q.0.revocation
+            .lock()
+            .expect("revocation mutex")
+            .build_recent_revocation_deltas(24 * 3600 * 1_000_000)
+            .into_iter()
+            .find(|d| d.target_did == target)
+            .expect("applied delta")
+            .created_at;
 
     // Replayed complete delta.
     publish(
@@ -716,8 +712,7 @@ async fn revocation_negative_cases_fail_closed() {
     );
     // A third distinct (self-certified) Manager contribution after the fact.
     let late_key = ed25519_dalek::SigningKey::from_bytes(&[0x5Au8; 32]);
-    let late_did =
-        crate::crdt::derive_did_from_public_key(&late_key.verifying_key().to_bytes());
+    let late_did = crate::crdt::derive_did_from_public_key(&late_key.verifying_key().to_bytes());
     let late_payload = RevocationDelta::signing_payload(&target);
     let late = RevocationDelta {
         target_did: target.clone(),
@@ -739,15 +734,14 @@ async fn revocation_negative_cases_fail_closed() {
     );
 
     tokio::time::sleep(Duration::from_millis(500)).await;
-    let applied = q
-        .0
-        .revocation
-        .lock()
-        .expect("revocation mutex")
-        .build_recent_revocation_deltas(24 * 3600 * 1_000_000)
-        .into_iter()
-        .find(|d| d.target_did == target)
-        .expect("applied delta");
+    let applied =
+        q.0.revocation
+            .lock()
+            .expect("revocation mutex")
+            .build_recent_revocation_deltas(24 * 3600 * 1_000_000)
+            .into_iter()
+            .find(|d| d.target_did == target)
+            .expect("applied delta");
     assert_eq!(
         applied.signatures.len(),
         2,
@@ -823,7 +817,15 @@ async fn saturate_activation_routes_high_only_and_holds_medium_low() {
     // In Saturate_Mode the production tick loop drains HIGH only; MEDIUM and LOW
     // must remain queued (held, never dropped).
     wait_until(
-        || handle.transport.lock().expect("transport mutex").scheduler.high_queue_depth() == 0,
+        || {
+            handle
+                .transport
+                .lock()
+                .expect("transport mutex")
+                .scheduler
+                .high_queue_depth()
+                == 0
+        },
         Duration::from_secs(2),
         "the HIGH queue to be served in Saturate_Mode",
     )
@@ -848,10 +850,9 @@ async fn saturate_activation_routes_high_only_and_holds_medium_low() {
     let message = handle
         .saturate_termination_message()
         .expect("an active lease must expose a canonical termination message");
-    let canonical = crate::transport::saturate::SaturateModeStateMachine::parse_termination_message(
-        &message,
-    )
-    .expect("the canonical message must parse");
+    let canonical =
+        crate::transport::saturate::SaturateModeStateMachine::parse_termination_message(&message)
+            .expect("the canonical message must parse");
     assert_eq!(
         canonical.0, canonical.1,
         "the message epoch must be the lease activation timestamp"
@@ -870,7 +871,10 @@ async fn saturate_activation_routes_high_only_and_holds_medium_low() {
             transport.saturate.state(),
             crate::transport::saturate::SaturateState::Normal
         );
-        assert!(transport.saturate.lease().is_none(), "lease must be cleared");
+        assert!(
+            transport.saturate.lease().is_none(),
+            "lease must be cleared"
+        );
         assert!(
             !transport.scheduler.is_saturate_mode(),
             "the scheduler mirror must be cleared by M-of-N termination"
@@ -979,17 +983,13 @@ async fn saturate_renewal_is_bounded_and_requires_valid_tokens() {
 
     // A device that is not in Saturate_Mode cannot renew at all.
     let port_b = reserve_loopback_port();
-    let other = init_mesh_handle_with_deployment(
-        "ws4_sat_renew_b",
-        port_b,
-        {
-            let mut d = mesh_deployment();
-            d.revocation_m = 2;
-            d.revocation_n = 3;
-            d.root_ca_keys = vec![ca.public_key_bytes().try_into().unwrap()];
-            d
-        },
-    )
+    let other = init_mesh_handle_with_deployment("ws4_sat_renew_b", port_b, {
+        let mut d = mesh_deployment();
+        d.revocation_m = 2;
+        d.revocation_n = 3;
+        d.root_ca_keys = vec![ca.public_key_bytes().try_into().unwrap()];
+        d
+    })
     .await;
     let err = other
         .renew_saturate_mode(&token)
@@ -1092,10 +1092,9 @@ async fn saturate_termination_m_of_n_collected_over_real_mesh() {
     let b_did = b.0.identity.did().to_string();
     let c_did = c.0.identity.did().to_string();
     let now = now_secs();
-    let a_message = a
-        .0
-        .saturate_termination_message()
-        .expect("A's canonical termination message");
+    let a_message =
+        a.0.saturate_termination_message()
+            .expect("A's canonical termination message");
 
     // (1) Invalid signature over A's canonical message: rejected, no vote.
     publish(
@@ -1146,8 +1145,7 @@ async fn saturate_termination_m_of_n_collected_over_real_mesh() {
         now - 3_600
     )
     .into_bytes();
-    let expired_sig =
-        crate::identity::keypair::sign(&stale_key, &expired_message).expect("sign");
+    let expired_sig = crate::identity::keypair::sign(&stale_key, &expired_message).expect("sign");
     publish(
         &b.0,
         &a.0.identity.did().to_string(),
@@ -1206,10 +1204,9 @@ async fn saturate_termination_m_of_n_collected_over_real_mesh() {
 
     // A requests termination: its own signature joins the collected set, and B
     // and C co-sign over the mesh until M = 3 is reached on every peer.
-    let message = a
-        .0
-        .request_saturate_termination()
-        .expect("A must be able to request termination over the mesh");
+    let message =
+        a.0.request_saturate_termination()
+            .expect("A must be able to request termination over the mesh");
     assert_eq!(
         a.0.saturate_termination_signature_count(),
         2,

@@ -23,7 +23,7 @@ pub struct ShadowRunOutcome {
     pub migration_result: MigrationResult,
     pub postconditions: Option<PostconditionOutcome>,
     pub shadow_projections: Option<ShadowProjections>,
- /// Quarantine to record if present (caller records under engine lock).
+    /// Quarantine to record if present (caller records under engine lock).
     pub quarantine_reason: Option<QuarantineReason>,
     pub quarantine_detail: Option<String>,
 }

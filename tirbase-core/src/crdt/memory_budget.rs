@@ -11,7 +11,7 @@ use std::sync::Arc;
 pub const DAG_NODE_CACHE_BYTES: usize = 32 * 1024 * 1024;
 pub const ICO_INDEX_BYTES: usize = 8 * 1024 * 1024;
 pub const REASSEMBLY_BUFFERS_BYTES: usize = 16 * 1024 * 1024;
-pub const PENDING_QUEUE_GLOBAL_BYTES: usize = 64 * 1024 * 1024; // as per 
+pub const PENDING_QUEUE_GLOBAL_BYTES: usize = 64 * 1024 * 1024; // as per
 
 /// Cap for the in-memory rate-quarantine counters ().
 ///

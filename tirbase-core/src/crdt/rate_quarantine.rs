@@ -94,8 +94,8 @@ impl RateQuarantineLedger {
         self.counters.get(did).map(|c| c.count).unwrap_or(0)
     }
 
- /// Record a rate/size violation (non-replayable). Emits a security event
- /// and optionally flushes a periodic summary row.
+    /// Record a rate/size violation (non-replayable). Emits a security event
+    /// and optionally flushes a periodic summary row.
     pub fn record(
         &mut self,
         sender_did: &str,
@@ -105,8 +105,8 @@ impl RateQuarantineLedger {
         detail: &str,
         summary_db: Option<&SummaryDb>,
     ) -> Result<(), TirBaseError> {
- // The summary sink only exists on native builds; on WASM the ledger is
- // purely in-memory (lossy by design).
+        // The summary sink only exists on native builds; on WASM the ledger is
+        // purely in-memory (lossy by design).
         #[cfg(not(feature = "native"))]
         let _ = summary_db;
         let window_start = (now_wall_secs / RATE_SUMMARY_WINDOW_SECS) * RATE_SUMMARY_WINDOW_SECS;
@@ -152,8 +152,8 @@ impl RateQuarantineLedger {
             ),
         );
 
- // Periodic flush (every window boundary handled above; also flush on a
- // small cadence to survive crashes in lossy mode).
+        // Periodic flush (every window boundary handled above; also flush on a
+        // small cadence to survive crashes in lossy mode).
         #[cfg(feature = "native")]
         if let Some(db) = summary_db {
             if counter.window_count == 1 || counter.window_count % 50 == 0 {
@@ -279,7 +279,7 @@ impl PerDidRateLimiter {
             .tokens
             .entry(did.to_string())
             .or_insert((self.burst, now));
- // refill
+        // refill
         let elapsed = now.duration_since(entry.1).as_secs_f64();
         let refill = (elapsed * self.rate as f64) as u64;
         entry.0 = (entry.0 + refill).min(self.burst);

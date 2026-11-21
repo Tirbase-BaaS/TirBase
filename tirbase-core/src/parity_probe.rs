@@ -37,7 +37,10 @@ const FIXED_SEED: [u8; 32] = [0x5A; 32];
 fn deterministic_keypair() -> ([u8; 32], [u8; 32]) {
     use ed25519_dalek::SigningKey;
     let signing_key = SigningKey::from_bytes(&FIXED_SEED);
-    (signing_key.to_bytes(), signing_key.verifying_key().to_bytes())
+    (
+        signing_key.to_bytes(),
+        signing_key.verifying_key().to_bytes(),
+    )
 }
 
 fn schema_hash() -> [u8; 32] {
@@ -123,7 +126,11 @@ pub(crate) fn canonical_state_hash() -> String {
 
     // 5. Contamination-tagged write (tag baked into the signed payload).
     let tag_bytes = engine
-        .write_scalar("devices", "device-2", &serde_json::json!({"state": "tainted"}))
+        .write_scalar(
+            "devices",
+            "device-2",
+            &serde_json::json!({"state": "tainted"}),
+        )
         .expect("tagged write");
     let mut tagged = Delta {
         id: [0u8; 32],

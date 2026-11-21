@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use tirbase_types::identity::{
-    AuthMethod, CapabilityScope, OperatorCapability, OperatorPermission, OperatorRole,
-    PrincipalId, PrincipalKind, SessionClaims, TenantPath, Vertical,
+    AuthMethod, CapabilityScope, OperatorCapability, OperatorPermission, OperatorRole, PrincipalId,
+    PrincipalKind, SessionClaims, TenantPath, Vertical,
 };
 
 use crate::errors::TirBaseError;
@@ -236,11 +236,19 @@ impl OperatorAuthService {
         }
         let (principal, role, mfa_setting) = {
             let Some(record) = store.principal(principal_id) else {
-                self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "unknown principal");
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorAuthFailed,
+                    "unknown principal",
+                );
                 return Err(OperatorAuthError::UnknownPrincipal);
             };
             if store.is_principal_revoked(principal_id) {
-                self.audit_deny(principal_id, ReasonCode::OperatorPrincipalRevoked, "revoked");
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorPrincipalRevoked,
+                    "revoked",
+                );
                 return Err(OperatorAuthError::RevokedPrincipal);
             }
             if !record.enabled {
@@ -248,14 +256,14 @@ impl OperatorAuthService {
                 return Err(OperatorAuthError::DisabledPrincipal);
             }
             if !record.allowed_auth.iter().any(|m| *m == AuthMethod::Local) {
-                self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "local auth not allowed");
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorAuthFailed,
+                    "local auth not allowed",
+                );
                 return Err(OperatorAuthError::MethodNotAllowed);
             }
-            (
-                record.principal.clone(),
-                record.role,
-                record.mfa,
-            )
+            (record.principal.clone(), record.role, record.mfa)
         };
 
         if !store.verify_local_password(principal_id, password) {
@@ -269,12 +277,24 @@ impl OperatorAuthService {
                 .ok();
             if let Some(ls) = ls {
                 if ls.locked_until.is_some() {
-                    self.audit_deny(principal_id, ReasonCode::OperatorAccountLocked, "lockout threshold reached");
+                    self.audit_deny(
+                        principal_id,
+                        ReasonCode::OperatorAccountLocked,
+                        "lockout threshold reached",
+                    );
                 } else {
-                    self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "bad credentials");
+                    self.audit_deny(
+                        principal_id,
+                        ReasonCode::OperatorAuthFailed,
+                        "bad credentials",
+                    );
                 }
             } else {
-                self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "bad credentials");
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorAuthFailed,
+                    "bad credentials",
+                );
             }
             return Err(OperatorAuthError::BadCredentials);
         }
@@ -284,11 +304,19 @@ impl OperatorAuthService {
             MfaSetting::NotRequired => true,
             MfaSetting::Required => match self.mfa_hook.verify(principal_id, mfa_proof, now_secs) {
                 MfaHookResult::Satisfied => {
-                    self.audit_allow(principal_id, ReasonCode::OperatorMfaSatisfied, "mfa satisfied");
+                    self.audit_allow(
+                        principal_id,
+                        ReasonCode::OperatorMfaSatisfied,
+                        "mfa satisfied",
+                    );
                     true
                 }
                 MfaHookResult::Required => {
-                    self.audit_deny(principal_id, ReasonCode::OperatorMfaRequired, "mfa required");
+                    self.audit_deny(
+                        principal_id,
+                        ReasonCode::OperatorMfaRequired,
+                        "mfa required",
+                    );
                     return Err(OperatorAuthError::MfaRequired);
                 }
                 MfaHookResult::Failed => {
@@ -313,8 +341,16 @@ impl OperatorAuthService {
             claims: claims.clone(),
             revoked: false,
         });
-        self.audit_allow(principal_id, ReasonCode::OperatorAuthSucceeded, "local auth succeeded");
-        self.audit_allow(principal_id, ReasonCode::OperatorSessionCreated, format!("session {}", session_id));
+        self.audit_allow(
+            principal_id,
+            ReasonCode::OperatorAuthSucceeded,
+            "local auth succeeded",
+        );
+        self.audit_allow(
+            principal_id,
+            ReasonCode::OperatorSessionCreated,
+            format!("session {}", session_id),
+        );
         Ok(claims)
     }
 
@@ -328,22 +364,40 @@ impl OperatorAuthService {
         session_id: &str,
     ) -> Result<SessionClaims, OperatorAuthError> {
         let Some(verifier) = &self.oidc_verifier else {
-            self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "oidc not configured");
-            return Err(OperatorAuthError::OidcRejected("verifier not configured".to_string()));
+            self.audit_deny(
+                principal_id,
+                ReasonCode::OperatorAuthFailed,
+                "oidc not configured",
+            );
+            return Err(OperatorAuthError::OidcRejected(
+                "verifier not configured".to_string(),
+            ));
         };
         let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(until) = store.locked_until(principal_id, now_secs) {
-            self.audit_deny(principal_id, ReasonCode::OperatorAccountLocked, format!("locked until {until}"));
+            self.audit_deny(
+                principal_id,
+                ReasonCode::OperatorAccountLocked,
+                format!("locked until {until}"),
+            );
             return Err(OperatorAuthError::Locked(until));
         }
         let (principal, role, mfa_setting, binding) = {
             let Some(record) = store.principal(principal_id) else {
-                self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "unknown principal");
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorAuthFailed,
+                    "unknown principal",
+                );
                 return Err(OperatorAuthError::UnknownPrincipal);
             };
             if store.is_principal_revoked(principal_id) {
-                self.audit_deny(principal_id, ReasonCode::OperatorPrincipalRevoked, "revoked");
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorPrincipalRevoked,
+                    "revoked",
+                );
                 return Err(OperatorAuthError::RevokedPrincipal);
             }
             if !record.enabled {
@@ -351,15 +405,25 @@ impl OperatorAuthService {
                 return Err(OperatorAuthError::DisabledPrincipal);
             }
             if !record.allowed_auth.iter().any(|m| *m == AuthMethod::Oidc) {
-                self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "oidc not allowed");
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorAuthFailed,
+                    "oidc not allowed",
+                );
                 return Err(OperatorAuthError::MethodNotAllowed);
             }
             let binding = store.oidc_identity(principal_id).cloned();
             (record.principal.clone(), record.role, record.mfa, binding)
         };
         let Some(binding) = binding else {
-            self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "no oidc binding");
-            return Err(OperatorAuthError::OidcRejected("no oidc binding".to_string()));
+            self.audit_deny(
+                principal_id,
+                ReasonCode::OperatorAuthFailed,
+                "no oidc binding",
+            );
+            return Err(OperatorAuthError::OidcRejected(
+                "no oidc binding".to_string(),
+            ));
         };
 
         let claims = match verifier.verify(oidc_token, now_secs) {
@@ -371,7 +435,11 @@ impl OperatorAuthService {
                     self.lockout_policy.threshold,
                     self.lockout_policy.lockout_secs,
                 );
-                self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, format!("oidc verify failed: {e}"));
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorAuthFailed,
+                    format!("oidc verify failed: {e}"),
+                );
                 return Err(OperatorAuthError::OidcRejected(e.to_string()));
             }
         };
@@ -382,8 +450,14 @@ impl OperatorAuthService {
                 self.lockout_policy.threshold,
                 self.lockout_policy.lockout_secs,
             );
-            self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "oidc subject/issuer mismatch");
-            return Err(OperatorAuthError::OidcRejected("subject/issuer mismatch".to_string()));
+            self.audit_deny(
+                principal_id,
+                ReasonCode::OperatorAuthFailed,
+                "oidc subject/issuer mismatch",
+            );
+            return Err(OperatorAuthError::OidcRejected(
+                "subject/issuer mismatch".to_string(),
+            ));
         }
         if let Some(expected_aud) = &binding.audience {
             if claims.audience.as_deref() != Some(expected_aud.as_str()) {
@@ -393,8 +467,14 @@ impl OperatorAuthService {
                     self.lockout_policy.threshold,
                     self.lockout_policy.lockout_secs,
                 );
-                self.audit_deny(principal_id, ReasonCode::OperatorAuthFailed, "oidc audience mismatch");
-                return Err(OperatorAuthError::OidcRejected("audience mismatch".to_string()));
+                self.audit_deny(
+                    principal_id,
+                    ReasonCode::OperatorAuthFailed,
+                    "oidc audience mismatch",
+                );
+                return Err(OperatorAuthError::OidcRejected(
+                    "audience mismatch".to_string(),
+                ));
             }
         }
 
@@ -402,11 +482,19 @@ impl OperatorAuthService {
             MfaSetting::NotRequired => true,
             MfaSetting::Required => match self.mfa_hook.verify(principal_id, mfa_proof, now_secs) {
                 MfaHookResult::Satisfied => {
-                    self.audit_allow(principal_id, ReasonCode::OperatorMfaSatisfied, "mfa satisfied");
+                    self.audit_allow(
+                        principal_id,
+                        ReasonCode::OperatorMfaSatisfied,
+                        "mfa satisfied",
+                    );
                     true
                 }
                 MfaHookResult::Required => {
-                    self.audit_deny(principal_id, ReasonCode::OperatorMfaRequired, "mfa required");
+                    self.audit_deny(
+                        principal_id,
+                        ReasonCode::OperatorMfaRequired,
+                        "mfa required",
+                    );
                     return Err(OperatorAuthError::MfaRequired);
                 }
                 MfaHookResult::Failed => {
@@ -431,8 +519,16 @@ impl OperatorAuthService {
             claims: session.clone(),
             revoked: false,
         });
-        self.audit_allow(principal_id, ReasonCode::OperatorAuthSucceeded, "oidc auth succeeded");
-        self.audit_allow(principal_id, ReasonCode::OperatorSessionCreated, format!("session {}", session_id));
+        self.audit_allow(
+            principal_id,
+            ReasonCode::OperatorAuthSucceeded,
+            "oidc auth succeeded",
+        );
+        self.audit_allow(
+            principal_id,
+            ReasonCode::OperatorSessionCreated,
+            format!("session {}", session_id),
+        );
         Ok(session)
     }
 
@@ -444,23 +540,43 @@ impl OperatorAuthService {
     ) -> Result<SessionClaims, OperatorAuthError> {
         let store = self.store.lock().unwrap_or_else(|e| e.into_inner());
         let Some(record) = store.session(session_id) else {
-            self.audit_deny("unknown", ReasonCode::OperatorAuthorizationDenied, format!("session not found {session_id}"));
+            self.audit_deny(
+                "unknown",
+                ReasonCode::OperatorAuthorizationDenied,
+                format!("session not found {session_id}"),
+            );
             return Err(OperatorAuthError::SessionNotFound);
         };
         if record.revoked {
-            self.audit_deny(&record.claims.principal.id, ReasonCode::OperatorSessionRevoked, format!("session {session_id} revoked"));
+            self.audit_deny(
+                &record.claims.principal.id,
+                ReasonCode::OperatorSessionRevoked,
+                format!("session {session_id} revoked"),
+            );
             return Err(OperatorAuthError::SessionRevoked);
         }
         if now_secs > record.claims.expires_at {
-            self.audit_deny(&record.claims.principal.id, ReasonCode::OperatorSessionExpired, format!("session {session_id} expired"));
+            self.audit_deny(
+                &record.claims.principal.id,
+                ReasonCode::OperatorSessionExpired,
+                format!("session {session_id} expired"),
+            );
             return Err(OperatorAuthError::SessionExpired);
         }
         if store.is_principal_revoked(&record.claims.principal.id) {
-            self.audit_deny(&record.claims.principal.id, ReasonCode::OperatorPrincipalRevoked, "principal revoked");
+            self.audit_deny(
+                &record.claims.principal.id,
+                ReasonCode::OperatorPrincipalRevoked,
+                "principal revoked",
+            );
             return Err(OperatorAuthError::RevokedPrincipal);
         }
         // A validated session access is an authz-relevant check; audit as allowed check context.
-        self.audit_allow(&record.claims.principal.id, ReasonCode::OperatorAuthorizationAllowed, format!("session {session_id} valid"));
+        self.audit_allow(
+            &record.claims.principal.id,
+            ReasonCode::OperatorAuthorizationAllowed,
+            format!("session {session_id} valid"),
+        );
         Ok(record.claims.clone())
     }
 
@@ -469,7 +585,11 @@ impl OperatorAuthService {
         let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
         let revoked = store.revoke_session(session_id)?;
         if revoked {
-            self.audit_allow("system", ReasonCode::OperatorSessionRevoked, format!("session {session_id} revoked"));
+            self.audit_allow(
+                "system",
+                ReasonCode::OperatorSessionRevoked,
+                format!("session {session_id} revoked"),
+            );
         }
         Ok(revoked)
     }
@@ -478,7 +598,11 @@ impl OperatorAuthService {
     pub fn revoke_principal(&self, principal_id: &str) -> Result<(), TirBaseError> {
         let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
         store.revoke_principal(principal_id)?;
-        self.audit_allow("system", ReasonCode::OperatorPrincipalRevoked, format!("principal {principal_id} revoked"));
+        self.audit_allow(
+            "system",
+            ReasonCode::OperatorPrincipalRevoked,
+            format!("principal {principal_id} revoked"),
+        );
         Ok(())
     }
 
@@ -486,7 +610,11 @@ impl OperatorAuthService {
     pub fn revoke_capability(&self, capability_id: &str) -> Result<(), TirBaseError> {
         let mut store = self.store.lock().unwrap_or_else(|e| e.into_inner());
         store.revoke_capability(capability_id)?;
-        self.audit_allow("system", ReasonCode::OperatorCapabilityRevoked, format!("capability {capability_id} revoked"));
+        self.audit_allow(
+            "system",
+            ReasonCode::OperatorCapabilityRevoked,
+            format!("capability {capability_id} revoked"),
+        );
         Ok(())
     }
 
@@ -499,14 +627,22 @@ impl OperatorAuthService {
         {
             let store = self.store.lock().unwrap_or_else(|e| e.into_inner());
             if store.is_principal_revoked(&capability.subject.id) {
-                self.audit_deny(&capability.subject.id, ReasonCode::OperatorAuthorizationDenied, "cannot issue to revoked principal");
+                self.audit_deny(
+                    &capability.subject.id,
+                    ReasonCode::OperatorAuthorizationDenied,
+                    "cannot issue to revoked principal",
+                );
                 return Err(TirBaseError::AuthorisationFailed {
                     reason: "cannot issue capability to revoked principal".to_string(),
                 });
             }
         }
         let token = capability::issue_capability_token(capability, &self.authority_private_key)?;
-        self.audit_allow(&capability.subject.id, ReasonCode::OperatorCapabilityIssued, format!("capability {} issued", capability.capability_id));
+        self.audit_allow(
+            &capability.subject.id,
+            ReasonCode::OperatorCapabilityIssued,
+            format!("capability {} issued", capability.capability_id),
+        );
         Ok(token)
     }
 
@@ -531,11 +667,19 @@ impl OperatorAuthService {
             &verification,
         ) {
             Ok(tok) => {
-                self.audit_allow(&narrowed.subject.id, ReasonCode::OperatorCapabilityAttenuated, format!("capability {} attenuated", narrowed.capability_id));
+                self.audit_allow(
+                    &narrowed.subject.id,
+                    ReasonCode::OperatorCapabilityAttenuated,
+                    format!("capability {} attenuated", narrowed.capability_id),
+                );
                 Ok(tok)
             }
             Err(e) => {
-                self.audit_deny(&narrowed.subject.id, ReasonCode::OperatorAuthorizationDenied, format!("attenuation denied: {e}"));
+                self.audit_deny(
+                    &narrowed.subject.id,
+                    ReasonCode::OperatorAuthorizationDenied,
+                    format!("attenuation denied: {e}"),
+                );
                 Err(e)
             }
         }
@@ -562,11 +706,19 @@ impl OperatorAuthService {
             &verification,
         ) {
             Ok(tok) => {
-                self.audit_allow(&delegated.subject.id, ReasonCode::OperatorCapabilityDelegated, format!("capability {} delegated", delegated.capability_id));
+                self.audit_allow(
+                    &delegated.subject.id,
+                    ReasonCode::OperatorCapabilityDelegated,
+                    format!("capability {} delegated", delegated.capability_id),
+                );
                 Ok(tok)
             }
             Err(e) => {
-                self.audit_deny(&delegated.subject.id, ReasonCode::OperatorAuthorizationDenied, format!("delegation denied: {e}"));
+                self.audit_deny(
+                    &delegated.subject.id,
+                    ReasonCode::OperatorAuthorizationDenied,
+                    format!("delegation denied: {e}"),
+                );
                 Err(e)
             }
         }
@@ -584,18 +736,31 @@ impl OperatorAuthService {
             revoked_principal_ids: store.revoked_principals(),
             now_secs,
         };
-        match capability::verify_capability_token(token, &self.authority_public_key, &verification) {
+        match capability::verify_capability_token(token, &self.authority_public_key, &verification)
+        {
             Ok(v) => {
-                self.audit_allow(&v.capability.subject.id, ReasonCode::OperatorAuthorizationAllowed, format!("capability {} verified", v.capability.capability_id));
+                self.audit_allow(
+                    &v.capability.subject.id,
+                    ReasonCode::OperatorAuthorizationAllowed,
+                    format!("capability {} verified", v.capability.capability_id),
+                );
                 Ok(v)
             }
             Err(e) => {
                 let msg = e.to_string();
                 if msg.contains("revoked") {
-                    self.audit_deny("unknown", ReasonCode::OperatorCapabilityRevoked, msg.clone());
+                    self.audit_deny(
+                        "unknown",
+                        ReasonCode::OperatorCapabilityRevoked,
+                        msg.clone(),
+                    );
                     Err(OperatorAuthError::CapabilityRevoked)
                 } else {
-                    self.audit_deny("unknown", ReasonCode::OperatorAuthorizationDenied, msg.clone());
+                    self.audit_deny(
+                        "unknown",
+                        ReasonCode::OperatorAuthorizationDenied,
+                        msg.clone(),
+                    );
                     Err(OperatorAuthError::CapabilityInvalid(msg))
                 }
             }
@@ -609,19 +774,30 @@ impl OperatorAuthService {
         {
             let store = self.store.lock().unwrap_or_else(|e| e.into_inner());
             if store.is_principal_revoked(&req.principal_id) {
-                self.audit_deny(&req.principal_id, ReasonCode::OperatorPrincipalRevoked, "principal revoked");
-                return AuthorizationResult { allowed: false, reason: "principal revoked".to_string() };
+                self.audit_deny(
+                    &req.principal_id,
+                    ReasonCode::OperatorPrincipalRevoked,
+                    "principal revoked",
+                );
+                return AuthorizationResult {
+                    allowed: false,
+                    reason: "principal revoked".to_string(),
+                };
             }
         }
 
         // Tenant boundary: capability scope must contain target, and principal's
         // request is denied if it crosses tenant boundaries.
         if !req.scope.tenant.contains(&req.target_tenant) {
-            self.audit_deny(&req.principal_id, ReasonCode::CrossTenantAccessDenied, format!(
-                "scope {} does not contain target {}",
-                req.scope.tenant.as_fact_string(),
-                req.target_tenant.as_fact_string()
-            ));
+            self.audit_deny(
+                &req.principal_id,
+                ReasonCode::CrossTenantAccessDenied,
+                format!(
+                    "scope {} does not contain target {}",
+                    req.scope.tenant.as_fact_string(),
+                    req.target_tenant.as_fact_string()
+                ),
+            );
             return AuthorizationResult {
                 allowed: false,
                 reason: "cross-tenant access denied".to_string(),
@@ -631,31 +807,63 @@ impl OperatorAuthService {
         // Vertical restriction
         if let Some(v) = req.scope.vertical {
             if v != req.vertical {
-                self.audit_deny(&req.principal_id, ReasonCode::OperatorAuthorizationDenied, "vertical mismatch");
-                return AuthorizationResult { allowed: false, reason: "vertical mismatch".to_string() };
+                self.audit_deny(
+                    &req.principal_id,
+                    ReasonCode::OperatorAuthorizationDenied,
+                    "vertical mismatch",
+                );
+                return AuthorizationResult {
+                    allowed: false,
+                    reason: "vertical mismatch".to_string(),
+                };
             }
         }
 
         // Permission present in capability
         if !req.scope.permissions.iter().any(|p| *p == req.permission) {
-            self.audit_deny(&req.principal_id, ReasonCode::OperatorAuthorizationDenied, "permission not in capability scope");
-            return AuthorizationResult { allowed: false, reason: "permission not granted".to_string() };
+            self.audit_deny(
+                &req.principal_id,
+                ReasonCode::OperatorAuthorizationDenied,
+                "permission not in capability scope",
+            );
+            return AuthorizationResult {
+                allowed: false,
+                reason: "permission not granted".to_string(),
+            };
         }
 
         // Role/vertical matrix
         if !role_allows(req.role, req.vertical, req.permission) {
-            self.audit_deny(&req.principal_id, ReasonCode::OperatorAuthorizationDenied, format!(
-                "role {} not permitted for {:?} on {:?}",
-                req.role.as_str(), req.permission, req.vertical
-            ));
-            return AuthorizationResult { allowed: false, reason: "role matrix denied".to_string() };
+            self.audit_deny(
+                &req.principal_id,
+                ReasonCode::OperatorAuthorizationDenied,
+                format!(
+                    "role {} not permitted for {:?} on {:?}",
+                    req.role.as_str(),
+                    req.permission,
+                    req.vertical
+                ),
+            );
+            return AuthorizationResult {
+                allowed: false,
+                reason: "role matrix denied".to_string(),
+            };
         }
 
-        self.audit_allow(&req.principal_id, ReasonCode::OperatorAuthorizationAllowed, format!(
-            "allowed {} {:?} on {}",
-            req.role.as_str(), req.permission, req.target_tenant.as_fact_string()
-        ));
-        AuthorizationResult { allowed: true, reason: "allowed".to_string() }
+        self.audit_allow(
+            &req.principal_id,
+            ReasonCode::OperatorAuthorizationAllowed,
+            format!(
+                "allowed {} {:?} on {}",
+                req.role.as_str(),
+                req.permission,
+                req.target_tenant.as_fact_string()
+            ),
+        );
+        AuthorizationResult {
+            allowed: true,
+            reason: "allowed".to_string(),
+        }
     }
 
     fn audit_allow(&self, actor: &str, reason: ReasonCode, detail: impl Into<String>) {

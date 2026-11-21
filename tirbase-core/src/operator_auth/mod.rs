@@ -17,14 +17,13 @@ pub mod service;
 pub mod store;
 
 pub use capability::{
-    issue_capability_token, attenuate_capability_token, delegate_capability_token,
+    attenuate_capability_token, delegate_capability_token, issue_capability_token,
     verify_capability_token, CapabilityVerification, VerifiedCapability,
 };
 pub use service::{
-    AuthorizationRequest, AuthorizationResult, LockoutPolicy, MfaHook, MfaHookResult,
-    OidcVerifier, OperatorAuthError, OperatorAuthService, SessionPolicy,
+    AuthorizationRequest, AuthorizationResult, LockoutPolicy, MfaHook, MfaHookResult, OidcVerifier,
+    OperatorAuthError, OperatorAuthService, SessionPolicy,
 };
 pub use store::{
-    LocalCredential, OidcIdentity, OperatorIdentityStore, OperatorPrincipalRecord,
-    SessionRecord,
+    LocalCredential, OidcIdentity, OperatorIdentityStore, OperatorPrincipalRecord, SessionRecord,
 };

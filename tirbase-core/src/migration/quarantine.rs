@@ -28,26 +28,26 @@ pub enum QuarantineReason {
     BreakingSchemaChange,
     UnknownSchemaHash,
     MissingOrMalformedHash,
- /// `start_op` deviates from causal dependencies (CRDT hardening, PV-6.1/S4).
+    /// `start_op` deviates from causal dependencies (CRDT hardening, PV-6.1/S4).
     ClockJump,
- /// PV-8.2 / S8: migration module violated deterministic WASM profile.
+    /// PV-8.2 / S8: migration module violated deterministic WASM profile.
     DeterministicProfileViolation,
- /// PV-8.2a / S9: execution profile id or fuel-cost hash mismatch.
+    /// PV-8.2a / S9: execution profile id or fuel-cost hash mismatch.
     EngineVersionMismatch,
- /// PV-8.4 / : signed postcondition check failed on shadow output.
+    /// PV-8.4 / : signed postcondition check failed on shadow output.
     PostconditionFailure,
- /// PV-8.5a / /30.4: expand-then-contract or fleet precondition violation.
+    /// PV-8.5a / /30.4: expand-then-contract or fleet precondition violation.
     ExpandContractViolation,
- /// PV-8.5a / : contract migration fleet precondition missing/unverified.
+    /// PV-8.5a / : contract migration fleet precondition missing/unverified.
     FleetPreconditionMissing,
- /// PV-8.6 / : migration cancelled at a fuel-check boundary.
+    /// PV-8.6 / : migration cancelled at a fuel-check boundary.
     MigrationCancelled,
- /// PV-8.7 / : transform author DID revoked before shadow commit.
+    /// PV-8.7 / : transform author DID revoked before shadow commit.
     AuthorRevocationPostExecution,
 }
 
 impl QuarantineReason {
- /// Serialise to the text value stored in SQLite.
+    /// Serialise to the text value stored in SQLite.
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::BreakingSchemaChange => "BREAKING_CHANGE",
@@ -64,7 +64,7 @@ impl QuarantineReason {
         }
     }
 
- /// Parse from the text value stored in SQLite.
+    /// Parse from the text value stored in SQLite.
     pub fn from_storage_str(s: &str) -> Option<Self> {
         match s {
             "BREAKING_CHANGE" => Some(Self::BreakingSchemaChange),
@@ -84,9 +84,9 @@ impl QuarantineReason {
 }
 
 impl From<crate::crdt::merge::QuarantineReason> for QuarantineReason {
- /// Bridge the CRDT merge-outcome reason (produced by the schema-hash gate
- /// in `CrdtEngine::apply`) to the ledger's storage reason. The two enums
- /// carry the same variants but live in different layers.
+    /// Bridge the CRDT merge-outcome reason (produced by the schema-hash gate
+    /// in `CrdtEngine::apply`) to the ledger's storage reason. The two enums
+    /// carry the same variants but live in different layers.
     fn from(r: crate::crdt::merge::QuarantineReason) -> Self {
         match r {
             crate::crdt::merge::QuarantineReason::BreakingSchemaChange => {
@@ -97,9 +97,9 @@ impl From<crate::crdt::merge::QuarantineReason> for QuarantineReason {
                 Self::MissingOrMalformedHash
             }
             crate::crdt::merge::QuarantineReason::ClockJump => Self::ClockJump,
- // PV-6 hardening reasons (24): map to closest legacy bucket
- // for the migration quarantine ledger; authoritative PV-6.7 storage
- // is the Schema_Quarantine_Ledger/rate quarantine in crdt::hardening.
+            // PV-6 hardening reasons (24): map to closest legacy bucket
+            // for the migration quarantine ledger; authoritative PV-6.7 storage
+            // is the Schema_Quarantine_Ledger/rate quarantine in crdt::hardening.
             crate::crdt::merge::QuarantineReason::MissingDependencyTimeout
             | crate::crdt::merge::QuarantineReason::PendingQueueOverflow
             | crate::crdt::merge::QuarantineReason::OpCountExceeded
@@ -118,14 +118,14 @@ impl From<crate::crdt::merge::QuarantineReason> for QuarantineReason {
 pub struct QuarantineEntry {
     pub id: DeltaId,
     pub sender_did: Did,
- /// Byte-for-byte copy of the received Delta stream.
+    /// Byte-for-byte copy of the received Delta stream.
     pub raw_bytes: Vec<u8>,
- /// May be None if the hash field was absent or malformed.
+    /// May be None if the hash field was absent or malformed.
     pub schema_hash: Option<SchemaIdentifierHash>,
     pub reason: QuarantineReason,
- /// UTC timestamp (microseconds).
+    /// UTC timestamp (microseconds).
     pub received_at: i64,
- /// Set when a migration is in progress for this hash.
+    /// Set when a migration is in progress for this hash.
     pub migration_id: Option<[u8; 32]>,
 }
 
@@ -139,15 +139,15 @@ pub struct QuarantineLedger {
 
 #[cfg(feature = "native")]
 impl QuarantineLedger {
- /// Create a new QuarantineLedger backed by the given SQLite connection.
- /// The schema tables are assumed to already exist (created by store/sqlite.rs).
+    /// Create a new QuarantineLedger backed by the given SQLite connection.
+    /// The schema tables are assumed to already exist (created by store/sqlite.rs).
     pub fn new(conn: std::sync::Arc<std::sync::Mutex<rusqlite::Connection>>) -> Self {
         Self { conn }
     }
 
- /// Store a raw incoming Delta without modification (Req 17.5).
- ///
- /// The `id` is computed as SHA-256(raw_bytes) so it's deterministic.
+    /// Store a raw incoming Delta without modification (Req 17.5).
+    ///
+    /// The `id` is computed as SHA-256(raw_bytes) so it's deterministic.
     pub fn quarantine(
         &mut self,
         sender_did: Did,
@@ -188,7 +188,7 @@ impl QuarantineLedger {
         Ok(id)
     }
 
- /// Return all quarantined entries for a given schema hash.
+    /// Return all quarantined entries for a given schema hash.
     pub fn get_by_schema_hash(
         &self,
         hash: &SchemaIdentifierHash,
@@ -257,7 +257,7 @@ impl QuarantineLedger {
         Ok(entries)
     }
 
- /// Return all quarantined entries (regardless of schema hash).
+    /// Return all quarantined entries (regardless of schema hash).
     pub fn get_all(&self) -> Result<Vec<QuarantineEntry>, TirBaseError> {
         let conn = self
             .conn
@@ -323,15 +323,15 @@ impl QuarantineLedger {
         Ok(entries)
     }
 
- /// Release quarantined entries for replay once a valid migration is applied.
- ///
- /// Sets `migration_id` on all entries matching `schema_hash` and returns them.
+    /// Release quarantined entries for replay once a valid migration is applied.
+    ///
+    /// Sets `migration_id` on all entries matching `schema_hash` and returns them.
     pub fn release_for_migration(
         &mut self,
         schema_hash: &SchemaIdentifierHash,
         migration_id: [u8; 32],
     ) -> Result<Vec<QuarantineEntry>, TirBaseError> {
- // First, update the migration_id field on all matching rows.
+        // First, update the migration_id field on all matching rows.
         {
             let conn = self
                 .conn
@@ -349,11 +349,11 @@ impl QuarantineLedger {
             })?;
         }
 
- // Then fetch the updated entries.
+        // Then fetch the updated entries.
         self.get_by_schema_hash(schema_hash)
     }
 
- /// Count all quarantined entries.
+    /// Count all quarantined entries.
     pub fn count(&self) -> Result<usize, TirBaseError> {
         let conn = self
             .conn
@@ -384,17 +384,17 @@ impl QuarantineLedger {
 /// `id` hex string.
 #[cfg(not(feature = "native"))]
 pub struct QuarantineLedger {
- /// `Some` for an IndexedDB-backed store, `None` for an ephemeral
- /// (`":memory:"`) store. Ephemeral ledgers keep entries in `mem` — the
- /// WASM analogue of the native in-memory SQLite ledger.
+    /// `Some` for an IndexedDB-backed store, `None` for an ephemeral
+    /// (`":memory:"`) store. Ephemeral ledgers keep entries in `mem` — the
+    /// WASM analogue of the native in-memory SQLite ledger.
     db: Option<std::rc::Rc<crate::store::indexed_db::IdbStore>>,
     mem: std::collections::BTreeMap<DeltaId, QuarantineEntry>,
 }
 
 #[cfg(not(feature = "native"))]
 impl QuarantineLedger {
- /// Create a new QuarantineLedger backed by the given `IdbStore`, or by an
- /// in-memory map when the store is ephemeral (`None`).
+    /// Create a new QuarantineLedger backed by the given `IdbStore`, or by an
+    /// in-memory map when the store is ephemeral (`None`).
     pub(crate) fn new(db: Option<std::rc::Rc<crate::store::indexed_db::IdbStore>>) -> Self {
         Self {
             db,
@@ -409,9 +409,9 @@ impl QuarantineLedger {
         }
     }
 
- /// Store a raw incoming Delta without modification (Req 17.5).
- ///
- /// The `id` is computed as SHA-256(raw_bytes) so it's deterministic.
+    /// Store a raw incoming Delta without modification (Req 17.5).
+    ///
+    /// The `id` is computed as SHA-256(raw_bytes) so it's deterministic.
     pub async fn quarantine(
         &mut self,
         sender_did: Did,
@@ -530,7 +530,7 @@ mod tests {
 
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].id, id);
- // Req 17.5: byte-for-byte copy, no modification
+        // Req 17.5: byte-for-byte copy, no modification
         assert_eq!(entries[0].raw_bytes, raw, "raw_bytes must be unmodified");
         assert_eq!(entries[0].sender_did, "did:key:z6MkSender");
         assert_eq!(entries[0].reason, QuarantineReason::UnknownSchemaHash);
@@ -587,7 +587,7 @@ mod tests {
         let raw = b"identical-delta".to_vec();
         let schema_hash: SchemaIdentifierHash = [0xDDu8; 32];
 
- // Insert same bytes twice — should be idempotent (INSERT OR IGNORE).
+        // Insert same bytes twice — should be idempotent (INSERT OR IGNORE).
         ledger
             .quarantine(
                 "did:key:z6MkA".to_string(),

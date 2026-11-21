@@ -156,8 +156,7 @@ impl DstTransition {
     pub fn instant_utc(&self, year: i32, offset_before_secs: i32) -> Option<i64> {
         let date = nth_weekday_of_month(year, self.month, self.weekday, self.nth)?;
         Some(
-            date.days_since_epoch() * SECS_PER_DAY
-                + i64::from(self.local_second_of_day)
+            date.days_since_epoch() * SECS_PER_DAY + i64::from(self.local_second_of_day)
                 - i64::from(offset_before_secs),
         )
     }
@@ -437,10 +436,10 @@ pub fn occurrences_between(
         return Vec::new();
     }
 
-    let mut date = CivilDate::from_unix_secs(start_utc + i64::from(zone.standard_offset_secs))
-        .plus_days(-2);
-    let last = CivilDate::from_unix_secs(end_utc + i64::from(zone.standard_offset_secs))
-        .plus_days(2);
+    let mut date =
+        CivilDate::from_unix_secs(start_utc + i64::from(zone.standard_offset_secs)).plus_days(-2);
+    let last =
+        CivilDate::from_unix_secs(end_utc + i64::from(zone.standard_offset_secs)).plus_days(2);
 
     let mut seen: BTreeSet<(String, CivilDate)> = BTreeSet::new();
     let mut occurrences = Vec::new();
@@ -535,8 +534,14 @@ mod tests {
         let rule = zone.dst.expect("dst rule");
         let start = rule.start_utc(2026).expect("start");
         let end = rule.end_utc(2026).expect("end");
-        assert_eq!(CivilDate::from_unix_secs(start), CivilDate::new(2026, 3, 8).unwrap());
-        assert_eq!(CivilDate::from_unix_secs(end), CivilDate::new(2026, 11, 1).unwrap());
+        assert_eq!(
+            CivilDate::from_unix_secs(start),
+            CivilDate::new(2026, 3, 8).unwrap()
+        );
+        assert_eq!(
+            CivilDate::from_unix_secs(end),
+            CivilDate::new(2026, 11, 1).unwrap()
+        );
         assert_eq!(start, utc(2026, 3, 8, 7)); // 02:00 EST
         assert_eq!(end, utc(2026, 11, 1, 6)); // 02:00 EDT
     }
@@ -586,7 +591,7 @@ mod tests {
         let event = ScheduledEvent::daily("hourly-audit", 2, 30);
 
         for (start, days) in [
-            (utc(2026, 3, 6, 0), 5),  // spring forward
+            (utc(2026, 3, 6, 0), 5),   // spring forward
             (utc(2026, 10, 30, 0), 5), // fall back
         ] {
             let end = start + i64::from(days) * SECS_PER_DAY;

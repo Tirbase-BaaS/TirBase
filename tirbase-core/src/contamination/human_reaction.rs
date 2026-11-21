@@ -36,11 +36,11 @@ use crate::errors::TirBaseError;
 
 /// Context passed to `on_write_commit` to determine whether auto-tagging applies.
 pub struct WriteContext {
- /// True if the local projection for the target table is currently tagged CONTAMINATED.
+    /// True if the local projection for the target table is currently tagged CONTAMINATED.
     pub local_projection_contaminated: bool,
- /// True if the incoming Delta stream for this table is currently quarantined.
+    /// True if the incoming Delta stream for this table is currently quarantined.
     pub quarantine_active: bool,
- /// The active Incident ID driving the contamination (if any).
+    /// The active Incident ID driving the contamination (if any).
     pub active_incident_id: Option<IncidentId>,
 }
 
@@ -73,6 +73,6 @@ pub fn on_write_commit(
             .push(DeltaTag::ContaminatedByHumanReaction { incident_id });
         return Ok(Some((delta.id, incident_id)));
     }
- // Conditions were true but no incident_id was provided — tag is not appended.
+    // Conditions were true but no incident_id was provided — tag is not appended.
     Ok(None)
 }

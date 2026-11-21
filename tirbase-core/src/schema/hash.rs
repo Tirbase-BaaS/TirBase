@@ -31,7 +31,7 @@ pub type SchemaIdentifierHash = [u8; 32];
 pub fn compute_schema_identifier_hash(tables: &[(&str, &[(&str, &str)])]) -> SchemaIdentifierHash {
     let mut hasher = Sha256::new();
 
- // Sort tables by name for determinism.
+    // Sort tables by name for determinism.
     let mut sorted_tables: Vec<(&str, &[(&str, &str)])> = tables.to_vec();
     sorted_tables.sort_by_key(|(name, _)| *name);
 
@@ -39,7 +39,7 @@ pub fn compute_schema_identifier_hash(tables: &[(&str, &[(&str, &str)])]) -> Sch
         hasher.update(table_name.as_bytes());
         hasher.update(b"|");
 
- // Sort fields by name for determinism.
+        // Sort fields by name for determinism.
         let mut sorted_fields: Vec<(&str, &str)> = fields.to_vec();
         sorted_fields.sort_by_key(|(name, _)| *name);
 

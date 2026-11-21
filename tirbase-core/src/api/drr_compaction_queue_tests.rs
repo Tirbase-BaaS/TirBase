@@ -79,7 +79,8 @@ async fn drr_mesh(prefix: &str) -> (Arc<CoreHandle>, Arc<CoreHandle>) {
     let port_a = reserve_loopback_port();
     let deployment = mesh_deployment();
 
-    let handle_a = init_mesh_handle_with_deployment(&format!("{prefix}_A"), port_a, deployment.clone()).await;
+    let handle_a =
+        init_mesh_handle_with_deployment(&format!("{prefix}_A"), port_a, deployment.clone()).await;
     let handle_b = init_mesh_handle_with_deployment(
         &format!("{prefix}_B"),
         reserve_loopback_port(),
@@ -239,9 +240,8 @@ async fn drr_byte_floors_hold_over_ten_real_mesh_epochs() {
 async fn spare_capacity_goes_to_high_first_and_low_clears_within_ten_epochs() {
     let (handle_a, handle_b) = drr_mesh("ws7_spare").await;
 
-    let clearing_capacity = crate::transport::scheduler::DrrScheduler::low_clearing_capacity(
-        LINK_CAPACITY,
-    );
+    let clearing_capacity =
+        crate::transport::scheduler::DrrScheduler::low_clearing_capacity(LINK_CAPACITY);
     assert_eq!(clearing_capacity, 10_000);
 
     for i in 0..220 {
@@ -318,7 +318,8 @@ async fn spare_capacity_goes_to_high_first_and_low_clears_within_ten_epochs() {
         }
     }
 
-    let cleared = cleared_at_epoch.expect("LOW backlog at clearing capacity must clear within 10 epochs");
+    let cleared =
+        cleared_at_epoch.expect("LOW backlog at clearing capacity must clear within 10 epochs");
     assert!(
         cleared <= 10,
         "LOW cleared at epoch {cleared}, outside the 10-epoch bound"
@@ -386,12 +387,9 @@ async fn compaction_is_per_table_and_none_policy_is_never_compacted() {
     deployment.schema_definitions = vec![schema];
     deployment.schema_version_path = vec![schema_hash];
 
-    let handle = init_mesh_handle_with_deployment(
-        "ws7_compaction",
-        reserve_loopback_port(),
-        deployment,
-    )
-    .await;
+    let handle =
+        init_mesh_handle_with_deployment("ws7_compaction", reserve_loopback_port(), deployment)
+            .await;
 
     // Aggressive { threshold: 3 }: the fourth write crosses the threshold and
     // compacts the history already in the DAG. The Delta produced *by* that
@@ -491,7 +489,10 @@ async fn compaction_is_per_table_and_none_policy_is_never_compacted() {
         (names, agg_len, keep_len)
     };
     assert!(tables.contains(&"agg".to_string()), "agg needs its own doc");
-    assert!(tables.contains(&"keep".to_string()), "keep needs its own doc");
+    assert!(
+        tables.contains(&"keep".to_string()),
+        "keep needs its own doc"
+    );
     assert!(agg_doc_len > 0 && keep_doc_len > 0);
     assert_ne!(
         agg_doc_len, keep_doc_len,
@@ -500,11 +501,17 @@ async fn compaction_is_per_table_and_none_policy_is_never_compacted() {
 
     // Post-compaction reads still return every row…
     for i in 0..5u32 {
-        let row = handle.read("agg", &format!("row-{i}")).await.expect("read agg");
+        let row = handle
+            .read("agg", &format!("row-{i}"))
+            .await
+            .expect("read agg");
         assert_eq!(row.data, json!({ "value": i }));
     }
     for i in 0..6u32 {
-        let row = handle.read("keep", &format!("row-{i}")).await.expect("read keep");
+        let row = handle
+            .read("keep", &format!("row-{i}"))
+            .await
+            .expect("read keep");
         assert_eq!(row.data, json!({ "value": i }));
     }
 

@@ -13,8 +13,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tirbase_types::identity::{
-    AuthMethod, MfaRequirement, OperatorRole, PrincipalId, PrincipalKind, SessionClaims,
-    TenantPath,
+    AuthMethod, MfaRequirement, OperatorRole, PrincipalId, PrincipalKind, SessionClaims, TenantPath,
 };
 
 use crate::errors::TirBaseError;
@@ -215,7 +214,10 @@ impl OperatorIdentityStore {
     }
 
     /// Upsert a principal record.
-    pub fn upsert_principal(&mut self, record: OperatorPrincipalRecord) -> Result<(), TirBaseError> {
+    pub fn upsert_principal(
+        &mut self,
+        record: OperatorPrincipalRecord,
+    ) -> Result<(), TirBaseError> {
         self.state
             .principals
             .insert(record.principal.id.clone(), record);
@@ -344,7 +346,9 @@ impl OperatorIdentityStore {
 
     /// Revoke a principal (next request must be denied).
     pub fn revoke_principal(&mut self, principal_id: &str) -> Result<(), TirBaseError> {
-        self.state.revoked_principals.insert(principal_id.to_string());
+        self.state
+            .revoked_principals
+            .insert(principal_id.to_string());
         self.save()
     }
 
@@ -390,7 +394,11 @@ impl OperatorIdentityStore {
         tenant: TenantPath,
     ) -> Result<(), TirBaseError> {
         let record = OperatorPrincipalRecord {
-            principal: PrincipalId { kind, tenant, ..principal },
+            principal: PrincipalId {
+                kind,
+                tenant,
+                ..principal
+            },
             role,
             enabled: true,
             mfa: MfaSetting::NotRequired,
