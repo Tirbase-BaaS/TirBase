@@ -4,6 +4,7 @@ Hardware-in-the-loop tests that run **only** against provisioned lab hardware (r
 
 - Procedure and lab setup: `docs/hil-test-procedure.md`
 - CC-22 sensor/controller matrix (bench, accuracy, environmental, recovery, stability) and its evidence pack: `docs/evidence/hil/cc22-sensor-controller-validation/`; the software bench runs on every CI run via `cargo test -p tirbase-sim --test hil_campaign`
+- ST-12 venue gate/reader/turnstile/power bench, procedure and 32-case evidence pack: `docs/venues/st12-gate-hil.md`, `docs/evidence/hil/st12-venue-gate-safety/`; runs on every CI run via `cargo test -p tirbase-venue-hil`
 - Workflow: `.github/workflows/hil.yml` (`workflow_dispatch`, maintainer-triggered, trusted lab runners only)
 
 ## Layout

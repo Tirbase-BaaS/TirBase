@@ -1,0 +1,200 @@
+{
+  "schema": "tirbase.hil.st12.venue-gate-safety.v1",
+  "seed": 12,
+  "cases": [
+    {
+      "id": "bench.composed",
+      "kind": "bench",
+      "passed": true,
+      "detail": "controller=gate-n1 reader=0 turnstile=locked supply=24000mV safe_state=secured"
+    },
+    {
+      "id": "power_loss.fail_safe.idle",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at idle: before={\"fail_mode\": \"fail_safe\", \"position\": \"locked\", \"reader_reads\": \"0\", \"safe_state\": \"released\", \"supply_mv\": \"24000\", \"turnstile\": \"locked\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=unlocked turnstile=unlocked safe=released command=Some(\"release\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_safe.reader_tap",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at reader_tap: before={\"fail_mode\": \"fail_safe\", \"position\": \"locked\", \"reader_reads\": \"1\", \"safe_state\": \"released\", \"supply_mv\": \"24000\", \"turnstile\": \"locked\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=unlocked turnstile=unlocked safe=released command=Some(\"release\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_safe.permit_armed",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at permit_armed: before={\"fail_mode\": \"fail_safe\", \"position\": \"locked\", \"reader_reads\": \"1\", \"safe_state\": \"released\", \"supply_mv\": \"24000\", \"turnstile\": \"locked\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=unlocked turnstile=unlocked safe=released command=Some(\"release\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_safe.actuating",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at actuating: before={\"fail_mode\": \"fail_safe\", \"position\": \"locked\", \"reader_reads\": \"1\", \"safe_state\": \"released\", \"supply_mv\": \"24000\", \"turnstile\": \"unlocked\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=unlocked turnstile=unlocked safe=released command=Some(\"release\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_safe.passage",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at passage: before={\"fail_mode\": \"fail_safe\", \"position\": \"open\", \"reader_reads\": \"1\", \"safe_state\": \"released\", \"supply_mv\": \"24000\", \"turnstile\": \"open\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=unlocked turnstile=unlocked safe=released command=Some(\"release\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_safe.reclosing",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at reclosing: before={\"fail_mode\": \"fail_safe\", \"position\": \"open\", \"reader_reads\": \"1\", \"safe_state\": \"released\", \"supply_mv\": \"24000\", \"turnstile\": \"open\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=unlocked turnstile=unlocked safe=released command=Some(\"release\"); queued=false"
+    },
+    {
+      "id": "brownout.fail_safe.shallow",
+      "kind": "brownout",
+      "passed": true,
+      "detail": "supply sagged to 20000mV: reader_link=offline turnstile=unlocked (bounded drive, expected unlocked)"
+    },
+    {
+      "id": "brownout.fail_safe.deep",
+      "kind": "brownout",
+      "passed": true,
+      "detail": "supply sagged to 16000mV: controller=unlocked turnstile=unlocked safe=released"
+    },
+    {
+      "id": "egress.fail_safe.powered",
+      "kind": "emergency_egress",
+      "passed": true,
+      "detail": "fire input: released=true entry_refused=true re-secured=true controller=locked turnstile=locked"
+    },
+    {
+      "id": "egress.fail_safe.after_power_cut",
+      "kind": "emergency_egress",
+      "passed": true,
+      "detail": "fire input: released=true entry_refused=true re-secured=true controller=locked turnstile=locked"
+    },
+    {
+      "id": "safety.stalled_controller.fail_safe",
+      "kind": "safety_state",
+      "passed": true,
+      "detail": "controller stalled for 13s; turnstile watchdog position=unlocked expected=unlocked (fail-safe remains open by design)"
+    },
+    {
+      "id": "safety.stuck_open_power_cut.fail_safe",
+      "kind": "safety_state",
+      "passed": true,
+      "detail": "stuck-open mechanism after power cut: controller=unlocked turnstile=unlocked safe=released"
+    },
+    {
+      "id": "power_loss.fail_secure.idle",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at idle: before={\"fail_mode\": \"fail_secure\", \"position\": \"locked\", \"reader_reads\": \"0\", \"safe_state\": \"secured\", \"supply_mv\": \"24000\", \"turnstile\": \"locked\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=locked turnstile=locked safe=secured command=Some(\"lock\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_secure.reader_tap",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at reader_tap: before={\"fail_mode\": \"fail_secure\", \"position\": \"locked\", \"reader_reads\": \"1\", \"safe_state\": \"secured\", \"supply_mv\": \"24000\", \"turnstile\": \"locked\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=locked turnstile=locked safe=secured command=Some(\"lock\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_secure.permit_armed",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at permit_armed: before={\"fail_mode\": \"fail_secure\", \"position\": \"locked\", \"reader_reads\": \"1\", \"safe_state\": \"secured\", \"supply_mv\": \"24000\", \"turnstile\": \"locked\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=locked turnstile=locked safe=secured command=Some(\"lock\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_secure.actuating",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at actuating: before={\"fail_mode\": \"fail_secure\", \"position\": \"locked\", \"reader_reads\": \"1\", \"safe_state\": \"secured\", \"supply_mv\": \"24000\", \"turnstile\": \"unlocked\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=locked turnstile=locked safe=secured command=Some(\"lock\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_secure.passage",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at passage: before={\"fail_mode\": \"fail_secure\", \"position\": \"open\", \"reader_reads\": \"1\", \"safe_state\": \"secured\", \"supply_mv\": \"24000\", \"turnstile\": \"open\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=locked turnstile=locked safe=secured command=Some(\"lock\"); queued=false"
+    },
+    {
+      "id": "power_loss.fail_secure.reclosing",
+      "kind": "power_loss",
+      "passed": true,
+      "detail": "at reclosing: before={\"fail_mode\": \"fail_secure\", \"position\": \"open\", \"reader_reads\": \"1\", \"safe_state\": \"secured\", \"supply_mv\": \"24000\", \"turnstile\": \"open\", \"wall_jumps\": \"0\"} supply=24000mV; after controller=locked turnstile=locked safe=secured command=Some(\"lock\"); queued=false"
+    },
+    {
+      "id": "brownout.fail_secure.shallow",
+      "kind": "brownout",
+      "passed": true,
+      "detail": "supply sagged to 20000mV: reader_link=offline turnstile=locked (bounded drive, expected locked)"
+    },
+    {
+      "id": "brownout.fail_secure.deep",
+      "kind": "brownout",
+      "passed": true,
+      "detail": "supply sagged to 16000mV: controller=locked turnstile=locked safe=secured"
+    },
+    {
+      "id": "egress.fail_secure.powered",
+      "kind": "emergency_egress",
+      "passed": true,
+      "detail": "fire input: released=true entry_refused=true re-secured=true controller=locked turnstile=locked"
+    },
+    {
+      "id": "egress.fail_secure.after_power_cut",
+      "kind": "emergency_egress",
+      "passed": true,
+      "detail": "fire input: released=true entry_refused=true re-secured=true controller=locked turnstile=locked"
+    },
+    {
+      "id": "safety.stalled_controller.fail_secure",
+      "kind": "safety_state",
+      "passed": true,
+      "detail": "controller stalled for 13s; turnstile watchdog position=locked expected=locked (fail-safe remains open by design)"
+    },
+    {
+      "id": "safety.stuck_open_power_cut.fail_secure",
+      "kind": "safety_state",
+      "passed": true,
+      "detail": "stuck-open mechanism after power cut: controller=locked turnstile=locked safe=secured"
+    },
+    {
+      "id": "network.loss_without_cache",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "back-office loss: denied=true stayed_locked=true online_recovered=true"
+    },
+    {
+      "id": "network.loss_with_cache",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "cached grant offline=true reader_link=offline controller=unlocked"
+    },
+    {
+      "id": "network.loss_while_open",
+      "kind": "network_loss",
+      "passed": true,
+      "detail": "network lost with lane open; after open hold controller=locked turnstile=locked"
+    },
+    {
+      "id": "clock.jump_forward",
+      "kind": "clock_jump",
+      "passed": true,
+      "detail": "wall +1 day: permit=None gate_time_advanced_monotonically=10000001us position=locked"
+    },
+    {
+      "id": "clock.jump_backward",
+      "kind": "clock_jump",
+      "passed": true,
+      "detail": "wall -1 day: open hold still elapsed on monotonic time; controller=locked turnstile=locked"
+    },
+    {
+      "id": "durability.long_run",
+      "kind": "durability",
+      "passed": true,
+      "detail": "cycles=600 cards=600 audit_entries=256 audit_dropped=2144 chain_ok=true restored=true faults=0"
+    },
+    {
+      "id": "durability.event_flood",
+      "kind": "durability",
+      "passed": true,
+      "detail": "rounds=5000 last_event_seq=10000 events_dropped=9936 audit_entries=128 audit_dropped=9872 chain_ok=true"
+    }
+  ],
+  "passed": true,
+  "digest": "40d212bba98f9358702db814453629b8163c7ff87f21ece6f184984165a35fa6"
+}

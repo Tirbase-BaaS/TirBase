@@ -98,6 +98,25 @@ rows and ledger chain consistent.
 - Long-run soak and fault injection: [`docs/soak-test-procedure.md`](soak-test-procedure.md)
 - Reference hardware profiles: [`docs/reference-hardware.md`](reference-hardware.md)
 
+## ST-12 gate HIL campaign
+
+The venue gate HIL bench is documented in
+[`docs/venues/st12-gate-hil.md`](venues/st12-gate-hil.md) with its evidence at
+[`docs/evidence/hil/st12-venue-gate-safety/`](evidence/hil/st12-venue-gate-safety/).
+Reproduce the deterministic software bench with:
+
+```bash
+cargo test -p tirbase-venue-hil
+cargo run -p tirbase-venue-hil --bin venue-hil-campaign -- \
+  --out docs/evidence/hil/st12-venue-gate-safety
+```
+
+It composes the production ST-04 gate controller and ST-03 access path with a
+reader link, turnstile watchdog, 24 V supply and monotonic safety clock. The
+physical campaign repeats the six power-cut stages, shallow/deep brownouts,
+network loss, clock jumps, fire input and long-run/event-flood cases on the lab
+bench. Physical safety assessment is a separate commercial engagement.
+
 ## Full vertical journey and power-loss coverage (F-13)
 
 - **Full vertical journey:** execute the end-to-end flow in `docs/hil-lab-checklist.md` §2 for the vertical under test (enroll/profile → ingest → guarded command → rejection → export/UI as applicable) and attach evidence.
