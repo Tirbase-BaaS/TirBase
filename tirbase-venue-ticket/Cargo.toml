@@ -1,0 +1,20 @@
+[package]
+name = "tirbase-venue-ticket"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "Offline venue ticket validation kernel: signed payloads, signed revocation lists with version and expiry, bounded anti-replay store, typed decisions, key rotation, and property tests (ST-05)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tirbase-venue = { workspace = true }
+# Ed25519 verification. Signing keys stay behind the F-05 custodian seam
+# (`TicketSigner`); this crate never stores or exports private key material.
+ed25519-dalek = "3.0.0"
+hex = "0.4"
+
+[dev-dependencies]
+proptest = "1.11.0"
