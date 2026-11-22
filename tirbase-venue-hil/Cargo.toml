@@ -1,0 +1,21 @@
+[package]
+name = "tirbase-venue-hil"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "AGPL venue gate HIL bench and evidence campaign: controller, reader, turnstile, power supply, fail-safe/secure safety states, power/brownout/network/clock tests, emergency egress and durability (ST-12)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+hex = "0.4"
+tirbase-venue = { workspace = true }
+tirbase-venue-access = { workspace = true, features = ["osdp", "wiegand", "desfire"] }
+tirbase-venue-gate = { workspace = true }
+
+[[bin]]
+name = "venue-hil-campaign"
+path = "src/main.rs"
