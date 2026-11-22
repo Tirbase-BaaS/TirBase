@@ -1,0 +1,19 @@
+[package]
+name = "tirbase-venue-gate"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "Venue turnstile and gate controller: mechanism control, offline decisions, fail-safe/fail-secure, bounded timeouts, power-loss safe state, audit and health events (ST-04)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tirbase-venue = { workspace = true }
+# ST-03: credential presentation, reader health, offline grant cache and the
+# monotonic revocation list the offline decision path relies on.
+tirbase-venue-access = { workspace = true, features = ["osdp", "wiegand", "desfire"] }
+
+[dev-dependencies]
+serde_json = "1"
