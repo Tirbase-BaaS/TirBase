@@ -95,6 +95,74 @@ tree is untracked, free of vendor SDKs and credential or card-number-shaped
 fixtures, and passes its closed contract and conformance suites before a
 release archive is built.
 
+The Uber Eats, Deliveroo and DoorDash delivery connectors (POS-18) are the same
+kind of **separate proprietary product** and are not present in this repository.
+They are developed in a git-ignored `closed/pos-delivery/` tree, link only the
+Apache-2.0 `tirbase-integrations` POS contract, and ingest platform orders,
+validate the platform menu version and every price against an explicit mapping,
+accept/reject/cancel idempotently, push status and queue courier exceptions. A
+replayed order is accepted once, and a menu or price mismatch is refused with a
+clear error rather than mispriced. `scripts/check-pos-delivery.py` proves the
+closed delivery tree is untracked, free of vendor SDKs and credential or
+card-number-shaped fixtures, and passes its closed contract and conformance
+suites before a release archive is built.
+
+The KassenSichV/TSE, Registratore Telematico, NF525 and Veri*factu fiscal
+modules (POS-19) are the same kind of **separate proprietary product** and are
+not in this repository. They are developed in a git-ignored
+`closed/pos-fiscal/` tree, link only the Apache-2.0 `tirbase-integrations` and
+`tirbase-en16931` surfaces, and implement one stable `FiscalProvider` interface
+behind a German TSE lifecycle and audit journal, an Italian RT authority
+envelope and transmission, a French NF525 inalterable journal and evidence
+pack, and a Spanish Veri*factu invoice chain and submission. No module is
+certified or released: `release-manifest.toml` marks every module `blocked`,
+`signed_off = false`, and the release gate refuses a plan until a signed lab
+report with an artifact hash and scope covers it; marketing claims are audited
+against that same scope. `scripts/check-pos-fiscal.py` proves the closed fiscal
+tree is untracked, AGPL-free, free of vendor SDKs, certificate containers and
+credential or card-number-shaped fixtures, has a plan and owner for every
+module, and passes its closed suites before a release archive is built.
+
+The PCI evidence and certified terminal/printer bundle (POS-20) is the same kind
+of **separate proprietary product** and is not in this repository. It is
+developed in a git-ignored `closed/pos-bundle/` tree with no TirBase runtime
+dependency, and combines the PCI DSS scope, data-flow, segmentation, key and
+logging evidence, a secure configuration baseline, incident-response and
+forensic-readiness procedures, an attestation register with expiry-driven sales
+holds, and an approved terminal/printer catalog the sales gate enforces. The
+committed catalog contains no certified device, every attestation is pending
+and the ASV scan and penetration test have not been run, so the bundle is on
+hold and cannot be quoted as saleable or compliant. `scripts/check-pos-bundle.py`
+proves the closed tree is untracked, every requirement maps to an existing
+artifact, no uncertified device carries an approval id, no pending attestation
+carries evidence, no credential or card-number-shaped fixture is present, and
+the computed gate agrees with the reviewed hold before a release archive is
+built.
+
+The POS commercial kit and OEM programme (POS-21) is the same kind of
+**separate proprietary product** and is not in this repository. It is developed
+in a git-ignored `closed/pos-commercial/` tree with no TirBase runtime
+dependency, and wraps the POS-13..POS-20 products with OEM and white-label
+terms, partner pricing and entitlement enforcement, source-free installation,
+commissioning and support runbooks, installer training and certification, the
+SLA and escalation model, and a fictional demo dataset with a sales-engineering
+script. Entitlements are signed Ed25519 claims verified against a public
+anchor, the partner scope and a signed, sequence-numbered revocation list;
+activation enforces the deployment cap, and the packager emits only compiled
+binaries, docs, legal templates, demo data and a trust-anchor placeholder. No
+counsel review has taken place: both legal templates are `0.9-draft`, the
+review record is `pending`, the trust anchor is unprovisioned and the release
+is a draft, so no partner may be appointed and no package may be sold. The
+`pos-commercial` CLI issues and revokes entitlements with a caller-supplied
+key; no private key or production token is committed.
+`scripts/check-pos-commercial.py` proves the tree is untracked, required
+documents and cross-references exist, the ledger and revocation register
+agree, no credential, private key or card-number-shaped fixture is present,
+and the pending review cannot be rendered as a release; `--require-reviewed`
+fails until counsel review is recorded. `scripts/package-pos-commercial.py`
+builds only a watermarked, source-free draft archive and refuses `--release`
+while review, sign-off or the trust anchor is outstanding.
+
 The Slack, Microsoft Teams, PagerDuty and SMS alert connectors are the same kind
 of **separate proprietary product** and are not in this repository. They are
 developed in a git-ignored `closed/alerts/` tree, link only the Apache-2.0
