@@ -1,0 +1,16 @@
+[package]
+name = "tirbase-venue-capacity"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "Venue capacity envelopes: per-gate/zone/venue hard and soft limits, idempotent ingress/egress counting, sensor reconciliation, and audited expiring overrides (ST-06)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tirbase-venue = { workspace = true }
+# ST-05 admissions are the natural idempotent ingress source: a ticket's
+# (ticket_id, nonce) pair becomes the counting event id.
+tirbase-venue-ticket = { workspace = true }
