@@ -1,0 +1,75 @@
+{
+  "id": "power-loss-gate",
+  "title": "Power loss drives each gate to its configured safe state",
+  "description": "A fail-safe lane releases on power loss while a fail-secure lane stays locked; egress is never blocked, and restored power leaves the position unknown until feedback arrives.",
+  "safety_invariant": {
+    "id": "power_loss_leaves_gate_in_safe_state",
+    "statement": "On power loss every gate reaches the safe state implied by its fail mode and egress remains possible; power restoration never asserts a position before feedback."
+  },
+  "initial": {
+    "venue_id": "venue-1",
+    "base_utc_us": 1700000000000000,
+    "venue_limit": { "soft": 12, "hard": 15, "hard_policy": "reject" },
+    "zones": [
+      {
+        "zone_id": "zone-north",
+        "gates": ["gate-n1", "gate-n2"],
+        "limit": { "soft": 8, "hard": 10, "hard_policy": "reject" }
+      },
+      {
+        "zone_id": "zone-south",
+        "gates": ["gate-s1"],
+        "limit": { "soft": 5, "hard": 6, "hard_policy": "reject" }
+      }
+    ],
+    "gate_limits": [],
+    "approval_policy": {
+      "lockdown": 2,
+      "release": 2,
+      "capacity_override": 2,
+      "emergency_gate_open": 2
+    },
+    "stale_policy": "fail_closed",
+    "revocation_valid_for_us": 2592000000000,
+    "tickets": [],
+    "gates": [
+      { "gate_id": "gate-n1", "fail_mode": "fail_safe" },
+      { "gate_id": "gate-n2", "fail_mode": "fail_secure" }
+    ]
+  },
+  "timeline": [
+    {
+      "action": "power_loss",
+      "at_offset_us": 3600000000,
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "power_loss",
+      "at_offset_us": 3601000000,
+      "gate_id": "gate-n2"
+    },
+    {
+      "action": "power_restore",
+      "at_offset_us": 3602000000,
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "power_restore",
+      "at_offset_us": 3603000000,
+      "gate_id": "gate-n2"
+    }
+  ],
+  "expected_steps": [
+    { "index": 0, "result": "power_lost" },
+    { "index": 1, "result": "power_lost" },
+    { "index": 2, "result": "power_restored" },
+    { "index": 3, "result": "power_restored" }
+  ],
+  "expected_final": {
+    "venue_occupancy": 0,
+    "revocation_version": 1,
+    "revoked_tickets": [],
+    "lockdowns": [],
+    "gate_positions": { "gate-n1": "unknown", "gate-n2": "unknown" }
+  }
+}

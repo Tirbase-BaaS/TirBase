@@ -1,0 +1,78 @@
+{
+  "id": "gate-replay",
+  "title": "Ticket replay across gates",
+  "description": "One valid ticket is presented at its own gate, at another gate, and again at the first gate.",
+  "safety_invariant": {
+    "id": "ticket_admitted_at_most_once",
+    "statement": "A ticket (ticket id + nonce) is admitted at most once across every gate and epoch."
+  },
+  "initial": {
+    "venue_id": "venue-1",
+    "base_utc_us": 1700000000000000,
+    "venue_limit": { "soft": 12, "hard": 15, "hard_policy": "reject" },
+    "zones": [
+      {
+        "zone_id": "zone-north",
+        "gates": ["gate-n1", "gate-n2"],
+        "limit": { "soft": 8, "hard": 10, "hard_policy": "reject" }
+      },
+      {
+        "zone_id": "zone-south",
+        "gates": ["gate-s1"],
+        "limit": { "soft": 5, "hard": 6, "hard_policy": "reject" }
+      }
+    ],
+    "gate_limits": [],
+    "approval_policy": {
+      "lockdown": 2,
+      "release": 2,
+      "capacity_override": 2,
+      "emergency_gate_open": 2
+    },
+    "stale_policy": "fail_closed",
+    "revocation_valid_for_us": 2592000000000,
+    "tickets": [
+      {
+        "ticket_id": "ticket-1",
+        "nonce": 1,
+        "gate_id": "gate-n1",
+        "zone_id": "zone-north",
+        "valid_from_offset_us": 0,
+        "valid_until_offset_us": 28800000000
+      }
+    ],
+    "gates": []
+  },
+  "timeline": [
+    {
+      "action": "present_ticket",
+      "at_offset_us": 3600000000,
+      "ticket_id": "ticket-1",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "present_ticket",
+      "at_offset_us": 3601000000,
+      "ticket_id": "ticket-1",
+      "gate_id": "gate-n2"
+    },
+    {
+      "action": "present_ticket",
+      "at_offset_us": 3602000000,
+      "ticket_id": "ticket-1",
+      "gate_id": "gate-n1"
+    }
+  ],
+  "expected_steps": [
+    { "index": 0, "result": "admitted" },
+    { "index": 1, "result": "denied", "reason": "cross_gate" },
+    { "index": 2, "result": "denied", "reason": "duplicate" }
+  ],
+  "expected_final": {
+    "venue_occupancy": 0,
+    "revocation_version": 1,
+    "revoked_tickets": [],
+    "lockdowns": [],
+    "gate_postures": { "gate-n1": "normal" }
+  }
+}

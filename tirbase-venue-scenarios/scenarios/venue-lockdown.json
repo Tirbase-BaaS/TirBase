@@ -1,0 +1,104 @@
+{
+  "id": "venue-lockdown",
+  "title": "Venue-wide lockdown under M-of-N approval",
+  "description": "A lockdown with one approval is refused, two distinct approvals engage it, an ingress is blocked, reusing the lockdown signatures for a release fails, and a fresh release reopens the venue.",
+  "safety_invariant": {
+    "id": "lockdown_and_release_use_distinct_m_of_n_approvals",
+    "statement": "A lockdown engages only with at least the configured number of distinct approvers, and a release uses its own request id and freshly signed approvals rather than the lockdown's."
+  },
+  "initial": {
+    "venue_id": "venue-1",
+    "base_utc_us": 1700000000000000,
+    "venue_limit": { "soft": 12, "hard": 15, "hard_policy": "reject" },
+    "zones": [
+      {
+        "zone_id": "zone-north",
+        "gates": ["gate-n1", "gate-n2"],
+        "limit": { "soft": 8, "hard": 10, "hard_policy": "reject" }
+      },
+      {
+        "zone_id": "zone-south",
+        "gates": ["gate-s1"],
+        "limit": { "soft": 5, "hard": 6, "hard_policy": "reject" }
+      }
+    ],
+    "gate_limits": [],
+    "approval_policy": {
+      "lockdown": 2,
+      "release": 2,
+      "capacity_override": 2,
+      "emergency_gate_open": 2
+    },
+    "stale_policy": "fail_closed",
+    "revocation_valid_for_us": 2592000000000,
+    "tickets": [],
+    "gates": []
+  },
+  "timeline": [
+    {
+      "action": "lockdown",
+      "at_offset_us": 3600000000,
+      "request_id": "req-lock",
+      "scope": "venue",
+      "reason": "crowd density above plan",
+      "approvals": ["custodian-1"],
+      "expires_offset_us": 7200000000
+    },
+    {
+      "action": "lockdown",
+      "at_offset_us": 3601000000,
+      "request_id": "req-lock",
+      "scope": "venue",
+      "reason": "crowd density above plan",
+      "approvals": ["custodian-1", "custodian-2"],
+      "expires_offset_us": 7200000000
+    },
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3602000000,
+      "event_id": "evt-1",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "release_lockdown",
+      "at_offset_us": 3603000000,
+      "request_id": "req-release",
+      "scope": "venue",
+      "reason": "crowd dispersed",
+      "approvals": ["custodian-1", "custodian-2"],
+      "expires_offset_us": 7200000000,
+      "reuse_approvals_from": "req-lock"
+    },
+    {
+      "action": "release_lockdown",
+      "at_offset_us": 3604000000,
+      "request_id": "req-release",
+      "scope": "venue",
+      "reason": "crowd dispersed",
+      "approvals": ["custodian-1", "custodian-2"],
+      "expires_offset_us": 7200000000
+    },
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3605000000,
+      "event_id": "evt-1",
+      "gate_id": "gate-n1"
+    }
+  ],
+  "expected_steps": [
+    { "index": 0, "result": "denied", "reason": "insufficient_approvals" },
+    { "index": 1, "result": "executed" },
+    { "index": 2, "result": "denied", "reason": "locked" },
+    { "index": 3, "result": "denied", "reason": "signature" },
+    { "index": 4, "result": "executed" },
+    { "index": 5, "result": "allowed" }
+  ],
+  "expected_final": {
+    "venue_occupancy": 1,
+    "revocation_version": 1,
+    "revoked_tickets": [],
+    "lockdowns": [],
+    "gate_postures": { "gate-n1": "normal", "gate-s1": "normal" },
+    "security_events": ["lockdown_engaged", "lockdown_released"]
+  }
+}

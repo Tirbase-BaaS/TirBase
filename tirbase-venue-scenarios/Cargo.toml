@@ -1,0 +1,12 @@
+[package]
+name = "tirbase-venue-scenarios"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "Apache-2.0"
+publish = false
+description = "Data-only venue scenario pack: gate replay, capacity breach, sensor spoof, venue lockdown, revocation expiry and power-loss gate state (ST-09)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

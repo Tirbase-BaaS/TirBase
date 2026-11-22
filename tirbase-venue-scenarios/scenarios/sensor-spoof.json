@@ -1,0 +1,81 @@
+{
+  "id": "sensor-spoof",
+  "title": "Occupancy sensor disagreement and audited adoption",
+  "description": "A zone holds two counted people; a sensor claims forty. Reconciliation reports the disagreement, and only an attributable operator adoption changes occupancy.",
+  "safety_invariant": {
+    "id": "sensor_occupancy_change_requires_audited_adoption",
+    "statement": "A sensor reading never changes occupancy by itself: any adopted correction must name an operator, a reason, raise a disagreement alarm and appear in the capacity audit log."
+  },
+  "initial": {
+    "venue_id": "venue-1",
+    "base_utc_us": 1700000000000000,
+    "venue_limit": { "soft": 12, "hard": 15, "hard_policy": "reject" },
+    "zones": [
+      {
+        "zone_id": "zone-north",
+        "gates": ["gate-n1", "gate-n2"],
+        "limit": { "soft": 8, "hard": 10, "hard_policy": "reject" }
+      },
+      {
+        "zone_id": "zone-south",
+        "gates": ["gate-s1"],
+        "limit": { "soft": 5, "hard": 6, "hard_policy": "reject" }
+      }
+    ],
+    "gate_limits": [],
+    "approval_policy": {
+      "lockdown": 2,
+      "release": 2,
+      "capacity_override": 2,
+      "emergency_gate_open": 2
+    },
+    "stale_policy": "fail_closed",
+    "revocation_valid_for_us": 2592000000000,
+    "tickets": [],
+    "gates": []
+  },
+  "timeline": [
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3600000000,
+      "event_id": "evt-1",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3601000000,
+      "event_id": "evt-2",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "observe_sensor",
+      "at_offset_us": 3602000000,
+      "zone_id": "zone-north",
+      "occupancy": 40,
+      "adopt": false
+    },
+    {
+      "action": "observe_sensor",
+      "at_offset_us": 3603000000,
+      "zone_id": "zone-north",
+      "occupancy": 40,
+      "adopt": true,
+      "actor": "guard-lead-7",
+      "reason": "sensor recount after gate jam"
+    }
+  ],
+  "expected_steps": [
+    { "index": 0, "result": "allowed" },
+    { "index": 1, "result": "allowed" },
+    { "index": 2, "result": "observed", "reason": "observed_higher" },
+    { "index": 3, "result": "adopted", "reason": "observed_higher" }
+  ],
+  "expected_final": {
+    "venue_occupancy": 40,
+    "zone_occupancy": { "zone-north": 40 },
+    "revocation_version": 1,
+    "revoked_tickets": [],
+    "lockdowns": [],
+    "capacity_audit_events": ["reconciliation_adopted"]
+  }
+}

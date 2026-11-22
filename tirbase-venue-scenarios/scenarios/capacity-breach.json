@@ -1,0 +1,101 @@
+{
+  "id": "capacity-breach",
+  "title": "Gate hard limit and an approved capacity override",
+  "description": "A north gate reaches its hard limit, refuses the next ingress, an approved override grants headroom, and the lane admits again.",
+  "safety_invariant": {
+    "id": "ingress_never_exceeds_hard_limit_without_approved_override",
+    "statement": "No ingress may take any gate, zone or the venue above its hard limit unless an approved capacity override is active for that scope."
+  },
+  "initial": {
+    "venue_id": "venue-1",
+    "base_utc_us": 1700000000000000,
+    "venue_limit": { "soft": 12, "hard": 15, "hard_policy": "reject" },
+    "zones": [
+      {
+        "zone_id": "zone-north",
+        "gates": ["gate-n1", "gate-n2"],
+        "limit": { "soft": 8, "hard": 10, "hard_policy": "reject" }
+      },
+      {
+        "zone_id": "zone-south",
+        "gates": ["gate-s1"],
+        "limit": { "soft": 5, "hard": 6, "hard_policy": "reject" }
+      }
+    ],
+    "gate_limits": [
+      {
+        "gate_id": "gate-n1",
+        "limit": { "soft": 2, "hard": 3, "hard_policy": "reject" }
+      }
+    ],
+    "approval_policy": {
+      "lockdown": 2,
+      "release": 2,
+      "capacity_override": 2,
+      "emergency_gate_open": 2
+    },
+    "stale_policy": "fail_closed",
+    "revocation_valid_for_us": 2592000000000,
+    "tickets": [],
+    "gates": []
+  },
+  "timeline": [
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3600000000,
+      "event_id": "evt-1",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3601000000,
+      "event_id": "evt-2",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3602000000,
+      "event_id": "evt-3",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3603000000,
+      "event_id": "evt-4",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "capacity_override",
+      "at_offset_us": 3604000000,
+      "request_id": "req-cap",
+      "scope": "gate:gate-n1",
+      "headroom": 2,
+      "reason": "short late surge, second lane offline",
+      "approvals": ["custodian-1", "custodian-2"],
+      "expires_offset_us": 7200000000
+    },
+    {
+      "action": "count_ingress",
+      "at_offset_us": 3605000000,
+      "event_id": "evt-5",
+      "gate_id": "gate-n1"
+    }
+  ],
+  "expected_steps": [
+    { "index": 0, "result": "allowed" },
+    { "index": 1, "result": "allowed" },
+    { "index": 2, "result": "allowed" },
+    { "index": 3, "result": "denied", "reason": "hard_limit" },
+    { "index": 4, "result": "executed" },
+    { "index": 5, "result": "allowed" }
+  ],
+  "expected_final": {
+    "venue_occupancy": 4,
+    "zone_occupancy": { "zone-north": 4 },
+    "revocation_version": 1,
+    "revoked_tickets": [],
+    "lockdowns": [],
+    "gate_postures": { "gate-n1": "normal" },
+    "security_events": ["capacity_override_granted"]
+  }
+}

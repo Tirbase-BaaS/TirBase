@@ -1,0 +1,82 @@
+{
+  "id": "revocation-expiry",
+  "title": "Expired revocation list refuses admission until a delta arrives",
+  "description": "The accumulated revocation list expires after one hour. A presentation at two hours is refused and alarmed; a freshly signed delta renews the list and the same ticket is admitted.",
+  "safety_invariant": {
+    "id": "stale_revocation_list_never_admits",
+    "statement": "A missing or expired revocation list never admits a ticket, regardless of the stale-list policy; the alarm policy only adds an operator alarm."
+  },
+  "initial": {
+    "venue_id": "venue-1",
+    "base_utc_us": 1700000000000000,
+    "venue_limit": { "soft": 12, "hard": 15, "hard_policy": "reject" },
+    "zones": [
+      {
+        "zone_id": "zone-north",
+        "gates": ["gate-n1", "gate-n2"],
+        "limit": { "soft": 8, "hard": 10, "hard_policy": "reject" }
+      },
+      {
+        "zone_id": "zone-south",
+        "gates": ["gate-s1"],
+        "limit": { "soft": 5, "hard": 6, "hard_policy": "reject" }
+      }
+    ],
+    "gate_limits": [],
+    "approval_policy": {
+      "lockdown": 2,
+      "release": 2,
+      "capacity_override": 2,
+      "emergency_gate_open": 2
+    },
+    "stale_policy": "alarm",
+    "revocation_valid_for_us": 3600000000,
+    "tickets": [
+      {
+        "ticket_id": "ticket-1",
+        "nonce": 1,
+        "gate_id": "gate-n1",
+        "zone_id": "zone-north",
+        "valid_from_offset_us": 0,
+        "valid_until_offset_us": 28800000000
+      }
+    ],
+    "gates": []
+  },
+  "timeline": [
+    {
+      "action": "present_ticket",
+      "at_offset_us": 7200000000,
+      "ticket_id": "ticket-1",
+      "gate_id": "gate-n1"
+    },
+    {
+      "action": "apply_revocation_delta",
+      "at_offset_us": 7201000000,
+      "base_version": 1,
+      "version": 2,
+      "added": [],
+      "expires_offset_us": 2592000000000,
+      "emergency": false,
+      "approvals": ["custodian-1"]
+    },
+    {
+      "action": "present_ticket",
+      "at_offset_us": 7202000000,
+      "ticket_id": "ticket-1",
+      "gate_id": "gate-n1"
+    }
+  ],
+  "expected_steps": [
+    { "index": 0, "result": "denied", "reason": "revocation_list_expired" },
+    { "index": 1, "result": "applied" },
+    { "index": 2, "result": "admitted" }
+  ],
+  "expected_final": {
+    "venue_occupancy": 0,
+    "revocation_version": 2,
+    "revoked_tickets": [],
+    "lockdowns": [],
+    "revocation_alarm": "expired"
+  }
+}

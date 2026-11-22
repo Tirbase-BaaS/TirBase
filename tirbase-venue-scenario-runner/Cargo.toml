@@ -1,0 +1,23 @@
+[package]
+name = "tirbase-venue-scenario-runner"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "AGPL integration runner for the ST-09 venue scenario pack: drives ST-02..ST-08 engines deterministically, asserts expectations and safety invariants, and prints defended output"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tirbase-venue = { workspace = true }
+tirbase-venue-ticket = { workspace = true }
+tirbase-venue-capacity = { workspace = true }
+tirbase-venue-admission = { workspace = true }
+tirbase-venue-lockdown = { workspace = true }
+tirbase-venue-gate = { workspace = true }
+tirbase-venue-scenarios = { workspace = true }
+
+[[bin]]
+name = "venue-scenarios"
+path = "src/main.rs"
