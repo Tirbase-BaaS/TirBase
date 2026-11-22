@@ -1,0 +1,17 @@
+[package]
+name = "tirbase-venue-privacy"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "AGPL venue privacy runtime: enforceable CCTV metadata retention, role-scoped access, legal holds, subject access/deletion and the venue privacy field register (ST-13)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tirbase-core = { workspace = true }
+
+[[bin]]
+name = "venue-privacy"
+path = "src/main.rs"

@@ -1,0 +1,38 @@
+{
+  "schema": "tirbase.venue-compliance-kit.manifest.v1",
+  "kit": "venue-compliance-kit",
+  "version": "0.1.0-draft",
+  "licence": "proprietary",
+  "generated": "2026-11-22",
+  "baseline": {
+    "release": "under-validation",
+    "field_register": "data/venue-privacy-register.csv",
+    "retention_schedule": "data/venue-retention-schedule.csv",
+    "privacy_runtime": "tirbase-venue-privacy",
+    "evidence": "docs/compliance/venue-pilot-privacy-signoff.md"
+  },
+  "parts": [
+    "dpia",
+    "data-flow-map.md",
+    "retention-schedule.csv",
+    "cctv-retention-and-access.md",
+    "subject-access-and-deletion.md",
+    "reporting-templates.md",
+    "review"
+  ],
+  "reviews": {
+    "privacy_counsel": {
+      "status": "pending",
+      "record": "review/privacy-review-record.md",
+      "reviewer": "",
+      "date": ""
+    }
+  },
+  "delivery": {
+    "release_allowed": false,
+    "draft_watermark": "DRAFT - CUSTOMER COMPLETION REQUIRED",
+    "contains_source": false,
+    "contains_secrets": false
+  },
+  "not_covered": "EXCLUSIONS.md"
+}

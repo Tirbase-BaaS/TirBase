@@ -1,6 +1,6 @@
 # Data Protection Procedures (F-15)
 
-> Complements DPIA templates (`dpia-templates.md`) and runbooks. This document describes **procedures**; operators must map them to local law (GDPR, sector rules) and customer contracts.
+> Complements DPIA templates (`dpia-templates.md`) and runbooks. This document describes **procedures**; operators must map them to local law (GDPR, sector rules) and customer contracts. For venue deployments, the ST-13 pack provides the per-field register, four DPIAs, enforced CCTV metadata retention, SAR/deletion and local-authority templates under [`venue-dpia/`](venue-dpia/README.md).
 
 ## 1. Principles
 
@@ -12,6 +12,11 @@
 ## 2. Per-field register (template — “every personal-data field has a purpose, retention, and access rule”)
 
 For each deployment, maintain a table like:
+
+For venues, use the machine-readable
+[`data/venue-privacy-register.csv`](../../data/venue-privacy-register.csv); it
+is checked by `tirbase-venue-privacy/tests/st13_privacy.rs`. The generic table
+below remains for non-venue deployments.
 
 | Field (logical) | Location (system/table/log) | Personal data? (Y/N/Maybe) | Purpose | Lawful basis (template) | Retention | Access roles | Deletion/redaction method | Notes |
 |-----------------|-----------------------------|----------------------------|---------|-------------------------|-----------|--------------|---------------------------|-------|
@@ -40,6 +45,8 @@ For each deployment, maintain a table like:
 2. **Discovery:** identify stores (edge SQLite, exports, backups, external systems). Use tenant scoping and audit logs.
 3. **Response:** provide copy/export in a common format where feasible; explain limitations (e.g. hash-chained entries cannot be altered without detection — offer redacted views where appropriate).
 4. **Timelines:** follow applicable law (e.g. GDPR one month) and contract SLAs.
+
+Venue deployments follow [`venue-subject-access-deletion.md`](venue-subject-access-deletion.md): CCTV metadata export and deletion are privacy-officer-only, scope to a pseudonymous subject, and report any active legal hold instead of deleting held data.
 
 ## 6. Deletion and erasure
 

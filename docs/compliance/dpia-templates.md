@@ -62,13 +62,25 @@
 
 ## 5. Vertical: Stadium / venue
 
+**ST-13 supersedes this section for venue deployments.** Use the four completed
+per-domain baselines and the field register:
+
+- [`venue-dpia/README.md`](venue-dpia/README.md) — ticket, credential, CCTV and
+  access DPIAs
+- [`venue-data-flow-retention.md`](venue-data-flow-retention.md) — data-flow map
+  and retention schedule
+- [`venue-cctv-retention.md`](venue-cctv-retention.md) — metadata-only CCTV and
+  enforced retention
+- [`venue-subject-access-deletion.md`](venue-subject-access-deletion.md) — SAR
+  and deletion with legal hold
+
 **Typical personal data touches:** attendee/session identifiers in access logs if integrated with ticketing; gate operator accounts external. Gate events may be linked to ticket IDs (personal data) depending on integration.
 
-**Data-flow notes:** gate controllers/scanners → gateway → event logs; potential sync to venue management systems.
+**Data-flow notes:** gate controllers/scanners → gateway → event logs; potential sync to venue management systems. CCTV is metadata-only in TirBase; video, if used, remains in the venue VMS under a separate DPIA.
 
 **DPIA prompts:**
 - Biometric or facial recognition: if any, **do not** process in TirBase without a separate high-risk DPIA and legal basis review (explicitly call out).
-- Video is out of scope unless integrated; document boundaries.
+- Video is out of scope for this runtime; document the VMS/video controller boundary.
 
 ## 6. Pilot privacy review record (required before pilot)
 
@@ -82,4 +94,4 @@
 | Links to data-flow diagrams | |
 | Links to completed templates (sections 3–5) | |
 
-**Done-when (F-15):** “Privacy review is recorded before a pilot.” — attach this record (completed) to the pilot folder and reference it in project tracking.
+**Done-when (F-15):** “Privacy review is recorded before a pilot.” — attach this record (completed) to the pilot folder and reference it in project tracking. The ST-13 software-pilot record is at [`venue-pilot-privacy-signoff.md`](venue-pilot-privacy-signoff.md); a customer pilot needs a completed customer record.

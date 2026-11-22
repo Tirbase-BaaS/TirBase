@@ -1,0 +1,10 @@
+retention_code,class,starts,maximum,disposal,legal_hold,source
+TICKET_30D,ticket,event time,30 days,Delete ticket/scan metadata; direct identifiers are not retained,Yes,ST-13 venue register
+CREDENTIAL_30D,credential,revocation or expiry,30 days,Purge credential metadata; revocation reason moves to restricted audit,Yes,ST-13 venue register
+ACCESS_90D,access,decision time,90 days,Delete access decision; audit attribution remains restricted,Yes,ST-13 venue register
+CCTV_SECURITY_30D,cctv security/access anomaly,event time,30 days,Delete metadata through CctvStore::purge_expired,Yes,ST-13 CCTV policy
+CCTV_SAFETY_90D,cctv safety,event time,90 days,Delete metadata through CctvStore::purge_expired,Yes,ST-13 CCTV policy
+CCTV_OPERATIONAL_7D,cctv operational,event time,7 days,Delete metadata through CctvStore::purge_expired,Yes,ST-13 CCTV policy
+AUDIT_365D,audit,record closure,365 days,Delete restricted audit record after review,Yes,ST-13 audit policy
+LEGAL_HOLD,legal hold,hold start,until release and matter closure,Delete after hold release and matter closure,Not applicable,ST-13 legal hold
+MINIMISED_OR_NONE,minimised,collection,not retained by TirBase,Delete at source; never forward,No,ST-13 minimisation rule
