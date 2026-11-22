@@ -1,0 +1,31 @@
+[package]
+name = "tirbase-venue-access"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "Venue access-control credential ingest: OSDP secure channel, Wiegand, MIFARE DESFire EV2/EV3, credential mapping, reader health, offline cache and revocation (ST-03)"
+
+[features]
+default = []
+# ST-03: each reader wire protocol is independently feature-gated. Credential
+# mapping, reader health, the offline cache and revocation are always built.
+osdp = []
+wiegand = []
+desfire = []
+all-readers = ["osdp", "wiegand", "desfire"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tirbase-venue = { workspace = true }
+# AES-128/256 block primitives. CMAC, CBC and all framing are in-crate so the
+# exact construction is reviewable; no reader transport is compiled here.
+aes = "0.8"
+sha2 = "0.11"
+hex = "0.4"
+zeroize = { version = "1.9", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1"

@@ -14,6 +14,7 @@ automerge = { version = "0.11.0", default-features = false }
 serde_json = "1.0.140"
 tirbase-core = { path = "../tirbase-core" }
 tirbase-pos = { path = "../tirbase-pos" }
+tirbase-venue-access = { path = "../tirbase-venue-access", features = ["all-readers"] }
 
 [[bin]]
 name = "automerge_delta_decode"
@@ -39,6 +40,13 @@ bench = false
 [[bin]]
 name = "pos08_device_input"
 path = "fuzz_targets/pos08_device_input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "venue_access_frames"
+path = "fuzz_targets/venue_access_frames.rs"
 test = false
 doc = false
 bench = false
