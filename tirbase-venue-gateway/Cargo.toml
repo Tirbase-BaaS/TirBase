@@ -1,0 +1,29 @@
+[package]
+name = "tirbase-venue-gateway"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "Venue gateway protocol ingest: BACnet/IP, Modbus TCP/RTU, KNX/IP and MQTT with point mapping, health, stale detection and read-only safety rules (ST-02)"
+
+[features]
+default = []
+# ST-02: each protocol is independently feature-gated. No protocol transport is
+# compiled unless explicitly enabled, and every protocol is read-only.
+bacnet = []
+modbus = []
+knx = []
+mqtt = []
+# Convenience: enable every protocol for the venue gateway.
+all-protocols = ["bacnet", "modbus", "knx", "mqtt"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+tirbase-venue = { workspace = true }
+# Pure codecs only (Apache-2.0). The venue gateway performs no device I/O and
+# adds no transport dependency: frames arrive from a caller-owned transport.
+tirbase-driver-api = { workspace = true }
+
+[dev-dependencies]
+serde_json = "1"
