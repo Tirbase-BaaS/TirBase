@@ -1,0 +1,81 @@
+{
+  "product": "tirbase-stadium-kit",
+  "version": "0.1.0",
+  "status": "draft",
+  "licence": "proprietary",
+  "contains_source": false,
+  "contains_secrets": false,
+  "contains_customer_data": false,
+  "usable_without_source": true,
+  "depends_on": ["ST-12", "ST-13", "ST-14", "ST-15"],
+  "reviews": {
+    "independent_safety_review": {
+      "status": "pending",
+      "reviewer": "",
+      "organisation": "",
+      "date": "",
+      "scope": "safety/hazard-log.csv safety/risk-assessment.md safety/safety-requirements.md safety/safety-case-report.md safety/gate-failure-modes.md",
+      "findings_open": 0,
+      "record": "review/safety-review-record.md"
+    },
+    "counsel_review": {
+      "status": "pending",
+      "reviewer": "",
+      "organisation": "",
+      "date": "",
+      "scope": "authority/ insurance/ review/counsel-review-record.md LICENSE EXCLUSIONS.md",
+      "findings_open": 0,
+      "record": "review/counsel-review-record.md"
+    }
+  },
+  "parts": {
+    "safety": [
+      "safety/hazard-log.csv",
+      "safety/risk-assessment.md",
+      "safety/safety-requirements.md",
+      "safety/evidence-index.md",
+      "safety/gate-failure-modes.md",
+      "safety/independent-review-plan.md",
+      "safety/safety-case-report.md"
+    ],
+    "insurance": [
+      "insurance/system-description.md",
+      "insurance/controls.md",
+      "insurance/incident-history.md",
+      "insurance/auditability.md",
+      "insurance/evidence-index.md"
+    ],
+    "authority": [
+      "authority/capacity-report-template.md",
+      "authority/incident-report-template.md",
+      "authority/lockdown-report-template.md"
+    ],
+    "integrator": [
+      "integrator/training.md",
+      "integrator/exam.md",
+      "integrator/badge.md",
+      "integrator/badge-registry.csv",
+      "integrator/recertification.md",
+      "integrator/commissioning-checklist.md"
+    ],
+    "managed_ops": [
+      "managed-ops/monitoring.md",
+      "managed-ops/on-call.md",
+      "managed-ops/incident-command.md",
+      "managed-ops/change-management.md",
+      "managed-ops/sla.md"
+    ],
+    "hardware": [
+      "hardware/certified-controllers.md",
+      "hardware/readers.md",
+      "hardware/spares.md",
+      "hardware/firmware-support.md",
+      "hardware/eol-policy.md",
+      "hardware/bom-template.csv"
+    ]
+  },
+  "delivery": {
+    "draft_watermark": true,
+    "release_requires": ["independent_safety_review", "counsel_review"]
+  }
+}

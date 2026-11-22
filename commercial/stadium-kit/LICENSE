@@ -1,0 +1,34 @@
+TirBase Stadium Commercial Kit — Proprietary Licence
+
+Copyright (c) 2026 the TirBase vendor. All rights reserved.
+
+This kit and its documents are proprietary and confidential. They are licensed,
+not sold, only under a signed commercial agreement. No right is granted to copy,
+modify, distribute, sublicense or provide the kit as a service except as that
+agreement expressly permits.
+
+This kit is a document and template pack. It contains no TirBase source code, no
+vendor SDK, no executable, no credential and no customer data. The open AGPL
+runtime and the Apache-2.0 integration surface keep their own licences; nothing
+in this kit changes them.
+
+SAFETY NOTICE
+
+This kit does not certify a venue, a system, a gate, an installation or an
+integrator. It does not replace a competent person's risk assessment, a
+life-safety system's certification, a fire authority's approval, an insurer's
+underwriting decision or legal advice.
+
+TirBase gate and venue software does not control fire detection, fire
+suppression, smoke control, gas detection, emergency lighting or any other
+life-safety system. Emergency egress remains with the installed life-safety
+systems and the venue's safety case.
+
+NO WARRANTY. The kit is provided "AS IS", without warranty of any kind, express
+or implied, including fitness for a particular purpose. In no event shall the
+authors be liable for any claim, damage or other liability arising from the kit
+or its use.
+
+The review records in `review/` are unsigned until a named independent safety
+reviewer and a named counsel reviewer sign them. An unsigned or pending record
+must not be presented as approval.

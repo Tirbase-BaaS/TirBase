@@ -1,0 +1,7 @@
+item_id,category,model,revision,firmware,support_status,eol_est,quantity,spares,notes
+CTRL-TBC,gate controller,TBC,TBC,TBC,pending,,0,1,Requires an attested register row before commissioning
+READER-TBC,reader,TBC,TBC,TBC,pending,,0,2,No biometric template export
+SWITCH-TBC,network switch,TBC,TBC,TBC,pending,,0,1,Cold spare
+PSU-TBC,power supply,TBC,TBC,TBC,pending,,0,2,
+CABLE-TBC,cabling,TBC,TBC,,pending,,0,0,10 percent of installed length
+MEDIA-TBC,recovery media,TBC,TBC,TBC,pending,,0,1,Offline attested baseline and hashes
