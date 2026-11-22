@@ -277,6 +277,33 @@ jobs:
         # or freshness scenario disappears.
         run: bash scripts/check-docs-claims.sh
 
+      - name: Venue privacy and compliance kit gate (ST-13)
+        # Verifies the field register, retention schedule, DPIA pack, sign-off and
+        # proprietary kit; cargo tests separately prove CCTV retention enforcement.
+        run: python3 scripts/check-venue-privacy.py
+
+      - name: Venue ticketing connector gate (ST-14)
+        # The proprietary Ticketmaster/Eventim tree is git-ignored and absent from
+        # a public clone. This proves the open repository carries no connector
+        # source, AGPL edge, vendor SDK or credential; --test runs the closed
+        # suite and both open-conformance certifications where the tree exists.
+        run: python3 scripts/check-venue-ticketing.py
+
+      - name: Venue operations connector gate (ST-15)
+        # Proves the open repository carries no access/BMS/CCTV/PA connector
+        # source, AGPL edge, vendor SDK, credential or camera media. The closed
+        # suite (--test) additionally proves the life-safety refusal, replay
+        # suppression and all seven open-conformance certifications.
+        run: python3 scripts/check-venue-operations.py
+
+      - name: Stadium commercial kit gate (ST-16)
+        # Documents-only kit: proves no source, binary, secret or customer data,
+        # that every hazard has an owner, mitigation and resolving evidence and is
+        # covered by a requirement, and that the unsigned reviews cannot be
+        # presented as an approved safety case. The draft check is the CI bar;
+        # --release fails until both reviews are signed.
+        run: python3 scripts/check-stadium-kit.py
+
   claim-markers:
     name: "[CLAIM-{id}] marker scan (CLAIM-3.2)"
     runs-on: ubuntu-latest

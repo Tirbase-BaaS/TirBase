@@ -28,6 +28,15 @@ Apache-2.0 text.
 | Alert connectors | `tirbase-notify` | `Apache-2.0` | Connector interface, alert message model, secrets-by-reference, retry/on-call arithmetic and the generic email, webhook and console connectors, so closed vendor plugins can deliver without linking the AGPL runtime. |
 | EPCIS adapter | `tirbase-epcis` | `Apache-2.0` | Maps signed ledger bundles to GS1 EPCIS 2.0 JSON/XML for integrators; reads the bundle as JSON and never links the AGPL runtime. |
 | POS domain model | `tirbase-pos` | `AGPL-3.0-only` | Prototype order/check/line-item/money model (POS-01) under the POS-00 deferral; not production, not certified, no payment connectivity. |
+| Venue gate HIL bench | `tirbase-venue-hil` | `AGPL-3.0-only` | Software HIL bench, power/brownout/network/clock safety cases, emergency egress simulation, durability/event-flood tests and hash-sealed evidence. Physical safety assessment and lab execution are a separate commercial engagement. |
+| Venue privacy runtime | `tirbase-venue-privacy` | `AGPL-3.0-only` | Field privacy register, metadata-only CCTV event store, enforced retention, legal holds, subject access/deletion and role-scoped access audit. The commercial venue compliance kit supplies customer-completion templates and review records. |
+| Venue compliance kit | `commercial/venue-compliance-kit/` | `Proprietary` | Venue DPIA, retention, SAR/deletion and local-authority reporting templates, customer review record and delivery gate. Documents only; not part of the AGPL runtime; no legal advice or certification. |
+| Stadium commercial kit | `commercial/stadium-kit/` | `Proprietary` | Stadium safety case, insurance evidence, local-authority templates, integrator certification, managed-venue operations and hardware policy. Documents only; draft until independent safety and counsel reviews are signed; no certification, cover or legal advice. |
+| Venue command center backend | `tirbase-venue-command-center` | `AGPL-3.0-only` | Live venue command plane: incident workflow, approved lockdown controls, drill isolation and after-action reports, operating the ST-08 engine. |
+| Venue command center UI | `console/venue-command-center/` | `Apache-2.0` | Static operator/supervisor/safety/auditor console. It consumes the AGPL backend over HTTP and links no runtime code. |
+| Venue connector framework | `tirbase-venue-connectors` | `Apache-2.0` | Ticketing, access, BMS, CCTV and PA connector interfaces, venue event schemas, mapping, idempotency, retries, dead letters, signed webhook verification, venue privacy rules, mocks and a conformance suite, so a closed venue connector is built without linking the AGPL runtime. |
+| Venue ticketing connectors (Ticketmaster, Eventim) | `closed/venue-ticketing/` | `Proprietary` | Two separately sold ticketing connectors: lifecycle feed, offline revocation cache for disconnected gates, scan ledger and reconciliation, signed feed webhooks, seat mapping, sandbox mock server and contract tests. Documents and source live only in the git-ignored closed tree; they link only the Apache-2.0 `tirbase-venue-connectors` surface. |
+| Venue operations connectors (HID, LenelS2, Genetec, Siemens, Johnson Controls, ONVIF, PA) | `closed/venue-operations/` | `Proprietary` | Seven separately sold connectors: credential/access-event sync with offline revocation, BMS point mapping and alarm ingestion that refuses every life-safety point and alarm, metadata-only ONVIF events and camera health, and templated PA announcements with zone, priority and audit. Source and documents live only in the git-ignored closed tree; they link only the Apache-2.0 `tirbase-venue-connectors` surface and cannot control a fire or life-safety system. |
 | Integration framework | `tirbase-integrations` | `Apache-2.0` | Connector trait, mapping DSL, retry/backoff, idempotency keys, dead-letter queue and replay, OAuth2/mTLS/API-key/HMAC auth, generic HTTP, webhook, MQTT, CSV and SFTP connectors, mock vendor server and certification suite, so closed vendor connectors are written and tested without linking the AGPL runtime. |
 | EN 16931 adapter | `tirbase-en16931` | `Apache-2.0` | EN 16931 semantic model, UBL 2.1 and CII D16B serialization, validation and batch export, so a closed country profile can embed the core without linking the AGPL runtime. |
 | Admin SDK | `@tirbase/gateway-admin-sdk` | `Apache-2.0` | Pure HTTP client generated from the admin OpenAPI spec. |
@@ -73,6 +82,58 @@ and are delivered to licensees under the proprietary notice in that tree.
 vendor SDK or credential in the open repository and that its documentation and
 crates are present; `scripts/package-closed-connectors.py` refuses to package
 unless that gate passes.
+
+The Ticketmaster and Eventim ticketing connectors (ST-14) are a **separate
+proprietary product** and are not present in this repository. They are developed
+in a git-ignored `closed/venue-ticketing/` tree, link only the Apache-2.0
+`tirbase-venue-connectors` surface, and are sold per connector. A successful
+feed sync makes the offline ticket cache authoritative: a revoked ticket is
+refused with no vendor call, and a replayed scan returns its original decision
+rather than admitting twice. `scripts/check-venue-ticketing.py` proves the tree
+is untracked, has no AGPL edge in `Cargo.lock`, bundles no vendor SDK or
+credential, documents setup, credentials, sandbox, conformance and support, and
+requires the two open-conformance certifications and the offline revocation and
+replay regression tests by name. `scripts/package-venue-ticketing.py` refuses to
+build a licensee archive unless that gate passes. The connectors are not
+affiliated with, endorsed by or certified by Ticketmaster or Eventim; vendor API
+approval and sandbox access remain the customer's agreement.
+
+The HID, LenelS2, Genetec, Siemens, Johnson Controls, ONVIF CCTV and public
+address connectors (ST-15) are a **separate proprietary product** and are not
+present in this repository. They are developed in a git-ignored
+`closed/venue-operations/` tree, link only the Apache-2.0
+`tirbase-venue-connectors` surface, and are sold per connector. A credential sync
+makes the venue's offline credential cache authoritative, a replayed access
+decision, alarm or announcement is a duplicate rather than a second record, and
+ONVIF events are metadata only. **No connector connects to, commands, inhibits or
+substitutes for fire detection, fire suppression, smoke control, gas detection or
+any other life-safety system**: BMS life-safety points, alarm families and point
+writes are refused permanently. `scripts/check-venue-operations.py` proves the
+tree is untracked, has no AGPL edge in `Cargo.lock`, bundles no vendor SDK,
+credential or camera media, documents setup, credentials, sandbox, conformance,
+failure recovery and support, and requires each product's open-conformance,
+replay and family-guarantee tests by name.
+`scripts/package-venue-operations.py` refuses to build a licensee archive unless
+that gate passes. No vendor or ONVIF endorsement or certification is claimed.
+
+The stadium commercial kit (ST-16) is a **separate proprietary deliverable** of
+documents, not code. It is not part of the AGPL runtime and contains no source,
+credential or customer data. It wraps ST-12..ST-15 with a pilot safety case (a
+20-hazard log where every hazard has an owner, a mitigation and resolvable
+evidence, a 5×5 risk assessment, 18 safety requirements, gate failure modes and an
+independent review plan), insurance evidence, local-authority capacity, incident
+and lockdown templates, integrator training/exam/badge/recertification and a
+commissioning checklist, managed-venue operations (monitoring, on-call, incident
+command, change management and SLA), and a hardware policy for controllers,
+readers, spares, firmware support and EOL. `scripts/check-stadium-kit.py` proves
+the kit is complete, contains no source, binary, secret or customer data, that
+every hazard's evidence reference resolves and every hazard is covered by a
+requirement, and that an unsigned review cannot be presented as approval;
+`--release` fails while either review is pending. `scripts/package-stadium-kit.py`
+builds only a watermarked draft archive until both the independent safety review
+and the counsel review are approved. Neither review has taken place: both records
+are unsigned, so no safety case is approved, no authority template is
+counsel-approved and the kit must not be presented as certified.
 
 The Stripe Terminal, Adyen and SumUp POS terminal connectors (POS-16) are a
 **separate proprietary product** and are not present in this repository at all.

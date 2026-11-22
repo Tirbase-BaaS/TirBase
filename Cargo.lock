@@ -5208,6 +5208,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "tirbase-venue-admission"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "tirbase-venue",
+ "tirbase-venue-ticket",
+]
+
+[[package]]
+name = "tirbase-venue-capacity"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tirbase-venue",
+ "tirbase-venue-ticket",
+]
+
+[[package]]
+name = "tirbase-venue-command-center"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tirbase-core",
+ "tirbase-venue",
+ "tirbase-venue-capacity",
+ "tirbase-venue-lockdown",
+ "tirbase-venue-ticket",
+]
+
+[[package]]
+name = "tirbase-venue-connectors"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "tirbase-integrations",
+ "toml 0.8.23",
+]
+
+[[package]]
 name = "tirbase-venue-gate"
 version = "0.1.0"
 dependencies = [
@@ -5225,6 +5271,63 @@ dependencies = [
  "serde_json",
  "tirbase-driver-api",
  "tirbase-venue",
+]
+
+[[package]]
+name = "tirbase-venue-hil"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "tirbase-venue",
+ "tirbase-venue-access",
+ "tirbase-venue-gate",
+]
+
+[[package]]
+name = "tirbase-venue-lockdown"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "serde",
+ "serde_json",
+ "tirbase-venue",
+ "tirbase-venue-capacity",
+ "tirbase-venue-ticket",
+]
+
+[[package]]
+name = "tirbase-venue-privacy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tirbase-core",
+]
+
+[[package]]
+name = "tirbase-venue-scenario-runner"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tirbase-venue",
+ "tirbase-venue-admission",
+ "tirbase-venue-capacity",
+ "tirbase-venue-gate",
+ "tirbase-venue-lockdown",
+ "tirbase-venue-scenarios",
+ "tirbase-venue-ticket",
+]
+
+[[package]]
+name = "tirbase-venue-scenarios"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

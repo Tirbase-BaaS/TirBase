@@ -19,6 +19,15 @@ members = [
     "tirbase-venue-access",
     "tirbase-venue-gate",
     "tirbase-venue-ticket",
+    "tirbase-venue-capacity",
+    "tirbase-venue-admission",
+    "tirbase-venue-lockdown",
+    "tirbase-venue-scenarios",
+    "tirbase-venue-scenario-runner",
+    "tirbase-venue-connectors",
+    "tirbase-venue-command-center",
+    "tirbase-venue-hil",
+    "tirbase-venue-privacy",
     "examples/vendor-driver",
 ]
 resolver = "2"
@@ -38,6 +47,16 @@ tirbase-venue-gateway = { path = "tirbase-venue-gateway" }
 tirbase-venue-access = { path = "tirbase-venue-access" }
 tirbase-venue-gate = { path = "tirbase-venue-gate" }
 tirbase-venue-ticket = { path = "tirbase-venue-ticket" }
+tirbase-venue-capacity = { path = "tirbase-venue-capacity" }
+tirbase-venue-admission = { path = "tirbase-venue-admission" }
+tirbase-venue-lockdown = { path = "tirbase-venue-lockdown" }
+tirbase-venue-scenarios = { path = "tirbase-venue-scenarios" }
+tirbase-integrations = { path = "tirbase-integrations" }
+tirbase-venue-scenario-runner = { path = "tirbase-venue-scenario-runner" }
+tirbase-venue-connectors = { path = "tirbase-venue-connectors" }
+tirbase-venue-command-center = { path = "tirbase-venue-command-center" }
+tirbase-venue-hil = { path = "tirbase-venue-hil" }
+tirbase-venue-privacy = { path = "tirbase-venue-privacy" }
 # Apache-2.0 data-only pack framework; consumed by gateway pack tests.
 tirbase-demo    = { path = "tirbase-demo" }
 # Apache-2.0 alert connectors; the AGPL gateway delivers through them (CC-17).
