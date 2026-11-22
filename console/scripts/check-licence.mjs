@@ -9,7 +9,11 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repo = path.resolve(root, '..');
-const sourceDirs = [path.join(root, 'src'), path.join(root, 'packages')];
+const sourceDirs = [
+  path.join(root, 'src'),
+  path.join(root, 'packages'),
+  path.join(root, 'venue-command-center'),
+];
 const allowedBare = new Set([
   'react',
   'react-dom',
@@ -18,6 +22,7 @@ const allowedBare = new Set([
   '@tirbase/console-design-system',
   '@tirbase/gateway-admin-sdk',
   '@tirbase/console-design-system/styles.css',
+  '@playwright/test',
 ]);
 
 function walk(dir, files = []) {

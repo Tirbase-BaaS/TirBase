@@ -1,0 +1,127 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>TriBase Venue Command Center</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">TB</span>
+        <div>
+          <p class="eyebrow">TirBase Arena · live control plane</p>
+          <h1>Venue Command Center</h1>
+        </div>
+      </div>
+      <div class="identity">
+        <label for="role-select">Active role</label>
+        <select id="role-select" data-testid="role-select">
+          <option value="operator">Operator · ops-1</option>
+          <option value="supervisor" selected>Supervisor · sup-1</option>
+          <option value="safety_officer">Safety officer · safety-1</option>
+          <option value="auditor">Auditor · auditor-1</option>
+        </select>
+        <span class="actor" id="actor-label">sup-1</span>
+      </div>
+    </header>
+
+    <div id="mode-banner" class="mode-banner live" data-testid="mode-banner" role="status">
+      <strong>LIVE VENUE</strong>
+      <span id="mode-detail">Controls affect real gates and real people.</span>
+      <div class="mode-actions">
+        <button class="btn ghost" id="start-drill" data-testid="start-drill" type="button">Start drill</button>
+        <button class="btn danger" id="end-drill" data-testid="end-drill" type="button" hidden>End drill</button>
+      </div>
+    </div>
+
+    <div id="error" class="error" role="alert" data-testid="error" hidden></div>
+    <p id="role-note" class="role-note" data-testid="role-note" hidden></p>
+
+    <main class="layout">
+      <section class="panel map-panel" aria-labelledby="map-heading">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Venue map</p>
+            <h2 id="map-heading">Zones, gates and occupancy</h2>
+          </div>
+          <div class="venue-total" id="venue-total">—</div>
+        </div>
+        <div id="venue-map" class="venue-map" data-testid="venue-map" aria-live="polite"></div>
+      </section>
+
+      <aside class="panel lockdown-panel" aria-labelledby="lockdown-heading">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Restricted control</p>
+            <h2 id="lockdown-heading">Lockdown &amp; release</h2>
+          </div>
+          <span class="badge neutral" id="lockdown-count">0 active</span>
+        </div>
+        <div id="lockdown-active" class="lockdown-active" data-testid="lockdown-active"></div>
+        <form id="lockdown-form" class="lockdown-form">
+          <label for="lockdown-scope">Scope</label>
+          <select id="lockdown-scope" data-testid="lockdown-scope">
+            <option value="venue">Entire venue</option>
+            <option value="zone:zone-north">North concourse</option>
+            <option value="zone:zone-south">South concourse</option>
+          </select>
+          <label for="lockdown-reason">Reason (recorded)</label>
+          <textarea id="lockdown-reason" data-testid="lockdown-reason" rows="2" maxlength="512" placeholder="Fire alarm, police instruction, crowd crush…"></textarea>
+          <fieldset>
+            <legend>Configured approvals · 2 of 2 required</legend>
+            <label class="check"><input type="checkbox" value="custodian-1" data-testid="approver-custodian-1" /> custodian-1 · supervisor</label>
+            <label class="check"><input type="checkbox" value="custodian-2" data-testid="approver-custodian-2" /> custodian-2 · safety officer</label>
+            <label class="check"><input type="checkbox" value="custodian-3" data-testid="approver-custodian-3" /> custodian-3 · supervisor</label>
+          </fieldset>
+          <div class="form-actions">
+            <button class="btn danger" id="request-lockdown" data-testid="request-lockdown" type="submit">Request lockdown</button>
+            <button class="btn" id="release-lockdown" data-testid="release-lockdown" type="button">Release lockdown</button>
+          </div>
+        </form>
+      </aside>
+
+      <section class="panel incidents-panel" aria-labelledby="incidents-heading">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Incident workflow</p>
+            <h2 id="incidents-heading">Open incidents</h2>
+          </div>
+          <span class="badge neutral" id="incident-count">—</span>
+        </div>
+        <div id="incidents" class="incidents" data-testid="incidents" aria-live="polite"></div>
+      </section>
+
+      <section class="panel audit-panel" aria-labelledby="audit-heading">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Append-only record</p>
+            <h2 id="audit-heading">Audit trail</h2>
+          </div>
+          <span class="badge neutral">Attributable</span>
+        </div>
+        <ol id="audit-list" class="audit-list" data-testid="audit-list"></ol>
+      </section>
+
+      <section class="panel reports-panel" aria-labelledby="reports-heading">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">Assurance</p>
+            <h2 id="reports-heading">After-action reports</h2>
+          </div>
+          <span class="badge neutral" id="report-count">0</span>
+        </div>
+        <div id="reports" class="reports" data-testid="reports"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>TriBase ST-11 · Apache-2.0 console over the AGPL command-center API</span>
+      <span>Egress stays open during every lockdown.</span>
+    </footer>
+  </body>
+</html>

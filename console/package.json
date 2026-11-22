@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "check:licence": "node scripts/check-licence.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:command-center": "playwright test -c venue-command-center/playwright.config.ts"
   },
   "dependencies": {
     "@tirbase/console-design-system": "*",
