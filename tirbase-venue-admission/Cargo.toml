@@ -1,0 +1,15 @@
+[package]
+name = "tirbase-venue-admission"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "AGPL-3.0-only"
+publish = false
+description = "Venue gate admission guard: gate+epoch replay keys, cross-gate single use, signed revocation deltas with M-of-N emergency authorisation, offline gateway accumulation, bounded replay store (ST-07)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tirbase-venue = { workspace = true }
+tirbase-venue-ticket = { workspace = true }
+hex = "0.4"
