@@ -14,6 +14,11 @@ members = [
     "tirbase-notify",
     "tirbase-integrations",
     "tirbase-en16931",
+    "tirbase-venue",
+    "tirbase-venue-gateway",
+    "tirbase-venue-access",
+    "tirbase-venue-gate",
+    "tirbase-venue-ticket",
     "examples/vendor-driver",
 ]
 resolver = "2"
@@ -28,6 +33,11 @@ tirbase-drivers    = { path = "tirbase-drivers" }
 tirbase-gateway = { path = "tirbase-gateway" }
 tirbase-sim     = { path = "tirbase-sim" }
 tirbase-pos     = { path = "tirbase-pos" }
+tirbase-venue   = { path = "tirbase-venue" }
+tirbase-venue-gateway = { path = "tirbase-venue-gateway" }
+tirbase-venue-access = { path = "tirbase-venue-access" }
+tirbase-venue-gate = { path = "tirbase-venue-gate" }
+tirbase-venue-ticket = { path = "tirbase-venue-ticket" }
 # Apache-2.0 data-only pack framework; consumed by gateway pack tests.
 tirbase-demo    = { path = "tirbase-demo" }
 # Apache-2.0 alert connectors; the AGPL gateway delivers through them (CC-17).

@@ -5187,6 +5187,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "tirbase-venue"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "tirbase-venue-access"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "tirbase-venue",
+ "zeroize",
+]
+
+[[package]]
+name = "tirbase-venue-gate"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tirbase-venue",
+ "tirbase-venue-access",
+]
+
+[[package]]
+name = "tirbase-venue-gateway"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tirbase-driver-api",
+ "tirbase-venue",
+]
+
+[[package]]
+name = "tirbase-venue-ticket"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek 3.0.0",
+ "hex",
+ "proptest",
+ "serde",
+ "serde_json",
+ "tirbase-venue",
+]
+
+[[package]]
 name = "tokio"
 version = "1.53.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
